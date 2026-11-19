@@ -1,7 +1,9 @@
 import React from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
-import { Spinner, Container, Alert, Button } from 'react-bootstrap';
+import { RefreshCw, WifiOff, MailCheck, Loader2 } from 'lucide-react';
+import Button from '../ui/Button';
 import { useAuth } from '../../context/AuthContext';
+import { getDashboardPathByUserType, normalizeUserType } from '../../utils/authRoleUtils';
 import Layout from './Layout';
 
 /**
@@ -21,8 +23,15 @@ const ProtectedRoute = ({
   redirectPath = '/login',
   requireEmailVerification = true,
 }) => {
-  const { currentUser, userProfile, loading, isAuthenticated, isOffline, needsEmailVerification } =
-    useAuth();
+  const {
+    currentUser,
+    userProfile,
+    loading,
+    isAuthenticated,
+    isOffline,
+    needsEmailVerification,
+    resendVerificationEmail,
+  } = useAuth();
   const location = useLocation();
 
   /** @type {Object.<string, string>} */
@@ -43,36 +52,33 @@ const ProtectedRoute = ({
   // Loading state with better UX
   if (loading) {
     return (
-      <Container className="d-flex justify-content-center align-items-center min-vh-100">
+      <div className="flex min-h-screen items-center justify-center bg-slate-50 px-4 dark:bg-slate-950">
         <div className="text-center">
-          <Spinner animation="border" variant="primary" role="status">
-            <span className="visually-hidden">Loading...</span>
-          </Spinner>
-          <p className="mt-3 text-muted">Loading your dashboard...</p>
+          <Loader2 className="mx-auto h-10 w-10 animate-spin text-brand-600" aria-label="Loading" />
+          <p className="mt-3 text-sm text-slate-500">Loading your dashboard...</p>
         </div>
-      </Container>
+      </div>
     );
   }
 
   // Offline state with retry option
   if (isOffline) {
     return (
-      <Container className="d-flex justify-content-center align-items-center min-vh-100">
-        <Alert variant="warning" className="text-center" style={{ maxWidth: '500px' }}>
-          <Alert.Heading>
-            <i className="bi bi-wifi-off me-2"></i>
-            You're Offline
-          </Alert.Heading>
-          <p>Please check your internet connection and try again.</p>
+      <div className="flex min-h-screen items-center justify-center bg-slate-50 px-4 dark:bg-slate-950">
+        <div className="w-full max-w-lg rounded-xl border border-warning/30 bg-warning-light p-6 text-center text-warning-dark shadow-card">
+          <WifiOff className="mx-auto h-8 w-8" aria-hidden />
+          <h1 className="mt-3 text-lg font-semibold">You're Offline</h1>
+          <p className="mt-2 text-sm">Please check your internet connection and try again.</p>
           <Button
-            variant="outline-warning"
+            variant="outline"
             onClick={() => window.location.reload()}
             className="mt-2"
+            leadingIcon={RefreshCw}
           >
             Retry Connection
           </Button>
-        </Alert>
-      </Container>
+        </div>
+      </div>
     );
   }
 
@@ -93,59 +99,53 @@ const ProtectedRoute = ({
   // Email verification check
   if (requireEmailVerification && needsEmailVerification && needsEmailVerification()) {
     return (
-      <Container className="d-flex justify-content-center align-items-center min-vh-100">
-        <Alert variant="warning" className="text-center" style={{ maxWidth: '500px' }}>
-          <Alert.Heading>
-            <i className="bi bi-envelope-exclamation me-2"></i>
-            Email Verification Required
-          </Alert.Heading>
-          <p>Please verify your email address to access this page.</p>
-          <p className="mb-3">
-            <small className="text-muted">
+      <div className="flex min-h-screen items-center justify-center bg-slate-50 px-4 dark:bg-slate-950">
+        <div className="w-full max-w-lg rounded-xl border border-warning/30 bg-warning-light p-6 text-center text-warning-dark shadow-card">
+          <MailCheck className="mx-auto h-8 w-8" aria-hidden />
+          <h1 className="mt-3 text-lg font-semibold">Email Verification Required</h1>
+          <p className="mt-2 text-sm">Please verify your email address to access this page.</p>
+          <p className="mb-3 text-xs opacity-80">
               Check your inbox for the verification link. Didn't receive it? Check your spam folder.
-            </small>
           </p>
           <Button
-            variant="outline-primary"
+            variant="outline"
             size="sm"
-            onClick={() => {
-              // Resend verification email logic
-              if (currentUser && currentUser.sendEmailVerification) {
-                currentUser
-                  .sendEmailVerification()
-                  .then(() => alert('Verification email sent! Please check your inbox.'))
-                  .catch((error) => console.error('Error sending verification:', error));
+            onClick={async () => {
+              const result = await resendVerificationEmail();
+              if (result?.success) {
+                alert('Verification email sent. Please check your inbox.');
               }
             }}
           >
             Resend Verification Email
           </Button>
-        </Alert>
-      </Container>
+        </div>
+      </div>
     );
   }
 
   // Wait for profile to load
   if (!userProfile) {
     return (
-      <Container className="d-flex justify-content-center align-items-center min-vh-100">
+      <div className="flex min-h-screen items-center justify-center bg-slate-50 px-4 dark:bg-slate-950">
         <div className="text-center">
-          <Spinner animation="border" variant="primary" />
-          <p className="mt-3 text-muted">Loading your profile...</p>
+          <Loader2 className="mx-auto h-10 w-10 animate-spin text-brand-600" aria-label="Loading" />
+          <p className="mt-3 text-sm text-slate-500">Loading your profile...</p>
         </div>
-      </Container>
+      </div>
     );
   }
 
   // Check allowed user types with admin override
   if (allowedUserTypes.length > 0) {
-    const userType = userProfile.userType;
+    const userType = normalizeUserType(userProfile.userType || userProfile.role || '');
+    const normalizedAllowed = allowedUserTypes.map((type) => normalizeUserType(type));
     const isAdmin = userProfile.isAdmin || userType === 'admin';
-    const isAllowed = allowedUserTypes.includes(userType) || isAdmin;
+    const isAllowed = normalizedAllowed.includes(userType) || isAdmin;
 
     if (!isAllowed) {
       // Get appropriate dashboard for user type
-      const targetPath = DASHBOARD_MAP[userType] || '/student/dashboard';
+      const targetPath = getDashboardPathByUserType(userType);
 
       return (
         <Navigate

@@ -218,9 +218,16 @@ export const useMediaQuery = (query) => {
   const [matches, setMatches] = useState(false);
 
   useEffect(() => {
-    if (typeof window === 'undefined') return;
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return undefined;
 
-    const media = window.matchMedia(query);
+    let media;
+    try {
+      media = window.matchMedia(query);
+    } catch (error) {
+      return undefined;
+    }
+
+    if (!media || typeof media.matches !== 'boolean') return undefined;
 
     if (media.matches !== matches) {
       setMatches(media.matches);
@@ -230,11 +237,13 @@ export const useMediaQuery = (query) => {
       setMatches(e.matches);
     };
 
-    media.addEventListener('change', listener);
+    if (typeof media.addEventListener === 'function') {
+      media.addEventListener('change', listener);
+      return () => media.removeEventListener('change', listener);
+    }
 
-    return () => {
-      media.removeEventListener('change', listener);
-    };
+    media.addListener(listener);
+    return () => media.removeListener(listener);
   }, [matches, query]);
 
   return matches;

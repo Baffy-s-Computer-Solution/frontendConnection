@@ -1,80 +1,92 @@
-/* eslint-disable no-undef */
-import { Container, Row, Col, Card, Button } from 'react-bootstrap';
-import './Settings.css';
+import { Building2, ShieldCheck, UserCircle2, GraduationCap } from 'lucide-react';
+
+import { useAuth } from '../context/AuthContext';
+import AdminSystemSettings from './admin/SystemSettings';
+import CompanySettings from './company/CompanySettings';
+import InstituteSettings from './institute/Settings';
+import StudentSettings from './student/StudentSettings';
+import MentorSettings from './mentor/MentorSettings';
+import ParentSettings from './parent/ParentSettings';
+import AlumniSettings from './alumni/AlumniSettings';
+import { normalizeUserType } from '../utils/authRoleUtils';
+import ErrorBoundary from '../components/ErrorBoundary';
+
+const SettingsErrorFallback = () => (
+  <div
+    role="alert"
+    className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800 dark:border-rose-900 dark:bg-rose-950/40 dark:text-rose-200"
+  >
+    Settings could not be loaded. Refresh the page or contact support if this continues.
+  </div>
+);
+
+const roleMeta = {
+  admin: {
+    label: 'Admin settings',
+    icon: ShieldCheck,
+  },
+  student: {
+    label: 'Student settings',
+    icon: GraduationCap,
+  },
+  company: {
+    label: 'Company settings',
+    icon: Building2,
+  },
+  institute: {
+    label: 'Institution settings',
+    icon: Building2,
+  },
+  mentor: { label: 'Mentor settings', icon: GraduationCap },
+  parent: { label: 'Parent settings', icon: UserCircle2 },
+  alumni: { label: 'Alumni settings', icon: UserCircle2 },
+  entrepreneur: { label: 'Entrepreneur settings', icon: Building2 },
+  youth: { label: 'Youth settings', icon: UserCircle2 },
+};
 
 const Settings = () => {
+  const { userProfile, currentUser } = useAuth();
+  const rawUserType = userProfile?.userType || userProfile?.role || currentUser?.userType || currentUser?.role || 'student';
+  const normalizedUserType = normalizeUserType(rawUserType);
+  const selectedRole = roleMeta[normalizedUserType] ? normalizedUserType : 'student';
+  const Icon = roleMeta[selectedRole]?.icon || UserCircle2;
+
+  const roleComponentMap = {
+    admin: AdminSystemSettings,
+    student: StudentSettings,
+    company: CompanySettings,
+    institute: InstituteSettings,
+    mentor: MentorSettings,
+    parent: ParentSettings,
+    alumni: AlumniSettings,
+    entrepreneur: StudentSettings,
+    youth: StudentSettings,
+  };
+
+  const Component = roleComponentMap[selectedRole] || StudentSettings;
+
   return (
-    <Container className="Settings-page mt-4">
-      <Row className="mb-4">
-        <Col>
-          <div className="d-flex justify-content-between align-items-center">
-            <div>
-              <h1 className="mb-1">Settings</h1>
-              <p className="text-muted">
-                {new Date().toLocaleDateString('en-US', {
-                  year: 'numeric',
-                  month: 'long',
-                  day: '2-digit',
-                })}{' '}
-                | All View
-              </p>
+    <main className="w-full px-4 py-6 sm:px-6 lg:px-8">
+      <section className="mb-6 rounded-xl border bg-white shadow-card dark:bg-slate-900">
+        <div className="flex flex-wrap items-center justify-between gap-4 px-5 py-4 sm:px-6">
+          <div className="flex items-center gap-3">
+            <div className="flex h-11 w-11 items-center justify-center rounded-full bg-brand-100 text-brand-700 dark:bg-brand-950 dark:text-brand-200">
+              <Icon size={20} aria-hidden />
             </div>
-            <Button variant="primary">Refresh</Button>
+            <div>
+              <div className="font-semibold text-slate-900 dark:text-slate-100">{roleMeta[selectedRole]?.label || 'Settings'}</div>
+              <p className="mt-1 text-sm text-slate-500">Manage your account, visibility, and platform preferences</p>
+            </div>
           </div>
-        </Col>
-      </Row>
-
-      <Row>
-        <Col lg={8}>
-          <Card className="mb-4">
-            <Card.Header>
-              <Card.Title as="h5">Overview</Card.Title>
-            </Card.Header>
-            <Card.Body>
-              <p>
-                Welcome to the Settings page. This is where All users can access and manage their
-                Settings-related content.
-              </p>
-              <ul>
-                <li>View detailed information</li>
-                <li>Perform actions specific to your role</li>
-                <li>Access relevant tools and features</li>
-                <li>Monitor updates and notifications</li>
-              </ul>
-            </Card.Body>
-          </Card>
-        </Col>
-
-        <Col lg={4}>
-          <Card className="mb-4">
-            <Card.Header>
-              <Card.Title as="h5">Quick Stats</Card.Title>
-            </Card.Header>
-            <Card.Body>
-              <div className="text-center">
-                <h3>0</h3>
-                <p className="text-muted">Active Items</p>
-                <Button variant="outline-primary" size="sm" className="w-100">
-                  View All
-                </Button>
-              </div>
-            </Card.Body>
-          </Card>
-
-          <Card>
-            <Card.Header>
-              <Card.Title as="h5">Recent Activity</Card.Title>
-            </Card.Header>
-            <Card.Body>
-              <p className="small text-muted">No recent activity</p>
-              <Button variant="outline-secondary" size="sm" className="w-100">
-                View Activity Log
-              </Button>
-            </Card.Body>
-          </Card>
-        </Col>
-      </Row>
-    </Container>
+          <span className="rounded-full border bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200">
+            {selectedRole.toUpperCase()}
+          </span>
+        </div>
+      </section>
+      <ErrorBoundary fallback={SettingsErrorFallback}>
+        <Component />
+      </ErrorBoundary>
+    </main>
   );
 };
 

@@ -12,7 +12,6 @@ import {
   AlertCircle,
   ChevronRight,
 } from 'lucide-react';
-import './CommonPages.css';
 
 const Support = () => {
   const [ticketForm, setTicketForm] = useState({
@@ -202,7 +201,7 @@ const Support = () => {
             >
               <LifeBuoy className="ticket-icon" />
               <h2>Create a Support Ticket</h2>
-              <p>Fill out the form below and we'll get back to you as soon as possible</p>
+              <p>Fill out the form below and we'll get back to you as possible</p>
             </motion.div>
 
             {formStatus.submitted && (

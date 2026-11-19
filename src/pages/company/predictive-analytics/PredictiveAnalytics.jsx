@@ -13,19 +13,11 @@ import {
   Spinner,
   Alert,
   ProgressBar,
-} from 'react-bootstrap';
-import {
-  FaChartLine,
-  FaBrain,
-  FaLightbulb,
-  FaRobot,
-  FaCalendarAlt,
-  FaUserCheck,
-} from 'react-icons/fa';
+} from '../../../components/ui/tailwindOnly';
+import { FaChartLine, FaBrain, FaLightbulb, FaRobot, FaCalendarAlt, FaUserCheck } from "react-icons/fa";
 
 import analyticsService from '../../../services/companyExtendedServices';
 import { useAuth } from '../../../context/AuthContext';
-import './PredictiveAnalytics.css';
 
 const PredictiveAnalytics = () => {
   const { currentUser } = useAuth();
@@ -128,24 +120,24 @@ const PredictiveAnalytics = () => {
   }
 
   return (
-    <Container fluid className="predictive-analytics-container px-4 py-3">
-      <div className="d-flex align-items-center mb-4">
-        <FaBrain className="text-primary me-3" size={32} />
+    <Container fluid className="px-4 py-3">
+      <div className="mb-4 flex items-center gap-3">
+        <FaBrain className="text-blue-600" size={32} />
         <div>
-          <h2>Predictive Analytics Hub</h2>
-          <p className="text-muted">AI-powered insights for smarter hiring decisions</p>
+          <h2 className="text-2xl font-semibold text-slate-900 dark:text-white">Predictive Analytics Hub</h2>
+          <p className="text-sm text-slate-500 dark:text-slate-400">AI-powered insights for smarter hiring decisions</p>
         </div>
       </div>
 
       {/* Time Range Selector */}
       <Card className="border-0 shadow-sm mb-4">
         <Card.Body>
-          <div className="d-flex justify-content-between align-items-center">
+          <div className="flex items-center justify-between gap-3">
             <div>
-              <h5 className="mb-0">Analytics Period</h5>
-              <p className="text-muted small mb-0">Select time range for predictions</p>
+              <h5 className="mb-0 text-slate-900 dark:text-slate-100">Analytics Period</h5>
+              <p className="mb-0 text-sm text-slate-500 dark:text-slate-400">Select time range for predictions</p>
             </div>
-            <div className="d-flex gap-2">
+            <div className="flex gap-2">
               <Button
                 variant={timeRange === 'week' ? 'primary' : 'outline-primary'}
                 onClick={() => setTimeRange('week')}
@@ -172,31 +164,31 @@ const PredictiveAnalytics = () => {
       {/* AI Predictions Grid */}
       <Row className="mb-4">
         <Col>
-          <h4 className="mb-3">🤖 AI Predictions & Insights</h4>
+          <h4 className="mb-3">ðŸ¤– AI Predictions & Insights</h4>
           <Row className="g-4">
             {predictions.map((prediction) => (
               <Col key={prediction.id} xl={6} lg={6} md={12}>
                 <Card className="border-0 shadow-sm h-100">
                   <Card.Body>
-                    <div className="d-flex justify-content-between align-items-start mb-3">
+                    <div className="mb-3 flex items-start justify-between gap-3">
                       <div>
-                        <h5 className="mb-1">{prediction.title}</h5>
-                        <div className="d-flex align-items-center gap-2">
+                        <h5 className="mb-1 text-slate-900 dark:text-slate-100">{prediction.title}</h5>
+                        <div className="flex items-center gap-2">
                           <span className="badge bg-info">{prediction.type.replace('_', ' ')}</span>
                           {getImpactBadge(prediction.impact)}
                         </div>
                       </div>
-                      <div className="text-end">
-                        <div className="display-6">{prediction.confidence}%</div>
-                        <div className="small text-muted">Confidence</div>
+                      <div className="text-right">
+                        <div className="text-4xl font-bold text-slate-900 dark:text-slate-100">{prediction.confidence}%</div>
+                        <div className="text-sm text-slate-500 dark:text-slate-400">Confidence</div>
                       </div>
                     </div>
 
                     <p className="mb-3">{prediction.prediction}</p>
 
                     <div className="mb-3">
-                      <div className="small text-muted mb-2">Key Factors:</div>
-                      <div className="d-flex flex-wrap gap-1">
+                      <div className="mb-2 text-sm text-slate-500 dark:text-slate-400">Key Factors:</div>
+                      <div className="flex flex-wrap gap-1">
                         {prediction.factors.map((factor, idx) => (
                           <span key={idx} className="badge bg-light text-dark">
                             {factor}
@@ -205,10 +197,10 @@ const PredictiveAnalytics = () => {
                       </div>
                     </div>
 
-                    <div className="d-flex justify-content-between align-items-center">
-                      <div>
-                        <FaCalendarAlt className="me-1 text-muted" />
-                        <span className="small">{prediction.timeline}</span>
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-1 text-slate-500 dark:text-slate-400">
+                        <FaCalendarAlt className="text-sm" />
+                        <span className="text-sm">{prediction.timeline}</span>
                       </div>
                       <Button variant="outline-primary" size="sm">
                         View Details
@@ -245,7 +237,7 @@ const PredictiveAnalytics = () => {
                       <td>Hire Rate</td>
                       <td>{analytics.overview.hireRate}%</td>
                       <td>
-                        <span className="text-success">↑ 5%</span>
+                        <span className="text-success">â†‘ 5%</span>
                       </td>
                       <td>25%</td>
                     </tr>
@@ -253,7 +245,7 @@ const PredictiveAnalytics = () => {
                       <td>Interview Rate</td>
                       <td>{analytics.overview.interviewRate}%</td>
                       <td>
-                        <span className="text-warning">→ 0%</span>
+                        <span className="text-warning">â†’ 0%</span>
                       </td>
                       <td>30%</td>
                     </tr>
@@ -261,7 +253,7 @@ const PredictiveAnalytics = () => {
                       <td>Avg Time to Hire</td>
                       <td>{analytics.overview.avgTimeToHire} days</td>
                       <td>
-                        <span className="text-success">↓ 2 days</span>
+                        <span className="text-success">â†“ 2 days</span>
                       </td>
                       <td>21 days</td>
                     </tr>
@@ -269,7 +261,7 @@ const PredictiveAnalytics = () => {
                       <td>Avg Response Time</td>
                       <td>{analytics.overview.avgResponseTime} days</td>
                       <td>
-                        <span className="text-danger">↑ 0.5 days</span>
+                        <span className="text-danger">â†‘ 0.5 days</span>
                       </td>
                       <td>2 days</td>
                     </tr>
@@ -348,3 +340,5 @@ const PredictiveAnalytics = () => {
 };
 
 export default PredictiveAnalytics;
+
+

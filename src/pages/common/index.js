@@ -11,6 +11,4 @@ export { default as PrivacyPolicy } from './PrivacyPolicy';
 export { default as Support } from './Support';
 export { default as TermsOfService } from './TermsOfService';
 
-// Re-export types and utilities
-export * from './types';
-export * from './constants';
+

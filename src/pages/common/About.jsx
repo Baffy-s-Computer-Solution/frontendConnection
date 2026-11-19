@@ -1,232 +1,116 @@
-/* eslint-disable no-unused-vars */
-import { motion } from 'framer-motion';
+import { Link } from 'react-router-dom';
 import {
-  Users,
-  Target,
-  Heart,
-  Award,
+  ArrowRight,
+  Building2,
+  GraduationCap,
+  Handshake,
+  Landmark,
   Rocket,
-  Globe,
-  ChevronRight,
-  Star,
-  Shield,
-  Zap,
+  UsersRound,
 } from 'lucide-react';
-import './CommonPages.css';
 
-const About = () => {
-  const stats = [
-    { value: '10K+', label: 'Active Users', icon: Users },
-    { value: '50+', label: 'Countries', icon: Globe },
-    { value: '1000+', label: 'Success Stories', icon: Award },
-    { value: '95%', label: 'Satisfaction Rate', icon: Star },
-  ];
+const COMMUNITIES = [
+  { title: 'Students & youth', icon: GraduationCap },
+  { title: 'Employers', icon: Building2 },
+  { title: 'Mentors & institutions', icon: Handshake },
+  { title: 'Government & agencies', icon: Landmark },
+  { title: 'Parents & guardians', icon: UsersRound },
+  { title: 'Alumni & entrepreneurs', icon: Rocket },
+];
 
-  const values = [
-    {
-      icon: Target,
-      title: 'Mission-Driven',
-      description:
-        'We are committed to empowering the next generation of entrepreneurs and innovators.',
-    },
-    {
-      icon: Heart,
-      title: 'Community First',
-      description: 'Building a supportive ecosystem where ideas flourish and connections thrive.',
-    },
-    {
-      icon: Shield,
-      title: 'Trust & Safety',
-      description: 'Ensuring a secure and reliable platform for all our users and partners.',
-    },
-    {
-      icon: Zap,
-      title: 'Innovation',
-      description: 'Constantly evolving to provide cutting-edge tools and resources.',
-    },
-  ];
+const About = () => (
+  <main className="common-page">
+    <section className="page-hero">
+      <div className="hero-content">
+        <span className="section-kicker justify-center">About the platform</span>
+        <h1 className="mt-4">Career connections, built for Lesotho.</h1>
+        <p>
+          Career Connect Lesotho brings people, learning, mentorship, and employment opportunities
+          together in one place.
+        </p>
+      </div>
+    </section>
 
-  const team = [
-    {
-      name: 'Sarah Johnson',
-      role: 'CEO & Founder',
-      image:
-        'https://images.unsplash.com/photo-1494790108777-647d4638290c?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=80',
-      bio: 'Former startup founder with a passion for youth entrepreneurship.',
-    },
-    {
-      name: 'Michael Chen',
-      role: 'CTO',
-      image:
-        'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=80',
-      bio: 'Tech visionary with 15+ years in ed-tech and platform development.',
-    },
-    {
-      name: 'Emily Rodriguez',
-      role: 'Head of Community',
-      image:
-        'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=80',
-      bio: 'Community builder dedicated to fostering meaningful connections.',
-    },
-  ];
-
-  return (
-    <div className="common-page">
-      {/* Hero Section */}
-      <section className="page-hero">
-        <div className="hero-content">
-          <motion.h1
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
-          >
-            About Us
-          </motion.h1>
-          <motion.p
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.1 }}
-          >
-            Empowering the next generation of entrepreneurs and innovators
-          </motion.p>
-        </div>
-      </section>
-
-      {/* Our Story */}
-      <section className="story-section">
-        <div className="container">
-          <div className="story-grid">
-            <motion.div
-              className="story-content"
-              initial={{ opacity: 0, x: -30 }}
-              whileInView={{ opacity: 1, x: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.5 }}
-            >
-              <h2>Our Story</h2>
-              <p className="lead">
-                Founded in 2020, we set out to bridge the gap between young entrepreneurs and the
-                resources they need to succeed.
-              </p>
-              <p>
-                What started as a small idea has grown into a global platform connecting thousands
-                of young innovators with mentors, funding opportunities, and educational resources.
-                Our journey has been driven by the belief that every young person with a dream
-                deserves the chance to turn it into reality.
-              </p>
-              <p>
-                Today, we're proud to support a diverse community of entrepreneurs across 50+
-                countries, providing them with the tools, connections, and guidance needed to build
-                successful ventures.
-              </p>
-            </motion.div>
-            <motion.div
-              className="story-stats"
-              initial={{ opacity: 0, x: 30 }}
-              whileInView={{ opacity: 1, x: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.5 }}
-            >
-              {stats.map((stat, index) => {
-                const Icon = stat.icon;
-                return (
-                  <div key={index} className="stat-card">
-                    <Icon className="stat-icon" />
-                    <div className="stat-value">{stat.value}</div>
-                    <div className="stat-label">{stat.label}</div>
-                  </div>
-                );
-              })}
-            </motion.div>
-          </div>
-        </div>
-      </section>
-
-      {/* Our Values */}
-      <section className="values-section">
-        <div className="container">
-          <motion.h2
-            className="section-title"
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-          >
-            Our Core Values
-          </motion.h2>
-          <div className="values-grid">
-            {values.map((value, index) => {
-              const Icon = value.icon;
-              return (
-                <motion.div
-                  key={index}
-                  className="value-card"
-                  initial={{ opacity: 0, y: 20 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true }}
-                  transition={{ delay: index * 0.1 }}
-                >
-                  <Icon className="value-icon" />
-                  <h3>{value.title}</h3>
-                  <p>{value.description}</p>
-                </motion.div>
-              );
-            })}
-          </div>
-        </div>
-      </section>
-
-      {/* Team Section */}
-      <section className="team-section">
-        <div className="container">
-          <motion.h2
-            className="section-title"
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-          >
-            Meet Our Team
-          </motion.h2>
-          <div className="team-grid">
-            {team.map((member, index) => (
-              <motion.div
-                key={index}
-                className="team-card"
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: index * 0.1 }}
+    <section className="py-12 sm:py-16">
+      <div className="landing-shell">
+        <div className="grid gap-8 lg:grid-cols-[minmax(0,1.1fr)_minmax(18rem,0.9fr)]">
+          <article className="rounded-2xl border border-slate-200 bg-white p-6 shadow-card dark:border-slate-800 dark:bg-slate-900 sm:p-8">
+            <p className="text-sm font-semibold uppercase tracking-wider text-brand-700 dark:text-brand-300">
+              Our purpose
+            </p>
+            <h2 className="mt-3 text-2xl font-semibold text-slate-900 dark:text-slate-100">
+              Make the next step easier to find.
+            </h2>
+            <p className="mt-4 leading-7 text-slate-600 dark:text-slate-300">
+              The platform helps students and job seekers develop their profiles, discover
+              opportunities, and track applications. Employers, mentors, education providers,
+              government teams, families, alumni, and entrepreneurs each have spaces to connect
+              with that journey.
+            </p>
+            <p className="mt-4 leading-7 text-slate-600 dark:text-slate-300">
+              Career readiness is a shared effort. Career Connect brings the people and tools
+              supporting that effort into a connected digital workspace.
+            </p>
+            <div className="mt-6 flex flex-wrap gap-3">
+              <Link
+                to="/register"
+                className="inline-flex items-center gap-2 rounded-xl bg-brand-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-700"
               >
-                <div className="member-image">
-                  <img src={member.image} alt={member.name} />
-                </div>
-                <h3>{member.name}</h3>
-                <p className="member-role">{member.role}</p>
-                <p className="member-bio">{member.bio}</p>
-              </motion.div>
-            ))}
-          </div>
-        </div>
-      </section>
+                Join the platform <ArrowRight className="h-4 w-4" aria-hidden="true" />
+              </Link>
+              <Link
+                to="/contact"
+                className="inline-flex items-center gap-2 rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+              >
+                Contact us
+              </Link>
+            </div>
+          </article>
 
-      {/* CTA Section */}
-      <section className="cta-section">
-        <div className="container">
-          <motion.div
-            className="cta-content"
-            initial={{ opacity: 0, scale: 0.95 }}
-            whileInView={{ opacity: 1, scale: 1 }}
-            viewport={{ once: true }}
-          >
-            <h2>Ready to Start Your Journey?</h2>
-            <p>Join thousands of young entrepreneurs building their future with us.</p>
-            <button className="cta-button">
-              Get Started Now <ChevronRight size={20} />
-            </button>
-          </motion.div>
+          <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-card dark:border-slate-800 dark:bg-slate-900 sm:p-8">
+            <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
+              One community, many roles
+            </h2>
+            <ul className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
+              {COMMUNITIES.map(({ title, icon: Icon }) => (
+                <li key={title} className="flex items-center gap-3 rounded-xl bg-slate-50 p-3 dark:bg-slate-800">
+                  <Icon className="h-5 w-5 shrink-0 text-brand-600 dark:text-brand-300" aria-hidden="true" />
+                  <span className="text-sm font-medium text-slate-700 dark:text-slate-200">{title}</span>
+                </li>
+              ))}
+            </ul>
+          </section>
         </div>
-      </section>
-    </div>
-  );
-};
+
+        <section className="mt-8 rounded-2xl border border-slate-200 bg-slate-900 p-6 text-white shadow-card dark:border-slate-700 dark:bg-slate-900 sm:flex sm:items-center sm:gap-6 sm:p-8">
+          <img
+            src="/bcs.jpg"
+            alt="Baffy's Computer Solutions logo"
+            className="mb-5 h-16 w-16 rounded-xl bg-white p-1 object-contain sm:mb-0"
+            loading="lazy"
+          />
+          <div className="flex-1">
+            <p className="text-xs font-semibold uppercase tracking-wider text-brand-300">
+              Technology partner
+            </p>
+            <h2 className="mt-2 text-xl font-semibold">Powered by Baffy&apos;s Computer Solutions</h2>
+            <p className="mt-2 text-sm leading-6 text-slate-300">
+              Founded in Lesotho in 2018, Baffy&apos;s Computer Solutions delivers web and mobile
+              development, database design, AI solutions, and cloud services.
+            </p>
+          </div>
+          <a
+            href="https://baffy.vercel.app/"
+            target="_blank"
+            rel="noreferrer"
+            className="mt-5 inline-flex shrink-0 items-center gap-2 rounded-xl border border-white/20 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-white/10 sm:mt-0"
+          >
+            Visit developer site <ArrowRight className="h-4 w-4" aria-hidden="true" />
+          </a>
+        </section>
+      </div>
+    </section>
+  </main>
+);
 
 export default About;

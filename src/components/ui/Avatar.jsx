@@ -1,244 +1,32 @@
-/* eslint-disable no-unused-vars */
 import { useState } from 'react';
-import { Avatar as MuiAvatar, Badge, alpha, styled, useTheme } from '@mui/material';
-import {
-  Person as PersonIcon,
-  Business as BusinessIcon,
-  School as SchoolIcon,
-  Work as WorkIcon,
-} from '@mui/icons-material';
+import { BriefcaseBusiness, Building2, GraduationCap, UserRound, Workflow } from 'lucide-react';
+import { cn } from '../../lib/cn';
 
-const StyledAvatar = styled(MuiAvatar)(({ theme, size, status, clickable }) => ({
-  ...(size === 'small' && {
-    width: 32,
-    height: 32,
-    fontSize: '0.875rem',
-  }),
-  ...(size === 'medium' && {
-    width: 40,
-    height: 40,
-    fontSize: '1rem',
-  }),
-  ...(size === 'large' && {
-    width: 56,
-    height: 56,
-    fontSize: '1.25rem',
-  }),
-  ...(size === 'xlarge' && {
-    width: 80,
-    height: 80,
-    fontSize: '2rem',
-  }),
-  ...(clickable && {
-    cursor: 'pointer',
-    transition: theme.transitions.create(['opacity', 'transform']),
-    '&:hover': {
-      opacity: 0.8,
-      transform: 'scale(1.05)',
-    },
-  }),
-  ...(status === 'online' && {
-    boxShadow: `0 0 0 2px ${theme.palette.background.paper}, 0 0 0 4px ${theme.palette.success.main}`,
-  }),
-  ...(status === 'offline' && {
-    opacity: 0.7,
-    filter: 'grayscale(100%)',
-  }),
-  ...(status === 'busy' && {
-    boxShadow: `0 0 0 2px ${theme.palette.background.paper}, 0 0 0 4px ${theme.palette.error.main}`,
-  }),
-}));
+const sizes = { small: 'h-8 w-8 text-xs', medium: 'h-10 w-10 text-sm', large: 'h-14 w-14 text-lg', xlarge: 'h-20 w-20 text-2xl' };
+const statusColors = { online: 'bg-success', offline: 'bg-slate-400', busy: 'bg-danger', away: 'bg-warning' };
+const icons = { company: Building2, student: GraduationCap, employee: BriefcaseBusiness, user: UserRound };
 
-const Avatar = ({
-  // Core props
-  src,
-  alt,
-  name,
-
-  // Size
-  size = 'medium',
-
-  // Variants
-  variant = 'circular', // 'circular' | 'rounded' | 'square'
-
-  // Status
-  status,
-
-  // Type (for default icons)
-  type = 'user', // 'user' | 'company' | 'student' | 'employee'
-
-  // Features
-  bordered = false,
-  clickable = false,
-  onClick,
-
-  // Badge
-  badge,
-  badgeColor = 'primary',
-  badgePosition = 'bottom-right',
-
-  // Colors
-  bgColor,
-  textColor,
-
-  // Fallback
-  fallback,
-
-  ...props
-}) => {
-  const theme = useTheme();
-  const [error, setError] = useState(false);
-
-  const getInitials = () => {
-    if (!name) return '';
-
-    return name
-      .split(' ')
-      .map((word) => word[0])
-      .join('')
-      .toUpperCase()
-      .slice(0, 2);
-  };
-
-  const getDefaultIcon = () => {
-    switch (type) {
-      case 'company':
-        return <BusinessIcon />;
-      case 'student':
-        return <SchoolIcon />;
-      case 'employee':
-        return <WorkIcon />;
-      default:
-        return <PersonIcon />;
-    }
-  };
-
-  const handleError = () => {
-    setError(true);
-  };
-
-  const getBadgePosition = () => {
-    switch (badgePosition) {
-      case 'top-right':
-        return { vertical: 'top', horizontal: 'right' };
-      case 'top-left':
-        return { vertical: 'top', horizontal: 'left' };
-      case 'bottom-right':
-        return { vertical: 'bottom', horizontal: 'right' };
-      case 'bottom-left':
-        return { vertical: 'bottom', horizontal: 'left' };
-      default:
-        return { vertical: 'bottom', horizontal: 'right' };
-    }
-  };
+function Avatar({ src, alt, name, size = 'medium', variant = 'circular', status, type = 'user', bordered = false, clickable = false, onClick, badge, bgColor, textColor, fallback, className, ...props }) {
+  const [hasError, setHasError] = useState(false);
+  const Icon = icons[type] || Workflow;
+  const initials = name?.split(/\s+/).map((word) => word[0]).join('').slice(0, 2).toUpperCase();
+  const shape = variant === 'rounded' ? 'rounded-lg' : variant === 'square' ? 'rounded-none' : 'rounded-full';
 
   const avatar = (
-    <StyledAvatar
-      src={error ? null : src}
-      alt={alt || name}
-      variant={variant}
-      size={size}
-      status={status}
-      clickable={clickable ? 1 : 0}
-      onClick={onClick}
-      sx={{
-        ...(bgColor && {
-          backgroundColor: bgColor,
-        }),
-        ...(textColor && {
-          color: textColor,
-        }),
-        ...(bordered && {
-          border: `2px solid ${theme.palette.divider}`,
-        }),
-      }}
-      {...props}
-    >
-      {!src || error ? (name ? getInitials() : fallback || getDefaultIcon()) : null}
-    </StyledAvatar>
+    <span className={cn('relative inline-flex shrink-0 items-center justify-center overflow-hidden bg-brand-100 font-semibold text-brand-700 dark:bg-brand-950 dark:text-brand-200', sizes[size] || sizes.medium, shape, bordered && 'ring-2 ring-white dark:ring-slate-900', clickable && 'cursor-pointer transition-transform hover:scale-105', className)} style={{ backgroundColor: bgColor, color: textColor }} onClick={onClick} {...props}>
+      {src && !hasError ? <img src={src} alt={alt || name || ''} className="h-full w-full object-cover" onError={() => setHasError(true)} /> : initials || fallback || <Icon aria-hidden className="h-1/2 w-1/2" />}
+      {status && <span className={cn('absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full ring-2 ring-white dark:ring-slate-900', statusColors[status] || statusColors.offline)} aria-label={status} />}
+    </span>
   );
 
-  if (badge) {
-    return (
-      <Badge
-        overlap="circular"
-        anchorOrigin={getBadgePosition()}
-        badgeContent={badge}
-        color={badgeColor}
-      >
-        {avatar}
-      </Badge>
-    );
-  }
+  return badge == null ? avatar : <span className="relative inline-flex">{avatar}<span className="absolute -right-1 -top-1 inline-flex min-h-4 min-w-4 items-center justify-center rounded-full bg-danger px-1 text-[10px] font-bold text-white">{badge}</span></span>;
+}
 
-  return avatar;
-};
-
-// Avatar Group
-export const AvatarGroup = ({ avatars = [], max = 4, size = 'medium', ...props }) => {
-  const visibleAvatars = avatars.slice(0, max);
+export function AvatarGroup({ avatars = [], max = 4, size = 'medium' }) {
+  const visible = avatars.slice(0, max);
   const remaining = avatars.length - max;
+  return <div className="flex items-center">{visible.map((avatar, index) => <Avatar key={avatar.id || index} {...avatar} size={size} className="-ml-2 first:ml-0 ring-2 ring-white dark:ring-slate-950" />)}{remaining > 0 && <Avatar name={`+${remaining}`} size={size} className="-ml-2 bg-slate-200 text-slate-700 ring-2 ring-white dark:bg-slate-800 dark:text-slate-200 dark:ring-slate-950" />}</div>;
+}
 
-  return (
-    <Box
-      sx={{
-        display: 'flex',
-        alignItems: 'center',
-        '& > *:not(:first-of-type)': {
-          marginLeft: -1.5,
-        },
-      }}
-    >
-      {visibleAvatars.map((avatar, index) => (
-        <Avatar
-          key={index}
-          size={size}
-          {...avatar}
-          sx={{
-            border: (theme) => `2px solid ${theme.palette.background.paper}`,
-            ...avatar.sx,
-          }}
-        />
-      ))}
-
-      {remaining > 0 && (
-        <Avatar
-          size={size}
-          sx={{
-            bgcolor: (theme) => theme.palette.grey[300],
-            border: (theme) => `2px solid ${theme.palette.background.paper}`,
-          }}
-        >
-          +{remaining}
-        </Avatar>
-      )}
-    </Box>
-  );
-};
-
-// Status Avatar
-export const StatusAvatar = ({ status, ...props }) => (
-  <Avatar
-    status={status}
-    sx={{
-      '&::after':
-        status === 'online'
-          ? {
-              content: '""',
-              position: 'absolute',
-              top: 0,
-              left: 0,
-              width: '100%',
-              height: '100%',
-              borderRadius: '50%',
-              animation: 'ripple 1.2s infinite ease-in-out',
-              border: '2px solid currentColor',
-              boxSizing: 'border-box',
-            }
-          : {},
-    }}
-    {...props}
-  />
-);
-
+export const StatusAvatar = ({ status, ...props }) => <Avatar status={status} {...props} />;
 export default Avatar;

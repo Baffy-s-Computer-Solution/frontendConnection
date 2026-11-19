@@ -8,7 +8,7 @@ export const realtimeService = {
     const user = auth.currentUser;
     if (!user) {
       console.log('No authenticated user found for realtime updates');
-      return () => { };
+      return () => {};
     }
 
     try {
@@ -54,7 +54,7 @@ export const realtimeService = {
       return unsubscribe;
     } catch (error) {
       console.error('Error setting up real-time updates:', error);
-      return () => { };
+      return () => {};
     }
   },
 
@@ -62,7 +62,7 @@ export const realtimeService = {
     const user = auth.currentUser;
     if (!user) {
       console.log('No authenticated user found for job updates');
-      return () => { };
+      return () => {};
     }
 
     try {
@@ -104,13 +104,13 @@ export const realtimeService = {
       return unsubscribe;
     } catch (error) {
       console.error('Error setting up job updates:', error);
-      return () => { };
+      return () => {};
     }
   },
 
   subscribeToProfileViews(callback) {
     const user = auth.currentUser;
-    if (!user) return () => { };
+    if (!user) return () => {};
 
     try {
       const companyRef = doc(db, 'companies', user.uid);
@@ -132,7 +132,7 @@ export const realtimeService = {
       return unsubscribe;
     } catch (error) {
       console.error('Error setting up profile view updates:', error);
-      return () => { };
+      return () => {};
     }
   },
 };
@@ -184,7 +184,7 @@ export const setupSSEConnection = (companyId) => {
       console.error('Error setting up SSE:', error);
     }
   }
-  return () => { };
+  return () => {};
 };
 
 // Polling fallback for environments without realtime support

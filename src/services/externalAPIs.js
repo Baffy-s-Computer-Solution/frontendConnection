@@ -1,10 +1,11 @@
 import axios from 'axios';
 
-const NEWS_API_KEY = process.env.VITE_NEWS_API_KEY;
+const NEWS_API_KEY = import.meta.env.VITE_NEWS_API_KEY;
 
 export const newsService = {
   // Get business news
   getBusinessNews: async (country = 'ls', category = 'business', pageSize = 10) => {
+    if (!NEWS_API_KEY) return [];
     try {
       const response = await axios.get('https://newsapi.org/v2/top-headlines', {
         params: {
@@ -26,12 +27,13 @@ export const newsService = {
       }));
     } catch (error) {
       console.error('Error fetching business news:', error);
-      return getFallbackBusinessNews();
+      return [];
     }
   },
 
   // Get Lesotho-specific news
   getLesothoNews: async () => {
+    if (!NEWS_API_KEY) return [];
     try {
       const response = await axios.get('https://newsapi.org/v2/everything', {
         params: {
@@ -64,12 +66,13 @@ export const newsService = {
         .slice(0, 10);
     } catch (error) {
       console.error('Error fetching Lesotho news:', error);
-      return getFallbackLesothoNews();
+      return [];
     }
   },
 
   // Get career and job market news
   getCareerNews: async () => {
+    if (!NEWS_API_KEY) return [];
     try {
       const queries = [
         'recruitment hiring',
@@ -116,27 +119,27 @@ export const newsService = {
       return uniqueArticles.slice(0, 12);
     } catch (error) {
       console.error('Error fetching career news:', error);
-      return getFallbackCareerNews();
+      return [];
     }
   },
 
   // Get news categories for dashboard
   getDashboardNews: async () => {
     try {
-      // Use cached data if API fails
       return {
-        business: await this.getBusinessNews('us', 'business', 5),
-        career: await this.getCareerNews(),
-        lesotho: await this.getLesothoNews(),
+        business: await newsService.getBusinessNews('us', 'business', 5),
+        career: await newsService.getCareerNews(),
+        lesotho: await newsService.getLesothoNews(),
       };
     } catch (error) {
       console.error('Error fetching dashboard news:', error);
-      return getFallbackDashboardNews();
+      return { business: [], career: [], lesotho: [] };
     }
   },
 
   // Search news
   searchNews: async (query, language = 'en', sortBy = 'relevancy', pageSize = 20) => {
+    if (!NEWS_API_KEY) return [];
     try {
       const response = await axios.get('https://newsapi.org/v2/everything', {
         params: {
@@ -162,80 +165,6 @@ export const newsService = {
     }
   },
 };
-
-// Fallback data for when API fails
-const getFallbackBusinessNews = () => [
-  {
-    title: 'Lesotho Economy Shows Resilience Amid Global Challenges',
-    description:
-      "Despite global economic pressures, Lesotho's economy demonstrates steady growth in key sectors.",
-    url: '#',
-    imageUrl: 'https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?w=400&h=300&fit=crop',
-    source: 'Lesotho Times',
-    publishedAt: new Date().toISOString(),
-    content:
-      'Lesotho continues to show economic resilience with growth in agriculture and manufacturing sectors.',
-  },
-  {
-    title: 'Digital Transformation Accelerates in Southern Africa',
-    description:
-      'Companies across Southern Africa are rapidly adopting digital technologies to stay competitive.',
-    url: '#',
-    imageUrl: 'https://images.unsplash.com/photo-1551288049-bebda4e38f71?w-400&h=300&fit=crop',
-    source: 'Business Daily',
-    publishedAt: new Date(Date.now() - 86400000).toISOString(),
-    content:
-      'Digital transformation initiatives are helping businesses improve efficiency and reach new markets.',
-  },
-];
-
-const getFallbackLesothoNews = () => [
-  {
-    title: 'Lesotho Government Announces New Business Incentives',
-    description: 'New tax incentives and support programs for small businesses in Lesotho.',
-    url: '#',
-    imageUrl: 'https://images.unsplash.com/photo-1542744173-8e7e53415bb0?w=400&h=300&fit=crop',
-    source: 'Lesotho News',
-    publishedAt: new Date().toISOString(),
-    relevance: 'lesotho',
-  },
-  {
-    title: 'Maseru Tech Hub Attracts International Investment',
-    description: 'New technology hub in Maseru receives significant international funding.',
-    url: '#',
-    imageUrl: 'https://images.unsplash.com/photo-1497366754035-f200968a6e72?w=400&h=300&fit=crop',
-    source: 'Tech Africa',
-    publishedAt: new Date(Date.now() - 172800000).toISOString(),
-    relevance: 'lesotho',
-  },
-];
-
-const getFallbackCareerNews = () => [
-  {
-    title: 'Remote Work Continues to Transform Hiring Practices',
-    description: 'Companies are adapting their recruitment strategies for the remote work era.',
-    url: '#',
-    imageUrl: 'https://images.unsplash.com/photo-1552664730-d307ca884978?w=400&h=300&fit=crop',
-    source: 'HR Today',
-    publishedAt: new Date().toISOString(),
-    category: 'career',
-  },
-  {
-    title: 'Top Skills Employers Look For in 2024',
-    description: 'Essential skills that can boost your career prospects this year.',
-    url: '#',
-    imageUrl: 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=400&h=300&fit=crop',
-    source: 'Career Builder',
-    publishedAt: new Date(Date.now() - 259200000).toISOString(),
-    category: 'career',
-  },
-];
-
-const getFallbackDashboardNews = () => ({
-  business: getFallbackBusinessNews(),
-  career: getFallbackCareerNews(),
-  lesotho: getFallbackLesothoNews(),
-});
 
 // Weather service (if needed later)
 export const weatherService = {
@@ -312,30 +241,26 @@ const EXTERNAL_APIS = {
       if (!API_CONFIG.enabled.news) return [];
 
       try {
-        // Real API call (uncomment when you have API key)
-        /*
         const response = await fetch(
           `https://newsapi.org/v2/everything?q=Lesotho+entrepreneurship+business+economy&language=en&sortBy=publishedAt&pageSize=5&apiKey=${process.env.VITE_NEWS_API_KEY}`
         );
         const data = await response.json();
-        
+
         if (data.status === 'ok') {
-          return data.articles.slice(0, 5).map(article => ({
+          return data.articles.slice(0, 5).map((article) => ({
             title: article.title,
             description: article.description || 'No description available',
             url: article.url,
-            image: article.urlToImage || 'https://images.unsplash.com/photo-1556761175-b413da4baf72?w=400',
+            image: article.urlToImage,
             source: article.source.name,
-            publishedAt: new Date(article.publishedAt)
+            publishedAt: new Date(article.publishedAt),
           }));
         }
-        */
 
-        // Fallback to sample data
-        return getSampleNews();
+        return [];
       } catch (error) {
         console.warn('News API error:', error);
-        return getSampleNews();
+        return [];
       }
     },
   },
@@ -346,19 +271,14 @@ const EXTERNAL_APIS = {
       if (!API_CONFIG.enabled.jobs) return [];
 
       try {
-        // Real API call for Lesotho jobs (example - you'll need to find a suitable API)
-        /*
         const response = await fetch(
           'https://api.example.com/jobs/lesotho?limit=5'
         );
         const data = await response.json();
-        */
-
-        // Fallback to sample data
-        return getSampleJobs();
+        return Array.isArray(data) ? data : [];
       } catch (error) {
         console.warn('Jobs API error:', error);
-        return getSampleJobs();
+        return [];
       }
     },
   },
@@ -462,10 +382,10 @@ const EXTERNAL_APIS = {
         const data = await response.json();
         */
 
-        return getSampleVideos();
+        return [];
       } catch (error) {
         console.warn('YouTube API error:', error);
-        return getSampleVideos();
+        return [];
       }
     },
   },
@@ -495,90 +415,5 @@ const EXTERNAL_APIS = {
   // API Configuration
   config: API_CONFIG,
 };
-
-// Sample data for fallback
-const getSampleNews = () => [
-  {
-    title: 'Lesotho Government Launches New Youth Entrepreneurship Program',
-    description:
-      'The Ministry of Trade and Industry has announced a new initiative to support young entrepreneurs with funding and mentorship.',
-    url: '#',
-    image: 'https://images.unsplash.com/photo-1556761175-b413da4baf72?w=400',
-    source: 'Lesotho Times',
-    publishedAt: new Date(Date.now() - 86400000), // 1 day ago
-  },
-  {
-    title: 'African Tech Startups See Record Investment in 2024',
-    description:
-      'Venture capital investment in African technology startups has grown by 47% compared to last year.',
-    url: '#',
-    image: 'https://images.unsplash.com/photo-1559136555-9303baea8ebd?w=400',
-    source: 'TechCrunch Africa',
-    publishedAt: new Date(Date.now() - 172800000), // 2 days ago
-  },
-  {
-    title: 'Basotho Entrepreneurs Excel at Regional Business Competition',
-    description: 'Three Lesotho-based startups won awards at the SADC Entrepreneurship Challenge.',
-    url: '#',
-    image: 'https://images.unsplash.com/photo-1560472354-b33ff0c44a43?w=400',
-    source: 'Business Daily',
-    publishedAt: new Date(Date.now() - 259200000), // 3 days ago
-  },
-];
-
-const getSampleJobs = () => [
-  {
-    title: 'Business Development Manager',
-    company: 'Tech Solutions Lesotho',
-    location: 'Maseru, Lesotho',
-    description:
-      'Looking for an experienced business development manager to expand our market presence in Lesotho and regionally.',
-    salary: 'M 35,000 - M 50,000',
-    type: 'Full-time',
-    posted: new Date(Date.now() - 86400000), // 1 day ago
-    url: '#',
-  },
-  {
-    title: 'Youth Entrepreneurship Coordinator',
-    company: 'UNDP Lesotho',
-    location: 'Maseru, Lesotho',
-    description:
-      'Coordinate youth entrepreneurship programs and mentorship initiatives across Lesotho.',
-    salary: 'M 40,000 - M 55,000',
-    type: 'Contract',
-    posted: new Date(Date.now() - 172800000), // 2 days ago
-    url: '#',
-  },
-  {
-    title: 'Agricultural Business Consultant',
-    company: 'Lesotho Farmers Association',
-    location: 'Leribe, Lesotho',
-    description:
-      'Provide business consulting services to agricultural entrepreneurs in rural Lesotho.',
-    salary: 'M 30,000 - M 45,000',
-    type: 'Full-time',
-    posted: new Date(Date.now() - 259200000), // 3 days ago
-    url: '#',
-  },
-];
-
-const getSampleVideos = () => [
-  {
-    title: 'Building a Sustainable Business in Lesotho',
-    channel: 'Entrepreneurship Africa',
-    thumbnail: 'https://img.youtube.com/vi/dQw4w9WgXcQ/mqdefault.jpg',
-    videoId: 'dQw4w9WgXcQ',
-    publishedAt: new Date(Date.now() - 86400000),
-    duration: '15:30',
-  },
-  {
-    title: 'Youth Entrepreneurship Success Stories',
-    channel: 'Lesotho Business TV',
-    thumbnail: 'https://img.youtube.com/vi/9bZkp7q19f0/mqdefault.jpg',
-    videoId: '9bZkp7q19f0',
-    publishedAt: new Date(Date.now() - 172800000),
-    duration: '22:15',
-  },
-];
 
 export default EXTERNAL_APIS;

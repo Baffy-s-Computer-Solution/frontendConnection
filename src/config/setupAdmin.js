@@ -8,7 +8,7 @@
  */
 
 import { createUserWithEmailAndPassword } from 'firebase/auth';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { doc, getDoc, serverTimestamp, setDoc } from 'firebase/firestore';
 
 import { auth, db } from './firebase';
 
@@ -19,7 +19,6 @@ const ADMIN_PASSWORD = import.meta.env.VITE_ADMIN_PASSWORD;
 // Validate environment variables
 const validateEnvVars = () => {
   if (!ADMIN_EMAIL || !ADMIN_PASSWORD) {
-    console.warn('⚠️  Admin credentials not found in environment variables');
     return false;
   }
 
@@ -56,12 +55,14 @@ const getAdminConfig = () => {
   const isProduction = import.meta.env.VITE_APP_ENVIRONMENT === 'production';
 
   if (isProduction && !validateEnvVars()) {
-    throw new Error('Admin credentials required for production setup');
+    throw new Error(
+      'Production admin credentials are required. Configure VITE_ADMIN_EMAIL and VITE_ADMIN_PASSWORD in the deployment environment.'
+    );
   }
 
   return {
-    email: ADMIN_EMAIL || 'admin@careerconnect.com',
-    password: ADMIN_PASSWORD || generateSecurePassword(),
+    email: ADMIN_EMAIL || 'baffkay20@gmail.com',
+    password: ADMIN_PASSWORD || (isProduction ? '' : generateSecurePassword()),
     name: 'System Administrator',
     userType: 'admin',
     role: 'admin',
@@ -128,8 +129,8 @@ const createFirestoreAdmin = async (userId, email, name) => {
         'view_analytics',
         'system_settings',
       ],
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
       isActive: true,
       profileCompletion: 100,
       emailVerified: true,
@@ -153,7 +154,7 @@ const createFirestoreAdmin = async (userId, email, name) => {
       userId: userId || 'temp-admin-id',
       email: email.toLowerCase(),
       displayName: name,
-      createdAt: new Date().toISOString(),
+      createdAt: serverTimestamp(),
       lastActive: null,
       permissions: adminProfile.permissions,
       isActive: true,
@@ -192,7 +193,8 @@ export const initializeAdminUser = async () => {
     return {
       success: false,
       message: 'Admin auto-setup is disabled in production environment',
-      action: 'Please create admin user manually through secure backend',
+      action:
+        'Create the admin account through the secure deployment process or enable VITE_ENABLE_ADMIN_SETUP explicitly.',
     };
   }
 

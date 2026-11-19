@@ -7,6 +7,7 @@ import {
   getDocs,
   addDoc,
   updateDoc,
+  setDoc,
   deleteDoc,
   query,
   where,
@@ -19,9 +20,10 @@ import {
   arrayRemove,
   writeBatch,
 } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { onDisconnect, onValue, ref as realtimeRef, serverTimestamp as realtimeTimestamp, set as realtimeSet } from 'firebase/database';
 
-import { db, storage } from '../config/firebase';
+import { database, db } from '../config/firebase';
+import { cloudinaryService } from './cloudinaryService';
 
 // Collection names
 const CONVERSATIONS_COLLECTION = 'conversations';
@@ -29,6 +31,7 @@ const MESSAGES_COLLECTION = 'messages';
 const USERS_COLLECTION = 'users';
 const COMPANIES_COLLECTION = 'companies';
 const STUDENTS_COLLECTION = 'students';
+const PRESENCE_COLLECTION = 'presence';
 
 // Helper functions
 const safeDateConvert = (firebaseDate) => {
@@ -53,7 +56,9 @@ const getParticipantInfo = async (participantId, participantType) => {
         collectionName = COMPANIES_COLLECTION;
         break;
       case 'student':
-        collectionName = STUDENTS_COLLECTION;
+        // Student profiles are readable through the public user directory. The
+        // legacy `students` collection is private to the student/mentor/admin.
+        collectionName = USERS_COLLECTION;
         break;
       case 'admin':
         collectionName = USERS_COLLECTION;
@@ -146,21 +151,21 @@ export const communicationService = {
       }
 
       // Create new conversation
+      const participantEntries = [
+        { id: currentUser.id, type: currentUser.type, isAdmin: true, unreadCount: 0 },
+        ...otherParticipants.map((p) => ({
+          id: p.id,
+          type: p.type,
+          isAdmin: false,
+          unreadCount: 0,
+        })),
+      ];
       const conversation = {
+        participantIds: participantEntries.map((participant) => participant.id),
         participants: [
-          {
-            id: currentUser.id,
-            type: currentUser.type,
-            joinedAt: serverTimestamp(),
-            isAdmin: true,
-            unreadCount: 0,
-          },
-          ...otherParticipants.map((p) => ({
-            id: p.id,
-            type: p.type,
-            joinedAt: serverTimestamp(),
-            isAdmin: false,
-            unreadCount: 0,
+          ...participantEntries.map((participant) => ({
+            ...participant,
+            joinedAt: new Date(),
           })),
         ],
         type: otherParticipants.length > 1 ? 'group' : 'direct',
@@ -220,10 +225,7 @@ export const communicationService = {
         // Query conversations where both participants exist
         const q1 = query(
           conversationsRef,
-          where('participants', 'array-contains', {
-            id: currentUserId,
-            type: 'company', // Assuming company for now
-          }),
+          where('participantIds', 'array-contains', currentUserId),
           where('type', '==', 'direct')
         );
 
@@ -272,10 +274,7 @@ export const communicationService = {
       // Query conversations where user is a participant
       const q = query(
         conversationsRef,
-        where('participants', 'array-contains', {
-          id: userId,
-          type: userType,
-        }),
+        where('participantIds', 'array-contains', userId),
         orderBy('updatedAt', 'desc'),
         limit(limitCount)
       );
@@ -317,6 +316,69 @@ export const communicationService = {
         conversations: [],
       };
     }
+  },
+
+  async getAvailableContacts(currentUserId, searchTerm = '') {
+    try {
+      const currentUserSnapshot = await getDoc(doc(db, USERS_COLLECTION, currentUserId));
+      const currentUser = currentUserSnapshot.exists() ? currentUserSnapshot.data() : {};
+      const isCompany = ['company', 'entrepreneur'].includes(currentUser.userType || currentUser.role);
+      const snapshots = isCompany
+        ? [await getDocs(query(collection(db, 'companyFollowers'), where('companyId', '==', currentUserId), where('status', '==', 'active'), limit(100)))]
+        : [await getDocs(query(collection(db, USERS_COLLECTION), limit(100)))];
+      const normalizedSearch = searchTerm.trim().toLowerCase();
+      let contacts = snapshots.flatMap((snapshot) => snapshot.docs.map((userDoc) => ({ id: userDoc.id, ...userDoc.data() })));
+      if (isCompany) {
+        const followerIds = [...new Set(contacts.map((edge) => edge.followerId || edge.userId || edge.studentId).filter(Boolean))];
+        const followerDocs = await Promise.all(followerIds.map(async (id) => {
+          const snapshot = await getDoc(doc(db, USERS_COLLECTION, id));
+          return snapshot.exists() ? { id, ...snapshot.data() } : null;
+        }));
+        contacts = followerDocs.filter(Boolean);
+      }
+      contacts = contacts
+        .filter((user, index, users) => users.findIndex((item) => item.id === user.id) === index)
+        .filter((user) => user.id !== currentUserId)
+        .filter((user) => {
+          if (!normalizedSearch) return true;
+          return `${user.displayName || user.fullName || ''} ${user.email || ''}`
+            .toLowerCase()
+            .includes(normalizedSearch);
+        })
+        .map((user) => ({
+          id: user.id,
+          type: user.userType || user.role || 'student',
+          name: user.displayName || user.fullName || user.email || 'Career Connect member',
+          email: user.email || '',
+          avatar: user.photoURL || user.profileImage || '',
+          isOnline: user.isOnline === true,
+          lastSeen: safeDateConvert(user.lastSeen),
+        }));
+      return { success: true, contacts };
+    } catch (error) {
+      console.error('Error getting available contacts:', error);
+      return { success: false, error: error.message, contacts: [] };
+    }
+  },
+
+  async setPresence(userId, userType, isOnline) {
+    const presenceRef = realtimeRef(database, `${PRESENCE_COLLECTION}/${userId}`);
+    await realtimeSet(presenceRef, { userId, userType, isOnline, lastSeen: realtimeTimestamp });
+    if (isOnline) {
+      await onDisconnect(presenceRef).set({
+        userId,
+        userType,
+        isOnline: false,
+        lastSeen: realtimeTimestamp,
+      });
+    }
+  },
+
+  subscribeToPresence(callback) {
+    return onValue(realtimeRef(database, PRESENCE_COLLECTION), (snapshot) => {
+      const values = snapshot.val() || {};
+      callback(Object.entries(values).map(([id, value]) => ({ id, ...value })));
+    });
   },
 
   // Get single conversation by ID
@@ -699,10 +761,7 @@ export const communicationService = {
 
     const q = query(
       conversationsRef,
-      where('participants', 'array-contains', {
-        id: userId,
-        type: userType,
-      }),
+      where('participantIds', 'array-contains', userId),
       orderBy('updatedAt', 'desc')
     );
 
@@ -768,7 +827,7 @@ export const communicationService = {
 
   // ==================== FILE UPLOAD ====================
 
-  // Upload file to Firebase Storage
+  // Upload file to Cloudinary and persist the returned URL in the chat message.
   async uploadFile(file, conversationId, senderId) {
     try {
       if (!file) {
@@ -796,18 +855,12 @@ export const communicationService = {
         return { success: false, error: 'File type not supported' };
       }
 
-      // Create file path
-      const timestamp = Date.now();
-      const fileExtension = file.name.split('.').pop();
-      const fileName = `${conversationId}/${senderId}/${timestamp}.${fileExtension}`;
-      const filePath = `chat/${fileName}`;
-
-      // Upload to Firebase Storage
-      const storageRef = ref(storage, filePath);
-      await uploadBytes(storageRef, file);
-
-      // Get download URL
-      const downloadURL = await getDownloadURL(storageRef);
+      const result = await cloudinaryService.uploadToCloudinary(
+        file,
+        `chat/${conversationId}/${senderId}`,
+        { tags: ['chat-attachment', conversationId] }
+      );
+      if (!result.success) throw new Error(result.error || 'Cloudinary upload failed');
 
       return {
         success: true,
@@ -815,8 +868,8 @@ export const communicationService = {
           name: file.name,
           type: file.type,
           size: file.size,
-          url: downloadURL,
-          storagePath: filePath,
+          url: result.url,
+          cloudinaryPublicId: result.public_id,
         },
       };
     } catch (error) {

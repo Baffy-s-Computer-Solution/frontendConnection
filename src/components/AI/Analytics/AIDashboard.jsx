@@ -1,5 +1,5 @@
-import { Card, Row, Col } from 'react-bootstrap';
-import { FaChartLine, FaLightbulb, FaUsers, FaRobot } from 'react-icons/fa';
+import { Card, Row, Col } from '../../ui/tailwindCompat';
+import { FaChartLine, FaLightbulb, FaUsers, FaRobot } from "react-icons/fa";
 
 const AIDashboard = ({ data = {}, loading = false }) => {
   if (loading) {

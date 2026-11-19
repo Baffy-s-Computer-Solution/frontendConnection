@@ -1,9 +1,20 @@
-/* eslint-disable no-unused-vars */
-import { motion } from 'framer-motion';
-import { FileText, AlertCircle, CheckCircle, Scale, Users, Globe } from 'lucide-react';
-import './CommonPages.css';
+import { Link } from 'react-router-dom';
+import { FileText } from 'lucide-react';
 
-const TermsOfService = () => {
+const TermsOfService = () => (
+  <main className="min-h-screen bg-slate-50 px-4 py-16 text-slate-900 dark:bg-slate-950 dark:text-white">
+    <article className="mx-auto max-w-3xl rounded-2xl border border-slate-200 bg-white p-8 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:p-12">
+      <FileText className="mb-5 h-10 w-10 text-indigo-600" aria-hidden="true" />
+      <p className="mb-2 text-sm font-semibold uppercase tracking-widest text-indigo-600">Career Connect Lesotho</p>
+      <h1 className="mb-4 text-3xl font-bold">Terms of service</h1>
+      <p className="mb-6 text-slate-600 dark:text-slate-300">The platform terms have not yet been published. This page is a status notice and does not create or summarize contractual terms.</p>
+      <p className="mb-8 text-slate-600 dark:text-slate-300">Please contact the platform team if you need the current terms before using Career Connect Lesotho.</p>
+      <div className="flex flex-wrap gap-3"><Link className="rounded-lg bg-indigo-600 px-4 py-2 font-medium text-white hover:bg-indigo-700" to="/contact">Contact the platform team</Link><Link className="rounded-lg border border-slate-300 px-4 py-2 font-medium dark:border-slate-700" to="/">Return home</Link></div>
+    </article>
+  </main>
+);
+
+const LegacyTermsOfService = () => {
   const lastUpdated = 'March 1, 2026';
 
   const keyPoints = [

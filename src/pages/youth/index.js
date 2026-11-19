@@ -67,6 +67,4 @@ export { default as TrainingCourses } from './TrainingCourses.jsx';
 export { default as Workshops } from './Workshops.jsx';
 export { default as YouthDashboard } from './YouthDashboard.jsx';
 
-// Re-export types and utilities
-export * from './types';
-export * from './constants';
+

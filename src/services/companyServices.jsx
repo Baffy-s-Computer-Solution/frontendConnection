@@ -19,7 +19,11 @@ import {
   where,
 } from 'firebase/firestore';
 
-import { auth, db } from '../config/firebase';
+import {
+  auth,
+  db,
+} from '../config/firebase';
+import { cloudinaryService as cloudinaryMediaService } from './cloudinaryService';
 
 const COMPANY_COLLECTION = 'companies';
 const JOBS_COLLECTION = 'jobs';
@@ -28,8 +32,9 @@ const STUDENTS_COLLECTION = 'students';
 const USERS_COLLECTION = 'users';
 
 // Cloudinary configuration
-const CLOUDINARY_CLOUD_NAME = 'dphb5vldu';
-const CLOUDINARY_UPLOAD_PRESET = 'company_uploads';
+const CLOUDINARY_CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || 'dwz0osyou';
+const CLOUDINARY_UPLOAD_PRESET =
+  import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET || 'career_connect_upload';
 
 // Helper function for safe date conversion
 const safeDateConvert = (firebaseDate) => {
@@ -186,15 +191,26 @@ export const companyService = {
         email: user.email,
       };
 
+      const isGoogleVerified = Boolean(user.providerData?.some((provider) => provider.providerId === 'google.com') || user.emailVerified);
+
       if (companySnap.exists()) {
-        await updateDoc(companyRef, profileData);
+        await updateDoc(companyRef, {
+          ...profileData,
+          isVerified: companyData.isVerified ?? companyData.verified ?? isGoogleVerified,
+          verified: companyData.verified ?? companyData.isVerified ?? isGoogleVerified,
+          verificationStatus:
+            companyData.verificationStatus ||
+            (isGoogleVerified ? 'verified' : profileData.verificationStatus || 'pending_approval'),
+        });
       } else {
         await setDoc(companyRef, {
           ...profileData,
           userId: user.uid,
           createdAt: serverTimestamp(),
           profileViews: 0,
-          isVerified: false,
+          isVerified: isGoogleVerified,
+          verified: isGoogleVerified,
+          verificationStatus: isGoogleVerified ? 'verified' : 'pending_approval',
           socialLinks: companyData.socialLinks || {},
           benefits: companyData.benefits || [],
           techStack: companyData.techStack || [],
@@ -219,6 +235,9 @@ export const companyService = {
 
       if (companySnap.exists()) {
         const data = companySnap.data();
+        const verifiedState =
+          data.isVerified ?? data.verified ?? data.emailVerified ?? data.verificationStatus === 'verified' ?? false;
+
         return {
           id: companySnap.id,
           ...data,
@@ -233,7 +252,8 @@ export const companyService = {
           logo: data.logo || '',
           coverImage: data.coverImage || '',
           profileViews: data.profileViews || 0,
-          isVerified: data.isVerified || false,
+          isVerified: Boolean(verifiedState),
+          verified: Boolean(verifiedState),
           socialLinks: data.socialLinks || {},
           benefits: data.benefits || [],
           techStack: data.techStack || [],
@@ -274,10 +294,31 @@ export const companyService = {
       if (!user) throw new Error('No authenticated user');
 
       const companyRef = doc(db, COMPANY_COLLECTION, user.uid);
+      const userRef = doc(db, USERS_COLLECTION, user.uid);
+
+      const profileImageUrl =
+        updates.logo || updates.profileImage || updates.photoURL || user.photoURL || '';
+
       await updateDoc(companyRef, {
         ...updates,
         updatedAt: serverTimestamp(),
       });
+
+      await updateDoc(userRef, {
+        photoURL: profileImageUrl,
+        profilePhoto: profileImageUrl,
+        logo: profileImageUrl,
+        displayName: updates.name || updates.companyName || user.displayName || '',
+        updatedAt: serverTimestamp(),
+      }).catch(() => null);
+
+      if (user.photoURL !== profileImageUrl && typeof user.updateProfile === 'function') {
+        try {
+          await user.updateProfile({ photoURL: profileImageUrl });
+        } catch (profileError) {
+          console.warn('Could not sync auth photo URL:', profileError.message);
+        }
+      }
 
       return await this.getCompanyProfile();
     } catch (error) {
@@ -754,9 +795,9 @@ export const analyticsService = {
 
       // Fetch all necessary data
       const [jobs, applications, company] = await Promise.all([
-        jobService.getCompanyJobs().catch(() => []),
-        applicationService.getCompanyApplications().catch(() => []),
-        companyService.getCompanyProfile().catch(() => ({})),
+        jobService.getCompanyJobs(),
+        applicationService.getCompanyApplications(),
+        companyService.getCompanyProfile(),
       ]);
 
       // Filter data based on time range
@@ -843,8 +884,7 @@ export const analyticsService = {
       };
     } catch (error) {
       console.error('Error getting analytics:', error);
-      // Return fallback data
-      return this.getFallbackAnalytics(timeRange);
+      throw error;
     }
   },
 
@@ -869,10 +909,19 @@ export const analyticsService = {
 
   // Helper method to calculate average response time
   calculateAverageResponseTime(applications) {
-    // Mock response times - in real app, calculate from actual response times
-    const responses = [1, 2, 1, 3, 2, 1, 2, 3, 1, 2];
-    const avgResponse = responses.reduce((a, b) => a + b, 0) / responses.length;
-    return avgResponse < 1 ? '< 1 day' : `${avgResponse.toFixed(1)} days`;
+    const responseDurations = applications
+      .map((application) => {
+        const start = application.appliedAt ? new Date(application.appliedAt).getTime() : NaN;
+        const endValue = application.reviewedAt || application.firstResponseAt;
+        const end = endValue ? new Date(endValue).getTime() : NaN;
+        return Number.isFinite(start) && Number.isFinite(end) && end >= start
+          ? (end - start) / (1000 * 60 * 60 * 24)
+          : null;
+      })
+      .filter((duration) => duration !== null);
+    if (!responseDurations.length) return null;
+    const average = responseDurations.reduce((sum, duration) => sum + duration, 0) / responseDurations.length;
+    return average < 1 ? '< 1 day' : `${average.toFixed(1)} days`;
   },
 
   // Generate time series data for charts
@@ -896,7 +945,7 @@ export const analyticsService = {
 
           dataPoints.push({
             date: dateStr,
-            applications: dayApplications || Math.floor(Math.random() * 5) + 1,
+            applications: dayApplications,
           });
         }
         labelFormat = 'day';
@@ -918,7 +967,7 @@ export const analyticsService = {
 
           dataPoints.push({
             date: week,
-            applications: weekApplications || Math.floor(Math.random() * 15) + 5,
+            applications: weekApplications,
           });
         });
         labelFormat = 'week';
@@ -926,38 +975,33 @@ export const analyticsService = {
 
       case 'quarter':
         // Last 3 months
-        const months = ['Month 1', 'Month 2', 'Month 3'];
-        months.forEach((month, index) => {
+        for (let index = 2; index >= 0; index -= 1) {
+          const monthDate = new Date(now.getFullYear(), now.getMonth() - index, 1);
           dataPoints.push({
-            date: month,
-            applications: Math.floor(Math.random() * 50) + 25,
+            date: monthDate.toLocaleDateString('en-US', { month: 'short' }),
+            applications: applications.filter((app) => {
+              if (!app.appliedAt) return false;
+              const date = new Date(app.appliedAt);
+              return date.getFullYear() === monthDate.getFullYear() && date.getMonth() === monthDate.getMonth();
+            }).length,
           });
-        });
+        }
         labelFormat = 'month';
         break;
 
       case 'year':
         // Last 12 months
-        const monthNames = [
-          'Jan',
-          'Feb',
-          'Mar',
-          'Apr',
-          'May',
-          'Jun',
-          'Jul',
-          'Aug',
-          'Sep',
-          'Oct',
-          'Nov',
-          'Dec',
-        ];
-        monthNames.forEach((month) => {
+        for (let index = 11; index >= 0; index -= 1) {
+          const monthDate = new Date(now.getFullYear(), now.getMonth() - index, 1);
           dataPoints.push({
-            date: month,
-            applications: Math.floor(Math.random() * 100) + 50,
+            date: monthDate.toLocaleDateString('en-US', { month: 'short' }),
+            applications: applications.filter((app) => {
+              if (!app.appliedAt) return false;
+              const date = new Date(app.appliedAt);
+              return date.getFullYear() === monthDate.getFullYear() && date.getMonth() === monthDate.getMonth();
+            }).length,
           });
-        });
+        }
         labelFormat = 'month';
         break;
     }
@@ -1175,85 +1219,6 @@ export const analyticsService = {
     return csv;
   },
 
-  // Get fallback analytics when real data fails
-  getFallbackAnalytics(timeRange) {
-    const now = new Date();
-    const monthNames = [
-      'Jan',
-      'Feb',
-      'Mar',
-      'Apr',
-      'May',
-      'Jun',
-      'Jul',
-      'Aug',
-      'Sep',
-      'Oct',
-      'Nov',
-      'Dec',
-    ];
-
-    // Generate time series data
-    const dataPoints = [];
-    for (let i = 5; i >= 0; i--) {
-      dataPoints.push({
-        date: monthNames[(now.getMonth() - i + 12) % 12],
-        applications: Math.floor(Math.random() * 30) + 10,
-      });
-    }
-
-    return {
-      overview: {
-        totalApplications: 124,
-        activeJobs: 8,
-        profileViews: 456,
-        conversionRate: 12,
-        interviewToHireRate: 25,
-        avgTimeToHire: '14 days',
-        avgResponseTime: '2.5 days',
-      },
-      applicationStatus: {
-        applied: 45,
-        reviewed: 32,
-        interview: 25,
-        hired: 10,
-        rejected: 12,
-        withdrawn: 0,
-      },
-      timeSeriesData: {
-        labels: dataPoints.map((d) => d.date),
-        datasets: [
-          {
-            label: 'Applications',
-            data: dataPoints.map((d) => d.applications),
-            backgroundColor: 'rgba(59, 130, 246, 0.5)',
-            borderColor: 'rgb(59, 130, 246)',
-            borderWidth: 2,
-          },
-        ],
-        labelFormat: 'month',
-      },
-      topJobs: [
-        { id: '1', title: 'Software Developer', applicationCount: 45, hireCount: 5, hireRate: 11 },
-        { id: '2', title: 'Marketing Manager', applicationCount: 32, hireCount: 3, hireRate: 9 },
-        { id: '3', title: 'Data Analyst', applicationCount: 28, hireCount: 4, hireRate: 14 },
-      ],
-      sourceAnalytics: [
-        { name: 'Career Site', count: 45, percentage: 45 },
-        { name: 'Job Boards', count: 30, percentage: 30 },
-        { name: 'Referrals', count: 15, percentage: 15 },
-        { name: 'Direct Applications', count: 10, percentage: 10 },
-      ],
-      skillDemand: [
-        { skill: 'JavaScript', count: 8 },
-        { skill: 'React', count: 6 },
-        { skill: 'Node.js', count: 5 },
-        { skill: 'Python', count: 4 },
-        { skill: 'AWS', count: 3 },
-      ],
-      timeRange,
-    };
-  },
 };
 
 // Dashboard Services
@@ -1486,11 +1451,16 @@ export const companyFirebaseService = {
       const user = auth.currentUser;
       if (!user) throw new Error('No authenticated user');
 
-      // Simulate upload - in real app, upload to Firebase Storage
-      const documentId = `doc_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      const uploadResult = await cloudinaryMediaService.uploadToCloudinary(
+        file,
+        `companies/${user.uid}/documents`,
+        { tags: ['company-document', user.uid] }
+      );
+      if (!uploadResult.success) {
+        throw new Error(uploadResult.error || 'Cloudinary upload failed');
+      }
 
       const documentData = {
-        id: documentId,
         companyId: user.uid,
         name: metadata.name,
         description: metadata.description || '',
@@ -1500,15 +1470,17 @@ export const companyFirebaseService = {
         fileName: file.name,
         fileType: file.type,
         fileSize: file.size,
-        downloadURL: URL.createObjectURL(file),
+        cloudinaryPublicId: uploadResult.public_id,
+        cloudinaryResourceType: uploadResult.resource_type || 'auto',
+        downloadURL: uploadResult.url,
         uploadedAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       };
 
       const documentsRef = collection(db, 'company_documents');
-      await addDoc(documentsRef, documentData);
+      const documentRef = await addDoc(documentsRef, documentData);
 
-      return documentId;
+      return documentRef.id;
     } catch (error) {
       console.error('Error uploading document:', error);
       throw error;
@@ -1629,8 +1601,23 @@ export const companyFirebaseService = {
 
   async getCompanyAnalytics(timeRange = 'month') {
     try {
-      // Reuse the analyticsService
-      return await analyticsService.getAnalytics(timeRange);
+      const data = await analyticsService.getAnalytics(timeRange);
+      return {
+        ...data,
+        stats: {
+          totalApplications: data.overview?.totalApplications ?? 0,
+          activeJobs: data.overview?.activeJobs ?? 0,
+          conversionRates: {
+            overallConversion: data.overview?.conversionRate ?? 0,
+            interviewToHire: data.overview?.interviewToHireRate ?? 0,
+          },
+          timeMetrics: {
+            avgTimeToHire: data.overview?.avgTimeToHire ?? null,
+            avgResponseTime: data.overview?.avgResponseTime ?? null,
+          },
+        },
+        candidateDemographics: { locations: [], education: [], experience: [] },
+      };
     } catch (error) {
       console.error('Error getting analytics:', error);
       throw error;
@@ -1677,6 +1664,23 @@ export const companyFirebaseService = {
         updatedAt: serverTimestamp(),
       });
 
+      const applicationSnapshot = await getDoc(doc(db, 'applications', interviewData.applicationId));
+      const application = applicationSnapshot.exists() ? applicationSnapshot.data() : {};
+      if (application.candidateId || application.studentId) {
+        await addDoc(collection(db, 'notifications'), {
+          recipientId: application.candidateId || application.studentId,
+          recipientType: 'student',
+          type: 'interview_scheduled',
+          title: 'Interview scheduled',
+          message: `Your interview is scheduled for ${new Date(interviewData.scheduledAt).toLocaleString()}.`,
+          interviewId: interviewDoc.id,
+          applicationId: interviewData.applicationId,
+          companyId: user.uid,
+          read: false,
+          createdAt: serverTimestamp(),
+        });
+      }
+
       return interviewDoc.id;
     } catch (error) {
       console.error('Error scheduling interview:', error);
@@ -1691,6 +1695,30 @@ export const companyFirebaseService = {
         ...updates,
         updatedAt: serverTimestamp(),
       });
+      const interviewSnapshot = await getDoc(interviewRef);
+      const interview = interviewSnapshot.data() || {};
+      const applicationSnapshot = interview.applicationId
+        ? await getDoc(doc(db, 'applications', interview.applicationId))
+        : null;
+      const application = applicationSnapshot?.exists() ? applicationSnapshot.data() : {};
+      const recipientId = application.candidateId || application.studentId;
+      if (recipientId) {
+        await addDoc(collection(db, 'notifications'), {
+          recipientId,
+          recipientType: 'student',
+          type: updates.status === 'cancelled' ? 'interview_cancelled' : 'interview_updated',
+          title: updates.status === 'cancelled' ? 'Interview cancelled' : 'Interview updated',
+          message:
+            updates.status === 'cancelled'
+              ? 'Your scheduled interview was cancelled.'
+              : 'Your scheduled interview details were updated.',
+          interviewId,
+          applicationId: interview.applicationId,
+          companyId: interview.companyId,
+          read: false,
+          createdAt: serverTimestamp(),
+        });
+      }
       return true;
     } catch (error) {
       console.error('Error updating interview:', error);

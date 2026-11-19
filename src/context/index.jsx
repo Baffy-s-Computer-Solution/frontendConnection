@@ -1,5 +1,6 @@
 // Export all context providers and hooks
 export { AuthProvider, useAuth } from './AuthContext';
+export { ThemeProvider, useTheme, THEMES, COLOR_SCHEMES } from './ThemeContext';
 export { NotificationProvider, useNotification } from './NotificationContext';
 export { StudentProvider, useStudent } from './StudentContext';
 export { MentorProvider, useMentor } from './MentorContext';

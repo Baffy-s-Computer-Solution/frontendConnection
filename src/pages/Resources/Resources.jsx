@@ -16,36 +16,9 @@ import {
   Spinner,
   Modal,
   FormControl,
-} from 'react-bootstrap';
-import {
-  FaBook,
-  FaGraduationCap,
-  FaFilePdf,
-  FaVideo,
-  FaDownload,
-  FaBookmark,
-  FaSearch,
-  FaFilter,
-  FaRegStar,
-  FaRegEye,
-  FaRegClock,
-  FaUserGraduate,
-  FaLightbulb,
-  FaChartLine,
-  FaMoneyBillWave,
-  FaUsers,
-  FaRocket,
-  FaBullhorn,
-  FaRegFileAlt,
-  FaRegBookmark,
-  FaBuilding,
-  FaCogs,
-  FaLaptopCode,
-  FaBalanceScale,
-  FaGlobeAmericas,
-} from 'react-icons/fa';
+} from '../../components/ui/tailwindCompat';
+import { FaBook, FaGraduationCap, FaFilePdf, FaVideo, FaDownload, FaBookmark, FaSearch, FaFilter, FaRegStar, FaRegEye, FaRegClock, FaUserGraduate, FaLightbulb, FaChartLine, FaMoneyBillWave, FaUsers, FaRocket, FaBullhorn, FaRegFileAlt, FaRegBookmark, FaBuilding, FaCogs, FaLaptopCode, FaBalanceScale, FaGlobeAmericas } from "react-icons/fa";
 import { Link } from 'react-router-dom';
-import './Resources.css';
 
 // Import resource service with correct function names
 import {
@@ -904,3 +877,5 @@ const Resources = () => {
 };
 
 export default Resources;
+
+

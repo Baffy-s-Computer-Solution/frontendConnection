@@ -1,6 +1,6 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 import { useState, useEffect } from 'react';
-import { Container, Row, Col, Card, Button, Spinner, Alert, Form, Modal } from 'react-bootstrap';
+import { Container, Row, Col, Card, Button, Spinner, Alert, Form, Modal } from '../../components/ui/tailwindCompat';
 
 import { useAuth } from '../../context/AuthContext';
 
@@ -348,3 +348,5 @@ function MentorNetwork() {
 }
 
 export default MentorNetwork;
+
+

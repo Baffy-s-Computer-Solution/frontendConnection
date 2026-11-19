@@ -1,5 +1,11 @@
 // frontend/src/services/alumniService.js
 import {
+  EmailAuthProvider,
+  reauthenticateWithCredential,
+  updatePassword,
+  updateProfile,
+} from 'firebase/auth';
+import {
   collection,
   query,
   where,
@@ -11,9 +17,56 @@ import {
   orderBy,
   limit,
   Timestamp,
+  increment,
+  setDoc,
+  arrayUnion,
+  arrayRemove,
+  deleteDoc,
 } from 'firebase/firestore';
 import { auth, db } from '../config/firebase';
 import API_BASE_URL from './apiConfig';
+import supabaseService from './supabaseService';
+
+const fileToDataUrl = (file) => new Promise((resolve, reject) => {
+  const reader = new FileReader();
+  reader.onload = () => resolve(reader.result);
+  reader.onerror = () => reject(new Error('Unable to read selected image'));
+  reader.readAsDataURL(file);
+});
+
+const uploadAlumniImage = async (file, uid, folder) => {
+  if (!['image/jpeg', 'image/png', 'image/webp'].includes(file?.type) || file.size > 5 * 1024 * 1024) {
+    return { success: false, error: 'Choose a JPG, PNG, or WEBP image under 5MB' };
+  }
+  const extension = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' }[file.type];
+  const path = `alumni/${uid}/${folder}/${Date.now()}-${Math.random().toString(36).slice(2, 10)}.${extension}`;
+  const result = await supabaseService.uploadBase64({ path, file: await fileToDataUrl(file), contentType: file.type });
+  const url = result?.publicUrl || result?.data?.publicUrl || result?.data?.url;
+  return result?.success && url ? { success: true, data: { url, path, provider: 'supabase' } } : { success: false, error: result?.error || 'Supabase media upload failed' };
+};
+
+const updateAlumniStoryLike = async (storyId, shouldLike) => {
+  const uid = auth.currentUser?.uid;
+  if (!uid) return { success: false, error: 'Not authenticated' };
+  try {
+    const ref = doc(db, 'alumni_stories', storyId);
+    const snapshot = await getDoc(ref);
+    if (!snapshot.exists()) return { success: false, error: 'Story not found' };
+    const likes = snapshot.data().likes || [];
+    if (likes.includes(uid) === shouldLike) return { success: true };
+    await updateDoc(ref, { likes: shouldLike ? arrayUnion(uid) : arrayRemove(uid), likesCount: increment(shouldLike ? 1 : -1) });
+    return { success: true };
+  } catch (error) { return { success: false, error: error.message }; }
+};
+
+const getCurrentUserRole = () => {
+  try {
+    const profile = JSON.parse(localStorage.getItem('userProfile') || '{}');
+    return profile?.userType || profile?.role || null;
+  } catch (error) {
+    return null;
+  }
+};
 
 const buildHeaders = async (options = {}) => {
   try {
@@ -33,6 +86,15 @@ const buildHeaders = async (options = {}) => {
 };
 
 const request = async (path, options = {}) => {
+  const role = getCurrentUserRole();
+  if (path.includes('/api/alumni/') && role !== 'alumni' && role !== 'admin') {
+    return {
+      success: false,
+      message: 'User role not authorized to access this route',
+      skipped: true,
+    };
+  }
+
   try {
     const headers = await buildHeaders(options);
     const response = await fetch(`${API_BASE_URL}${path}`, {
@@ -46,7 +108,9 @@ const request = async (path, options = {}) => {
       throw new Error(data?.message || data?.error || 'Request failed');
     }
 
-    return { success: true, data };
+    return data && typeof data === 'object' && Object.prototype.hasOwnProperty.call(data, 'success')
+      ? data
+      : { success: true, data };
   } catch (error) {
     console.error(`API Error (${path}):`, error);
     return {
@@ -79,7 +143,461 @@ const getFirestoreData = async (collectionName, userId, subCollection = null) =>
   }
 };
 
+const getAlumniOwnedData = async (uid) => {
+  const getOwned = async (collectionName, ownerField, ownerId = uid) => {
+    const snapshot = await getDocs(query(collection(db, collectionName), where(ownerField, '==', ownerId), limit(500)));
+    return snapshot.docs.map((item) => ({ id: item.id, ...item.data() }));
+  };
+  const [sharedPosts, alumniPosts, connections, incomingConnections, donations, stories, savedPosts, notifications, mentorshipRequests, mentorships] = await Promise.all([
+    getOwned('social_posts', 'authorId'),
+    getOwned('alumni_posts', 'userId'),
+    getOwned('alumni_connections', 'userId'),
+    getOwned('alumni_connections', 'connectedUserId'),
+    getOwned('donations', 'alumniId'),
+    getOwned('alumni_stories', 'authorId'),
+    getOwned('alumni_saved_posts', 'userId'),
+    getOwned('alumni_notifications', 'userId'),
+    getOwned('mentorship_requests', 'alumniId'),
+    getOwned('mentorships', 'menteeId'),
+  ]);
+  const mergeById = (records) => Array.from(new Map(records.map((record) => [record.id, record])).values());
+  return {
+    posts: mergeById([...sharedPosts, ...alumniPosts]),
+    connections: mergeById([...connections, ...incomingConnections]),
+    donations,
+    stories,
+    savedPosts,
+    notifications,
+    mentorshipRequests,
+    mentorships,
+  };
+};
+
 export const alumniService = {
+  listMentors: async () => {
+    try {
+      const snapshot = await getDocs(query(collection(db, 'mentors'), limit(300)));
+      const data = snapshot.docs.map((item) => ({ id: item.id, ...item.data() }))
+        .filter((mentor) => ['approved', 'active'].includes(String(mentor.status || '').toLowerCase()) || mentor.isVerified === true)
+        .map((mentor) => ({
+          ...mentor,
+          name: mentor.name || mentor.displayName || mentor.fullName || 'Mentor',
+          photoURL: mentor.photoURL || mentor.profilePhoto || '',
+          position: mentor.position || mentor.title || mentor.headline || '',
+          company: mentor.company || mentor.currentEmployer || '',
+          expertise: Array.isArray(mentor.expertise) ? mentor.expertise : [],
+          reviewsCount: mentor.reviewsCount || mentor.totalReviews || 0,
+        }));
+      return { success: true, data };
+    } catch (error) {
+      return { success: false, error: error.message, data: [] };
+    }
+  },
+  getMyMentorshipRequests: async () => {
+    const uid = auth.currentUser?.uid;
+    if (!uid) return { success: false, error: 'Not authenticated', data: [] };
+    try {
+      const snapshot = await getDocs(query(collection(db, 'mentorship_requests'), where('alumniId', '==', uid), limit(200)));
+      const data = snapshot.docs.map((item) => ({ id: item.id, ...item.data() }));
+      data.sort((a, b) => (b.createdAt?.toMillis?.() || 0) - (a.createdAt?.toMillis?.() || 0));
+      return { success: true, data };
+    } catch (error) { return { success: false, error: error.message, data: [] }; }
+  },
+  getMentorshipSessions: async () => {
+    const uid = auth.currentUser?.uid;
+    if (!uid) return { success: false, error: 'Not authenticated', data: [] };
+    try {
+      const [menteeSnapshot, alumniSnapshot] = await Promise.all([
+        getDocs(query(collection(db, 'mentorships'), where('menteeId', '==', uid), limit(200))),
+        getDocs(query(collection(db, 'mentorships'), where('alumniId', '==', uid), limit(200))),
+      ]);
+      const records = [...menteeSnapshot.docs, ...alumniSnapshot.docs];
+      const data = Array.from(new Map(records.map((item) => [item.id, { id: item.id, ...item.data() }])).values());
+      data.sort((a, b) => (b.updatedAt?.toMillis?.() || b.createdAt?.toMillis?.() || 0) - (a.updatedAt?.toMillis?.() || a.createdAt?.toMillis?.() || 0));
+      return { success: true, data };
+    } catch (error) { return { success: false, error: error.message, data: [] }; }
+  },
+  requestMentorship: async ({ mentorId, topic, message, preferredDate = '', preferredTime = '' }) => {
+    const user = auth.currentUser;
+    if (!user) return { success: false, error: 'Not authenticated' };
+    if (!mentorId || !String(message || '').trim()) return { success: false, error: 'Choose a mentor and include a message' };
+    try {
+      const mentorSnapshot = await getDoc(doc(db, 'mentors', mentorId));
+      if (!mentorSnapshot.exists()) return { success: false, error: 'Mentor profile not found' };
+      const mentor = mentorSnapshot.data();
+      if (!(['approved', 'active'].includes(String(mentor.status || '').toLowerCase()) || mentor.isVerified === true)) {
+        return { success: false, error: 'This mentor is not currently accepting requests' };
+      }
+      const profileSnapshot = await getDoc(doc(db, 'alumni', user.uid));
+      const userSnapshot = await getDoc(doc(db, 'users', user.uid));
+      const profile = profileSnapshot.exists() ? profileSnapshot.data() : {};
+      const userData = userSnapshot.exists() ? userSnapshot.data() : {};
+      const existingSnapshot = await getDocs(query(collection(db, 'mentorship_requests'), where('alumniId', '==', user.uid), limit(200)));
+      if (existingSnapshot.docs.some((item) => item.data().mentorId === mentorId && item.data().status === 'pending')) {
+        return { success: false, error: 'You already have a pending request with this mentor' };
+      }
+      const record = {
+        mentorId,
+        mentorName: mentor.name || mentor.displayName || mentor.fullName || 'Mentor',
+        mentorPhoto: mentor.photoURL || mentor.profilePhoto || '',
+        alumniId: user.uid,
+        alumniName: profile.name || profile.displayName || userData.displayName || user.displayName || 'Alumni',
+        alumniPhoto: profile.photoURL || profile.profilePhoto || userData.photoURL || user.photoURL || '',
+        topic: String(topic || '').trim().slice(0, 120),
+        message: String(message).trim().slice(0, 1000),
+        preferredDate: String(preferredDate || ''),
+        preferredTime: String(preferredTime || ''),
+        status: 'pending',
+        createdAt: Timestamp.now(),
+        updatedAt: Timestamp.now(),
+      };
+      const ref = await addDoc(collection(db, 'mentorship_requests'), record);
+      return { success: true, data: { id: ref.id, ...record } };
+    } catch (error) { return { success: false, error: error.message }; }
+  },
+  becomeMentor: async (payload) => {
+    const user = auth.currentUser;
+    if (!user) return { success: false, error: 'Not authenticated' };
+    try {
+      const profileSnapshot = await getDoc(doc(db, 'alumni', user.uid));
+      const profile = profileSnapshot.exists() ? profileSnapshot.data() : {};
+      await setDoc(doc(db, 'mentors', user.uid), {
+        userId: user.uid,
+        uid: user.uid,
+        name: profile.name || profile.displayName || user.displayName || 'Alumni Mentor',
+        displayName: profile.displayName || profile.name || user.displayName || 'Alumni Mentor',
+        email: user.email || '',
+        photoURL: profile.photoURL || profile.profilePhoto || user.photoURL || '',
+        headline: String(payload.headline || '').slice(0, 120),
+        title: String(payload.headline || '').slice(0, 120),
+        expertise: Array.isArray(payload.expertise) ? payload.expertise : [],
+        bio: String(payload.bio || '').slice(0, 1000),
+        sessionLength: Number(payload.sessionLength) || 30,
+        availability: payload.availability || 'weekly',
+        maxMentees: Number(payload.maxMentees) || 3,
+        status: 'pending',
+        isVerified: false,
+        createdAt: Timestamp.now(),
+        updatedAt: Timestamp.now(),
+      }, { merge: true });
+      return { success: true };
+    } catch (error) { return { success: false, error: error.message }; }
+  },
+  updateMentorshipSession: async (sessionId, updates) => {
+    const uid = auth.currentUser?.uid;
+    if (!uid) return { success: false, error: 'Not authenticated' };
+    if (!sessionId || !['active', 'paused', 'ended', 'completed'].includes(updates?.status)) return { success: false, error: 'Invalid session update' };
+    try {
+      const ref = doc(db, 'mentorships', sessionId);
+      const snapshot = await getDoc(ref);
+      if (!snapshot.exists()) return { success: false, error: 'Mentorship not found' };
+      const data = snapshot.data();
+      if (data.menteeId !== uid && data.alumniId !== uid) return { success: false, error: 'Not authorized to update this mentorship' };
+      await updateDoc(ref, { status: updates.status, updatedAt: Timestamp.now() });
+      return { success: true };
+    } catch (error) { return { success: false, error: error.message }; }
+  },
+  listAlumniStories: async ({ search = '', category } = {}) => {
+    const uid = auth.currentUser?.uid;
+    if (!uid) return { success: false, error: 'Not authenticated', data: [] };
+    try {
+      const snapshot = await getDocs(query(collection(db, 'alumni_stories'), orderBy('createdAt', 'desc'), limit(100)));
+      const data = snapshot.docs.map((item) => ({ id: item.id, ...item.data() }))
+        .filter((story) => story.status === 'published' || story.authorId === uid)
+        .filter((story) => !category || story.category === category)
+        .filter((story) => !search || `${story.title || ''} ${story.excerpt || ''} ${story.content || ''}`.toLowerCase().includes(search.toLowerCase()))
+        .map((story) => ({ ...story, isLiked: Array.isArray(story.likes) && story.likes.includes(uid), likesCount: story.likesCount || story.likes?.length || 0 }));
+      return { success: true, data };
+    } catch (error) { return { success: false, error: error.message, data: [] }; }
+  },
+  createAlumniStory: async (payload) => {
+    const uid = auth.currentUser?.uid;
+    if (!uid) return { success: false, error: 'Not authenticated' };
+    try {
+      let coverImage = '';
+      if (typeof File !== 'undefined' && payload.coverImage instanceof File) {
+        const uploaded = await uploadAlumniImage(payload.coverImage, uid, 'stories');
+        if (!uploaded.success) return uploaded;
+        coverImage = uploaded.data.url;
+      }
+      const user = auth.currentUser;
+      const profile = await getDoc(doc(db, 'alumni', uid));
+      const author = profile.exists() ? profile.data() : {};
+      const record = {
+        title: String(payload.title || '').slice(0, 200), category: String(payload.category || 'career').slice(0, 60),
+        excerpt: String(payload.excerpt || '').slice(0, 300), content: String(payload.content || '').slice(0, 10000),
+        coverImage, authorId: uid, authorName: author.name || author.displayName || user.displayName || 'Alumni',
+        authorPhoto: author.photoURL || author.profilePhoto || user.photoURL || '',
+        likes: [], likesCount: 0, status: 'published', createdAt: Timestamp.now(), updatedAt: Timestamp.now(),
+      };
+      const ref = await addDoc(collection(db, 'alumni_stories'), record);
+      return { success: true, data: { id: ref.id, ...record } };
+    } catch (error) { return { success: false, error: error.message }; }
+  },
+  updateAlumniStory: async (storyId, payload) => {
+    const uid = auth.currentUser?.uid;
+    if (!uid) return { success: false, error: 'Not authenticated' };
+    try {
+      const ref = doc(db, 'alumni_stories', storyId);
+      const existing = await getDoc(ref);
+      if (!existing.exists()) return { success: false, error: 'Story not found' };
+      if (existing.data().authorId !== uid) return { success: false, error: 'Not authorized to edit this story' };
+      const updates = { title: String(payload.title || '').slice(0, 200), category: String(payload.category || 'career').slice(0, 60), excerpt: String(payload.excerpt || '').slice(0, 300), content: String(payload.content || '').slice(0, 10000), updatedAt: Timestamp.now() };
+      if (typeof File !== 'undefined' && payload.coverImage instanceof File) {
+        const uploaded = await uploadAlumniImage(payload.coverImage, uid, 'stories');
+        if (!uploaded.success) return uploaded;
+        updates.coverImage = uploaded.data.url;
+      }
+      await updateDoc(ref, updates);
+      return { success: true, data: { id: storyId, ...updates } };
+    } catch (error) { return { success: false, error: error.message }; }
+  },
+  deleteAlumniStory: async (storyId) => {
+    const uid = auth.currentUser?.uid;
+    if (!uid) return { success: false, error: 'Not authenticated' };
+    try {
+      const ref = doc(db, 'alumni_stories', storyId);
+      const existing = await getDoc(ref);
+      if (!existing.exists()) return { success: false, error: 'Story not found' };
+      if (existing.data().authorId !== uid) return { success: false, error: 'Not authorized to delete this story' };
+      await deleteDoc(ref);
+      return { success: true, data: { id: storyId } };
+    } catch (error) { return { success: false, error: error.message }; }
+  },
+  likeAlumniStory: async (storyId) => updateAlumniStoryLike(storyId, true),
+  unlikeAlumniStory: async (storyId) => updateAlumniStoryLike(storyId, false),
+  getAlumniProfile: async () => {
+    const uid = auth.currentUser?.uid;
+    if (!uid) return { success: false, error: 'Not authenticated' };
+    try {
+      const snapshot = await getDoc(doc(db, 'alumni', uid));
+      if (snapshot.exists()) return { success: true, data: { id: snapshot.id, ...snapshot.data() } };
+      const userSnapshot = await getDoc(doc(db, 'users', uid));
+      return { success: true, data: userSnapshot.exists() ? { id: userSnapshot.id, ...userSnapshot.data() } : {} };
+    } catch (error) { return { success: false, error: error.message }; }
+  },
+  updateAlumniProfile: async (profile) => {
+    const uid = auth.currentUser?.uid;
+    if (!uid) return { success: false, error: 'Not authenticated' };
+    try {
+      await setDoc(doc(db, 'alumni', uid), { ...profile, updatedAt: Timestamp.now() }, { merge: true });
+      return { success: true, data: profile };
+    } catch (error) { return { success: false, error: error.message }; }
+  },
+  getMyActivity: async () => {
+    const uid = auth.currentUser?.uid;
+    if (!uid) return { success: false, error: 'Not authenticated' };
+    try {
+      const records = await getFirestoreData('analytics', uid);
+      records.sort((a, b) => (b.timestamp?.toDate?.() || new Date(b.timestamp || 0)) - (a.timestamp?.toDate?.() || new Date(a.timestamp || 0)));
+      return { success: true, data: records.slice(0, 30) };
+    } catch (error) { return { success: false, error: error.message }; }
+  },
+  uploadAvatar: async (file) => {
+    const uid = auth.currentUser?.uid;
+    if (!uid) return { success: false, error: 'Not authenticated' };
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file?.type) || file.size > 5 * 1024 * 1024) return { success: false, error: 'Choose a JPG, PNG, or WEBP image under 5MB' };
+    try {
+      const extension = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' }[file.type];
+      const path = `alumni/${uid}/avatar/${Date.now()}-${Math.random().toString(36).slice(2, 10)}.${extension}`;
+      const uploaded = await supabaseService.uploadBase64({ path, file: await fileToDataUrl(file), contentType: file.type });
+      const url = uploaded?.publicUrl || uploaded?.data?.publicUrl || uploaded?.data?.url;
+      if (!uploaded?.success || !url) throw new Error(uploaded?.error || 'Supabase avatar upload failed');
+      await setDoc(doc(db, 'alumni', uid), { photoURL: url, profilePhoto: url, photoStorage: 'supabase', photoStoragePath: path, updatedAt: Timestamp.now() }, { merge: true });
+      await setDoc(doc(db, 'users', uid), { photoURL: url, profilePhoto: url, updatedAt: Timestamp.now() }, { merge: true });
+      await auth.currentUser.updateProfile?.({ photoURL: url });
+      return { success: true, data: { url, path, provider: 'supabase' } };
+    } catch (error) { return { success: false, error: error.message }; }
+  },
+  getAlumniSettings: async () => {
+    const uid = auth.currentUser?.uid;
+    if (!uid) return { success: false, error: 'Not authenticated' };
+    try {
+      const [snapshot, userSnapshot] = await Promise.all([
+        getDoc(doc(db, 'alumni', uid)),
+        getDoc(doc(db, 'users', uid)),
+      ]);
+      const profile = snapshot.exists() ? snapshot.data() : {};
+      const user = userSnapshot.exists() ? userSnapshot.data() : {};
+      const settings = profile.settings || {};
+      return {
+        success: true,
+        data: {
+          ...settings,
+          account: {
+            displayName: profile.displayName || profile.name || user.displayName || user.fullName || auth.currentUser.displayName || '',
+            email: auth.currentUser.email || '',
+            phone: profile.phone || '',
+            language: settings.account?.language || 'en',
+          },
+          notifications: profile.notifications || settings.notifications,
+          privacy: profile.privacy || settings.privacy,
+          appearance: settings.appearance,
+        },
+      };
+    } catch (error) {
+      console.error('Error loading alumni settings:', error);
+      return { success: false, error: error.message };
+    }
+  },
+  updateAlumniSettings: async (updates) => {
+    const user = auth.currentUser;
+    if (!user) return { success: false, error: 'Not authenticated' };
+    try {
+      const ref = doc(db, 'alumni', user.uid);
+      const snapshot = await getDoc(ref);
+      const profile = snapshot.exists() ? snapshot.data() : {};
+      const settings = profile.settings || {};
+      const account = updates.account || {};
+      const nextSettings = {
+        ...settings,
+        ...Object.fromEntries(Object.entries(updates).filter(([key]) => key !== 'account')),
+        ...(account.language ? { account: { ...settings.account, language: account.language } } : {}),
+      };
+      await setDoc(
+        ref,
+        {
+          ...(account.displayName ? { displayName: account.displayName, name: account.displayName } : {}),
+          ...(account.phone !== undefined ? { phone: account.phone } : {}),
+          ...(updates.notifications ? { notifications: updates.notifications } : {}),
+          settings: nextSettings,
+          updatedAt: Timestamp.now(),
+        },
+        { merge: true }
+      );
+      const userUpdates = {
+        updatedAt: Timestamp.now(),
+        ...(account.displayName ? { displayName: account.displayName, fullName: account.displayName } : {}),
+        ...(account.phone !== undefined ? { phone: account.phone } : {}),
+      };
+      if (Object.keys(userUpdates).length > 1) {
+        await setDoc(doc(db, 'users', user.uid), userUpdates, { merge: true });
+      }
+      if (account.displayName && account.displayName !== user.displayName) {
+        await updateProfile(user, { displayName: account.displayName });
+      }
+      return { success: true, data: { ...nextSettings, account: { ...account, email: user.email || '' } } };
+    } catch (error) {
+      console.error('Error saving alumni settings:', error);
+      return { success: false, error: error.message };
+    }
+  },
+  updateNotificationPreferences: async (preferences) => {
+    return alumniService.updateAlumniSettings({ notifications: preferences });
+  },
+  updateAppearancePreferences: async (preferences) => {
+    return alumniService.updateAlumniSettings({ appearance: preferences });
+  },
+  changePassword: async ({ currentPassword, newPassword }) => {
+    const user = auth.currentUser;
+    if (!user?.email) return { success: false, error: 'No email/password account is signed in' };
+    if (!user.providerData.some((provider) => provider.providerId === 'password')) {
+      return { success: false, error: 'This account does not use an email password. Change credentials with your sign-in provider.' };
+    }
+    if (!currentPassword || !newPassword || newPassword.length < 8) {
+      return { success: false, error: 'Enter your current password and a new password of at least 8 characters' };
+    }
+    try {
+      const credential = EmailAuthProvider.credential(user.email, currentPassword);
+      await reauthenticateWithCredential(user, credential);
+      await updatePassword(user, newPassword);
+      return { success: true };
+    } catch (error) {
+      console.error('Error changing alumni password:', error);
+      return { success: false, error: error.message };
+    }
+  },
+  getDataSummary: async () => {
+    const uid = auth.currentUser?.uid;
+    if (!uid) return { success: false, error: 'Not authenticated' };
+    try {
+      const ownedData = await getAlumniOwnedData(uid);
+      return {
+        success: true,
+        data: {
+          postsCount: ownedData.posts.length,
+          connectionsCount: ownedData.connections.length,
+          donationsCount: ownedData.donations.length,
+          storiesCount: ownedData.stories.length,
+        },
+      };
+    } catch (error) {
+      console.error('Error loading alumni data summary:', error);
+      return { success: false, error: error.message };
+    }
+  },
+  getMyDonations: async () => {
+    const uid = auth.currentUser?.uid;
+    if (!uid) return { success: false, error: 'Not authenticated', data: [] };
+    try {
+      const donations = (await getAlumniOwnedData(uid)).donations;
+      return { success: true, data: donations.sort((a, b) => {
+        const dateA = a.createdAt?.toDate?.() || new Date(a.createdAt || 0);
+        const dateB = b.createdAt?.toDate?.() || new Date(b.createdAt || 0);
+        return dateB - dateA;
+      }) };
+    } catch (error) {
+      return { success: false, error: error.message, data: [] };
+    }
+  },
+  exportMyData: async ({ format = 'json' } = {}) => {
+    const uid = auth.currentUser?.uid;
+    if (!uid) return { success: false, error: 'Not authenticated' };
+    if (!['json', 'csv'].includes(format)) {
+      return { success: false, error: 'Choose JSON or CSV export format' };
+    }
+    try {
+      const [profile, user, ownedData] = await Promise.all([
+        getDoc(doc(db, 'alumni', uid)),
+        getDoc(doc(db, 'users', uid)),
+        getAlumniOwnedData(uid),
+      ]);
+      const data = {
+        exportedAt: new Date().toISOString(),
+        profile: profile.exists() ? { id: profile.id, ...profile.data() } : {},
+        user: user.exists() ? { id: user.id, ...user.data() } : {},
+        ...ownedData,
+      };
+      const content =
+        format === 'json'
+          ? JSON.stringify(data, null, 2)
+          : [
+              'collection,documentId,data',
+              ...[['profile', uid, JSON.stringify(data.profile)], ['user', uid, JSON.stringify(data.user)]].map((row) => row.map((value) => `"${String(value).replace(/"/g, '""')}"`).join(',')),
+              ...Object.entries(ownedData).flatMap(([collectionName, records]) =>
+                records.map((record) =>
+                  [collectionName, record.id, JSON.stringify(record)]
+                    .map((value) => `"${String(value).replace(/"/g, '""')}"`)
+                    .join(',')
+                )
+              ),
+            ].join('\n');
+      const blob = new Blob([content], {
+        type: format === 'json' ? 'application/json' : 'text/csv',
+      });
+      return {
+        success: true,
+        data: {
+          url: URL.createObjectURL(blob),
+          filename: `career-connect-alumni-data-${new Date().toISOString().slice(0, 10)}.${format}`,
+        },
+      };
+    } catch (error) {
+      console.error('Error exporting alumni data:', error);
+      return { success: false, error: error.message };
+    }
+  },
+  updateAlumniPrivacy: async (privacy) => {
+    const uid = auth.currentUser?.uid;
+    if (!uid) return { success: false, error: 'Not authenticated' };
+    try { await setDoc(doc(db, 'alumni', uid), { privacy, updatedAt: Timestamp.now() }, { merge: true }); return { success: true, data: privacy }; }
+    catch (error) { return { success: false, error: error.message }; }
+  },
+  getLinkedSchools: async () => request('/api/alumni/schools'),
+  requestSchoolLink: async (school) => request('/api/alumni/schools', { method: 'POST', body: JSON.stringify(school) }),
+  unlinkSchool: async (schoolId) => request(`/api/alumni/schools/${encodeURIComponent(schoolId)}`, { method: 'DELETE' }),
+  getLeaderboard: async () => request('/api/alumni/dashboard/leaderboard'),
+
   // Dashboard Overview
   getOverview: async () => {
     const userId = auth.currentUser?.uid;
@@ -636,7 +1154,7 @@ export const alumniService = {
             suggestions.push({
               id: doc.id,
               name: alumniData.name,
-              photoURL: alumniData.photoURL,
+              photoURL: alumniData.photoURL || alumniData.profilePhoto || '',
               graduationYear: alumniData.graduationYear,
               industry: alumniData.industry,
               company: alumniData.company,
@@ -776,6 +1294,26 @@ export const alumniService = {
 
       return { success: true, data: events };
     } catch (error) {
+      if (error?.code === 'failed-precondition' || /index/i.test(error?.message || '')) {
+        try {
+          const fallbackSnapshot = await getDocs(collection(db, 'alumni_events'));
+          const events = fallbackSnapshot.docs
+            .map((doc) => ({ id: doc.id, ...doc.data() }))
+            .filter((event) => event.status === 'published' && (event.startDate?.toDate?.() || new Date(event.startDate)) >= new Date())
+            .sort((a, b) => {
+              const aDate = a.startDate?.toDate?.() || new Date(a.startDate);
+              const bDate = b.startDate?.toDate?.() || new Date(b.startDate);
+              return aDate - bDate;
+            })
+            .slice(0, 10);
+
+          return { success: true, data: events };
+        } catch (fallbackError) {
+          console.error('Error getting upcoming events with fallback:', fallbackError);
+          return { success: true, data: [] };
+        }
+      }
+
       console.error('Error getting upcoming events:', error);
       return { success: true, data: [] };
     }
@@ -835,7 +1373,7 @@ export const alumniService = {
           author: author.exists()
             ? {
                 name: author.data().name,
-                photoURL: author.data().photoURL,
+                photoURL: author.data().photoURL || author.data().profilePhoto || '',
                 graduationYear: author.data().graduationYear,
               }
             : null,
@@ -844,6 +1382,43 @@ export const alumniService = {
 
       return { success: true, data: stories };
     } catch (error) {
+      if (error?.code === 'failed-precondition' || /index/i.test(error?.message || '')) {
+        try {
+          const fallbackSnapshot = await getDocs(collection(db, 'alumni_stories'));
+          const stories = [];
+
+          for (const doc of fallbackSnapshot.docs) {
+            const storyData = doc.data();
+            if (storyData.status !== 'published') continue;
+
+            const author = storyData.authorId ? await getDoc(doc(db, 'alumni', storyData.authorId)) : null;
+
+            stories.push({
+              id: doc.id,
+              ...storyData,
+              author: author?.exists()
+                ? {
+                    name: author.data().name,
+                    photoURL: author.data().photoURL || author.data().profilePhoto || '',
+                    graduationYear: author.data().graduationYear,
+                  }
+                : null,
+            });
+          }
+
+          stories.sort((a, b) => {
+            const aDate = a.createdAt?.toDate?.() || new Date(a.createdAt || 0);
+            const bDate = b.createdAt?.toDate?.() || new Date(b.createdAt || 0);
+            return bDate - aDate;
+          });
+
+          return { success: true, data: stories.slice(0, 10) };
+        } catch (fallbackError) {
+          console.error('Error getting success stories with fallback:', fallbackError);
+          return { success: true, data: [] };
+        }
+      }
+
       console.error('Error getting success stories:', error);
       return { success: true, data: [] };
     }

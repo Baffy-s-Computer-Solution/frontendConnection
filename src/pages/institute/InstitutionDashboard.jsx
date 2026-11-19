@@ -13,44 +13,43 @@ import {
   Modal,
   OverlayTrigger,
   Tooltip,
-} from 'react-bootstrap';
+} from '../../components/ui/tailwindCompat';
 import {
-  PeopleFill,
-  BookFill,
-  ClockFill,
-  CashStack,
+  Users,
+  BookOpen,
+  Clock3,
+  WalletCards,
   PlusCircle,
-  Gear,
+  Settings,
   Wifi,
   ArrowUp,
   ArrowDown,
   Clock,
-  CalendarEvent,
-  Mortarboard,
-  CheckCircle,
-  StarFill,
-  Envelope,
+  CalendarDays,
+  GraduationCap,
+  CheckCircle2,
+  Star,
+  Mail,
   Calendar,
-  PersonCircle,
+  UserCircle2,
   Inbox,
   Bell,
-  BellSlash,
+  BellOff,
   X,
-  GeoAlt,
-  CalendarX,
+  MapPin,
+  CalendarX2,
   ClipboardCheck,
-  Cash,
-  PersonPlus,
-  ExclamationTriangle,
-  Chat,
-  GraphUp,
-  GraphDown,
-} from 'react-bootstrap-icons';
+  CircleDollarSign,
+  UserPlus,
+  TriangleAlert,
+  MessageSquareText,
+  TrendingUp,
+  TrendingDown,
+} from 'lucide-react';
 
 import { useAuth } from '../../context/AuthContext';
 import SocialDashboardSection from '../../components/social/SocialDashboardSection';
 import { institutionService } from '../../services/institutionServices';
-import './InstitutionDashboard.css';
 
 const InstitutionDashboard = () => {
   const { currentUser } = useAuth();
@@ -886,3 +885,5 @@ const InstitutionDashboard = () => {
 };
 
 export default InstitutionDashboard;
+
+

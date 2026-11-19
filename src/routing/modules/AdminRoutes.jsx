@@ -1,7 +1,8 @@
 import { lazy } from 'react';
-import { Route } from 'react-router-dom';
+import { Navigate, Route } from 'react-router-dom';
 
 import ProtectedRoute from '../../components/layout/ProtectedRoute';
+import StudentSettings from '../../pages/student/StudentSettings';
 
 // Lazy loaded admin components
 const AdminDashboard = lazy(() => import('../../pages/admin/AdminDashboard'));
@@ -12,7 +13,6 @@ const PendingApprovals = lazy(() => import('../../pages/admin/PendingApprovals')
 const SystemReports = lazy(() => import('../../pages/admin/SystemReports'));
 const SystemSettings = lazy(() => import('../../pages/admin/SystemSettings'));
 const AdminProfile = lazy(() => import('../../pages/admin/AdminProfile'));
-const AdminSettings = lazy(() => import('../../pages/admin/AdminSettings'));
 const AdminAudit = lazy(() => import('../../pages/admin/AdminAudit'));
 const AdminManagement = lazy(() => import('../../pages/admin/AdminManagement'));
 const AdmissionsManagement = lazy(() => import('../../pages/admin/AdmissionsManagement'));
@@ -25,6 +25,16 @@ const SearchApplications = lazy(() => import('../../pages/admin/SearchApplicatio
  * Contains all admin-specific routes (requires admin authentication)
  */
 export const getAdminRoutes = () => [
+  <Route
+    key="admin-root"
+    path="/admin"
+    element={
+      <ProtectedRoute allowedUserTypes={['admin']}>
+        <Navigate to="/admin/dashboard" replace />
+      </ProtectedRoute>
+    }
+  />,
+
   // Admin Dashboard
   <Route
     key="admin-dashboard"
@@ -114,7 +124,7 @@ export const getAdminRoutes = () => [
     path="/admin/settings"
     element={
       <ProtectedRoute allowedUserTypes={['admin']}>
-        <AdminSettings />
+        <SystemSettings />
       </ProtectedRoute>
     }
   />,
@@ -216,7 +226,7 @@ export const getAdminRoutes = () => [
     path="/adminsettings"
     element={
       <ProtectedRoute allowedUserTypes={['admin']}>
-        <AdminSettings />
+        <SystemSettings />
       </ProtectedRoute>
     }
   />,

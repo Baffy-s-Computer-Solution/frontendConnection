@@ -1,235 +1,72 @@
-import { Container, Row, Col, Card, Button, Badge } from 'react-bootstrap';
+import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
+import { ArrowRight, RefreshCw, Sparkles } from 'lucide-react';
+import { useStudent } from '../../context/StudentContext';
 
 const Recommendations = () => {
-  const jobRecommendations = [
-    {
-      id: 1,
-      title: 'Junior Software Developer',
-      company: 'Tech Solutions Lesotho',
-      match: 95,
-      skills: ['JavaScript', 'React', 'Node.js'],
-      location: 'Maseru',
-      type: 'full-time',
-      salary: 'M8,000 - M12,000',
-    },
-    {
-      id: 2,
-      title: 'Data Analyst Intern',
-      company: 'Basotho Bank',
-      match: 88,
-      skills: ['Excel', 'SQL', 'Data Visualization'],
-      location: 'Maseru',
-      type: 'internship',
-      salary: 'M5,000 - M7,000',
-    },
-    {
-      id: 3,
-      title: 'IT Support Specialist',
-      company: 'Lesotho Telecommunications',
-      match: 82,
-      skills: ['Networking', 'Hardware', 'Troubleshooting'],
-      location: 'Maseru',
-      type: 'full-time',
-      salary: 'M7,000 - M10,000',
-    },
-  ];
+  const { fetchRecommendedJobs } = useStudent();
+  const [jobs, setJobs] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  const courseRecommendations = [
-    {
-      id: 1,
-      title: 'Advanced JavaScript',
-      institution: 'Online Tech Academy',
-      duration: '6 weeks',
-      level: 'Intermediate',
-      match: 90,
-    },
-    {
-      id: 2,
-      title: 'Data Science Fundamentals',
-      institution: 'Coursera',
-      duration: '8 weeks',
-      level: 'Beginner',
-      match: 85,
-    },
-    {
-      id: 3,
-      title: 'Project Management',
-      institution: 'Lesotho College of Education',
-      duration: '12 weeks',
-      level: 'Intermediate',
-      match: 78,
-    },
-  ];
+  const loadRecommendations = async () => {
+    setLoading(true);
+    const result = await fetchRecommendedJobs?.();
+    setJobs(Array.isArray(result) ? result : []);
+    setLoading(false);
+  };
 
-  const skillRecommendations = [
-    {
-      skill: 'React Native',
-      importance: 'High',
-      reason: 'Required for 60% of mobile developer roles',
-      resources: 5,
-    },
-    {
-      skill: 'Python',
-      importance: 'Medium',
-      reason: 'Growing demand in data and automation roles',
-      resources: 8,
-    },
-    {
-      skill: 'Cloud Computing',
-      importance: 'High',
-      reason: 'Essential for modern IT infrastructure roles',
-      resources: 6,
-    },
-  ];
+  useEffect(() => {
+    loadRecommendations();
+  }, []);
 
   return (
-    <Container className="py-4">
-      <h2 className="mb-4">Personalized Recommendations</h2>
+    <main className="dashboard-page">
+      <section className="dashboard-hero">
+        <p className="dashboard-eyebrow">Personalised discovery</p>
+        <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
+          <div>
+            <h1 className="mt-2 text-3xl font-semibold">Recommendations</h1>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-brand-100">Opportunities are calculated from your profile, skills, preferences, and live listings.</p>
+          </div>
+          <button type="button" onClick={loadRecommendations} className="button button-glass" disabled={loading}>
+            <RefreshCw className={loading ? 'h-4 w-4 animate-spin' : 'h-4 w-4'} /> Refresh
+          </button>
+        </div>
+      </section>
 
-      <div className="mb-4">
-        <h4 className="mb-3">📊 Based on Your Profile & Activity</h4>
-        <Card className="shadow-sm">
-          <Card.Body>
-            <Row>
-              <Col md={4}>
-                <div className="text-center p-3">
-                  <h3 className="text-primary">95%</h3>
-                  <p className="text-muted mb-0">Profile Match Score</p>
-                </div>
-              </Col>
-              <Col md={4}>
-                <div className="text-center p-3">
-                  <h3 className="text-success">8</h3>
-                  <p className="text-muted mb-0">Skills Matched</p>
-                </div>
-              </Col>
-              <Col md={4}>
-                <div className="text-center p-3">
-                  <h3 className="text-warning">15</h3>
-                  <p className="text-muted mb-0">Opportunities Found</p>
-                </div>
-              </Col>
-            </Row>
-          </Card.Body>
-        </Card>
-      </div>
-
-      <Row className="mb-4">
-        <Col md={8}>
-          <Card className="shadow-sm h-100">
-            <Card.Body>
-              <Card.Title className="d-flex justify-content-between align-items-center">
-                <span>🎯 Top Job Recommendations</span>
-                <Badge bg="primary">{jobRecommendations.length} jobs</Badge>
-              </Card.Title>
-
-              {jobRecommendations.map((job) => (
-                <Card key={job.id} className="mb-3 border">
-                  <Card.Body>
-                    <div className="d-flex justify-content-between align-items-start">
-                      <div>
-                        <h5 className="mb-1">{job.title}</h5>
-                        <p className="text-muted mb-2">
-                          {job.company} • {job.location}
-                        </p>
-                        <div className="mb-2">
-                          {job.skills.map((skill, index) => (
-                            <Badge key={index} bg="light" text="dark" className="me-1">
-                              {skill}
-                            </Badge>
-                          ))}
-                        </div>
-                        <p className="mb-0">
-                          <i className="bi bi-cash me-1"></i>
-                          {job.salary} •<i className="bi bi-briefcase ms-2 me-1"></i>
-                          {job.type}
-                        </p>
-                      </div>
-                      <div className="text-end">
-                        <div className="mb-2">
-                          <Badge bg="success">{job.match}% Match</Badge>
-                        </div>
-                        <Button variant="primary" size="sm">
-                          Apply Now
-                        </Button>
-                      </div>
-                    </div>
-                  </Card.Body>
-                </Card>
-              ))}
-            </Card.Body>
-          </Card>
-        </Col>
-
-        <Col md={4}>
-          <Card className="shadow-sm h-100">
-            <Card.Body>
-              <Card.Title>📚 Course Recommendations</Card.Title>
-              {courseRecommendations.map((course) => (
-                <div key={course.id} className="mb-3 pb-3 border-bottom">
-                  <h6 className="mb-1">{course.title}</h6>
-                  <p className="text-muted small mb-2">{course.institution}</p>
-                  <div className="d-flex justify-content-between align-items-center">
-                    <div>
-                      <Badge bg="info" className="me-2">
-                        {course.level}
-                      </Badge>
-                      <Badge bg="light" text="dark">
-                        {course.duration}
-                      </Badge>
-                    </div>
-                    <Badge bg="success">{course.match}%</Badge>
+      <section className="mt-6">
+        {loading && <div className="dashboard-empty">Finding live opportunities for your profile...</div>}
+        {!loading && jobs.length === 0 && (
+          <div className="dashboard-empty">
+            <Sparkles className="mx-auto h-8 w-8 text-brand-500" />
+            <p className="mt-3 font-medium text-slate-700 dark:text-slate-200">No recommendations yet</p>
+            <p className="mt-1">Complete your profile or browse current jobs to improve matching.</p>
+            <Link to="/student/jobs" className="button button-primary mt-5">Browse jobs <ArrowRight className="h-4 w-4" /></Link>
+          </div>
+        )}
+        <div className="grid gap-4 lg:grid-cols-2">
+          {jobs.map((job) => {
+            const details = job.jobDetails || job;
+            return (
+              <article key={job.id} className="dashboard-card">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">{details.title || 'Opportunity'}</h2>
+                    <p className="mt-1 text-sm text-slate-500">{details.company || details.companyName || 'Employer details available'}{details.location ? ` · ${details.location}` : ''}</p>
                   </div>
+                  {job.matchScore != null && <span className="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-700">{job.matchScore}% match</span>}
                 </div>
-              ))}
-              <Button variant="outline-primary" className="w-100 mt-2">
-                View All Courses
-              </Button>
-            </Card.Body>
-          </Card>
-        </Col>
-      </Row>
-
-      <Card className="shadow-sm">
-        <Card.Body>
-          <Card.Title>🛠️ Skill Development Recommendations</Card.Title>
-          <p className="text-muted">Skills to learn based on market demand</p>
-
-          <Row>
-            {skillRecommendations.map((skill, index) => (
-              <Col md={4} key={index}>
-                <Card className="h-100 border">
-                  <Card.Body>
-                    <h5 className="mb-2">{skill.skill}</h5>
-                    <Badge bg={skill.importance === 'High' ? 'danger' : 'warning'} className="mb-3">
-                      {skill.importance} Priority
-                    </Badge>
-                    <p className="small mb-3">{skill.reason}</p>
-                    <div className="d-flex justify-content-between align-items-center">
-                      <span className="small">{skill.resources} learning resources</span>
-                      <Button variant="outline-info" size="sm">
-                        Explore
-                      </Button>
-                    </div>
-                  </Card.Body>
-                </Card>
-              </Col>
-            ))}
-          </Row>
-        </Card.Body>
-      </Card>
-
-      <div className="mt-4 text-center">
-        <Button variant="primary" size="lg" className="me-3">
-          <i className="bi bi-arrow-repeat me-2"></i>
-          Refresh Recommendations
-        </Button>
-        <Button variant="outline-secondary" size="lg">
-          <i className="bi bi-gear me-2"></i>
-          Adjust Preferences
-        </Button>
-      </div>
-    </Container>
+                <div className="mt-5 flex flex-wrap gap-2 text-xs text-slate-600 dark:text-slate-300">
+                  {details.jobType && <span className="rounded-full bg-slate-100 px-3 py-1 dark:bg-slate-800">{details.jobType}</span>}
+                  {details.salary && <span className="rounded-full bg-slate-100 px-3 py-1 dark:bg-slate-800">{details.salary}</span>}
+                </div>
+                <Link to={`/student/jobs/apply/${job.id}`} className="button button-primary mt-5">View opportunity <ArrowRight className="h-4 w-4" /></Link>
+              </article>
+            );
+          })}
+        </div>
+      </section>
+    </main>
   );
 };
 

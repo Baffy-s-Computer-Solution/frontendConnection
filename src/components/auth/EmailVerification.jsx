@@ -1,51 +1,17 @@
-/* eslint-disable no-unused-vars */
-import { useState, useEffect } from 'react';
-import {
-  Container,
-  Paper,
-  Typography,
-  Button,
-  Box,
-  Alert,
-  CircularProgress,
-  Link,
-  Stepper,
-  Step,
-  StepLabel,
-  StepContent,
-  Fade,
-} from '@mui/material';
-import { styled } from '@mui/material/styles';
+import { useEffect, useState } from 'react';
+import { AlertCircle, CheckCircle2, Clock3, Mail, MailCheck, RefreshCw } from 'lucide-react';
 import { sendEmailVerification, applyActionCode, checkActionCode } from 'firebase/auth';
 import { useNavigate, useLocation } from 'react-router-dom';
-import {
-  Email as EmailIcon,
-  CheckCircle as CheckCircleIcon,
-  Error as ErrorIcon,
-  Refresh as RefreshIcon,
-  ArrowBack as ArrowBackIcon,
-  MarkEmailRead as MarkEmailReadIcon,
-} from '@mui/icons-material';
-
 import { auth } from '../../config/firebase';
+import Button from '../ui/Button';
 
-const StyledPaper = styled(Paper)(({ theme }) => ({
-  marginTop: theme.spacing(8),
-  padding: theme.spacing(4),
-  display: 'flex',
-  flexDirection: 'column',
-  alignItems: 'center',
-  borderRadius: theme.spacing(2),
-  boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
-}));
+const steps = [
+  ['Check your inbox', 'Look for an email from us in your inbox. It might take a few minutes to arrive.'],
+  ['Click the verification link', 'Click the link in the email to verify your email address. This link expires in 24 hours.'],
+  ['Return to this page', 'After clicking the link, return here and click "I\'ve Verified" to continue.'],
+];
 
-const VerificationSteps = styled(Box)(({ theme }) => ({
-  width: '100%',
-  marginTop: theme.spacing(3),
-  marginBottom: theme.spacing(3),
-}));
-
-const EmailVerification = () => {
+export default function EmailVerification() {
   const [loading, setLoading] = useState(false);
   const [verifying, setVerifying] = useState(false);
   const [error, setError] = useState('');
@@ -53,69 +19,45 @@ const EmailVerification = () => {
   const [emailSent, setEmailSent] = useState(false);
   const [countdown, setCountdown] = useState(0);
   const [userEmail, setUserEmail] = useState('');
-
   const navigate = useNavigate();
   const location = useLocation();
 
   useEffect(() => {
-    // Check if we have an oobCode for verification
     const queryParams = new URLSearchParams(location.search);
     const oobCode = queryParams.get('oobCode');
     const mode = queryParams.get('mode');
-
     if (oobCode && mode === 'verifyEmail') {
       handleVerification(oobCode);
     } else {
-      // Get current user email
       const user = auth.currentUser;
       if (user) {
-        setUserEmail(user.email);
-        // Check if already verified
-        if (user.emailVerified) {
-          setSuccess(true);
-        }
+        setUserEmail(user.email || '');
+        if (user.emailVerified) setSuccess(true);
       }
     }
   }, [location]);
 
   useEffect(() => {
-    let timer;
-    if (countdown > 0) {
-      timer = setTimeout(() => setCountdown(countdown - 1), 1000);
-    }
+    if (countdown <= 0) return undefined;
+    const timer = setTimeout(() => setCountdown((value) => value - 1), 1000);
     return () => clearTimeout(timer);
   }, [countdown]);
 
   const handleVerification = async (oobCode) => {
     setVerifying(true);
     setError('');
-
     try {
-      // Apply the email verification code
       await applyActionCode(auth, oobCode);
-
-      // Reload user to get updated emailVerified status
       await auth.currentUser.reload();
-
       setSuccess(true);
-
-      // Log successful verification
-      console.log('Email verified successfully for:', auth.currentUser?.email);
-    } catch (err) {
-      console.error('Verification error:', err);
-
+    } catch (verificationError) {
       try {
-        // Check if the code is still valid
         await checkActionCode(auth, oobCode);
         setError('Failed to verify email. Please try again.');
-      } catch (checkErr) {
-        if (checkErr.code === 'auth/expired-action-code') {
-          setError('The verification link has expired. Please request a new one.');
-        } else if (checkErr.code === 'auth/invalid-action-code') {
-          setError('The verification link is invalid. Please request a new one.');
-        } else {
-          setError('Failed to verify email. Please request a new verification link.');
-        }
+      } catch (checkError) {
+        if (checkError.code === 'auth/expired-action-code') setError('The verification link has expired. Please request a new one.');
+        else if (checkError.code === 'auth/invalid-action-code') setError('The verification link is invalid. Please request a new one.');
+        else setError('Failed to verify email. Please request a new verification link.');
       }
     } finally {
       setVerifying(false);
@@ -124,44 +66,18 @@ const EmailVerification = () => {
 
   const handleSendVerification = async () => {
     const user = auth.currentUser;
-
-    if (!user) {
-      setError('No user logged in');
-      return;
-    }
-
-    if (user.emailVerified) {
-      setSuccess(true);
-      return;
-    }
-
+    if (!user) { setError('No user logged in'); return; }
+    if (user.emailVerified) { setSuccess(true); return; }
     setLoading(true);
     setError('');
-
     try {
-      await sendEmailVerification(user, {
-        url: `${window.location.origin}/email-verified`,
-        handleCodeInApp: true,
-      });
-
+      await sendEmailVerification(user, { url: `${window.location.origin}/email-verified`, handleCodeInApp: true });
       setEmailSent(true);
-      setCountdown(60); // 60 second cooldown
-
-      // Log verification email sent
-      console.log('Verification email sent to:', user.email);
-    } catch (err) {
-      console.error('Send verification error:', err);
-
-      switch (err.code) {
-        case 'auth/too-many-requests':
-          setError('Too many requests. Please try again later.');
-          break;
-        case 'auth/network-request-failed':
-          setError('Network error. Please check your connection.');
-          break;
-        default:
-          setError('Failed to send verification email. Please try again.');
-      }
+      setCountdown(60);
+    } catch (sendError) {
+      if (sendError.code === 'auth/too-many-requests') setError('Too many requests. Please try again later.');
+      else if (sendError.code === 'auth/network-request-failed') setError('Network error. Please check your connection.');
+      else setError('Failed to send verification email. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -169,13 +85,10 @@ const EmailVerification = () => {
 
   const handleRefreshStatus = async () => {
     setLoading(true);
-
     try {
       await auth.currentUser.reload();
-      if (auth.currentUser.emailVerified) {
-        setSuccess(true);
-      }
-    } catch (err) {
+      if (auth.currentUser.emailVerified) setSuccess(true);
+    } catch {
       setError('Failed to refresh status');
     } finally {
       setLoading(false);
@@ -187,193 +100,11 @@ const EmailVerification = () => {
     navigate('/login');
   };
 
-  if (verifying) {
-    return (
-      <Container component="main" maxWidth="sm">
-        <StyledPaper>
-          <CircularProgress size={60} thickness={4} />
-          <Typography variant="h6" sx={{ mt: 3 }}>
-            Verifying your email...
-          </Typography>
-        </StyledPaper>
-      </Container>
-    );
-  }
+  if (verifying) return <main className="flex min-h-screen items-center justify-center bg-slate-50 px-4 dark:bg-slate-950"><section className="w-full max-w-lg rounded-2xl border bg-white p-10 text-center shadow-pop dark:bg-slate-900"><RefreshCw className="mx-auto h-14 w-14 animate-spin text-brand-600" aria-label="Verifying" /><h1 className="mt-6 text-xl font-semibold text-slate-900 dark:text-slate-100">Verifying your email...</h1></section></main>;
 
-  return (
-    <Container component="main" maxWidth="sm">
-      <StyledPaper>
-        <Box sx={{ textAlign: 'center', mb: 3 }}>
-          {success ? (
-            <MarkEmailReadIcon color="success" sx={{ fontSize: 64 }} />
-          ) : (
-            <EmailIcon color="primary" sx={{ fontSize: 64 }} />
-          )}
-        </Box>
-
-        <Typography component="h1" variant="h4" gutterBottom fontWeight="600">
-          {success ? 'Email Verified!' : 'Verify Your Email'}
-        </Typography>
-
-        {userEmail && !success && (
-          <Typography variant="body1" color="text.secondary" align="center">
-            We've sent a verification email to <strong>{userEmail}</strong>
-          </Typography>
-        )}
-
-        {error && (
-          <Alert
-            severity="error"
-            sx={{ width: '100%', mt: 2 }}
-            onClose={() => setError('')}
-            icon={<ErrorIcon />}
-          >
-            {error}
-          </Alert>
-        )}
-
-        {success ? (
-          <Fade in={success}>
-            <Box sx={{ width: '100%', textAlign: 'center', mt: 2 }}>
-              <Alert severity="success" sx={{ mb: 3 }}>
-                Your email has been successfully verified!
-              </Alert>
-
-              <Typography variant="body2" paragraph>
-                You now have full access to all features of your account.
-              </Typography>
-
-              <Box sx={{ mt: 3, display: 'flex', gap: 2, justifyContent: 'center' }}>
-                <Button variant="contained" onClick={() => navigate('/dashboard')} size="large">
-                  Go to Dashboard
-                </Button>
-
-                <Button variant="outlined" onClick={() => navigate('/profile')}>
-                  Complete Profile
-                </Button>
-              </Box>
-            </Box>
-          </Fade>
-        ) : (
-          <>
-            <VerificationSteps>
-              <Stepper orientation="vertical" activeStep={emailSent ? 1 : 0}>
-                <Step>
-                  <StepLabel>Check your inbox</StepLabel>
-                  <StepContent>
-                    <Typography variant="body2">
-                      Look for an email from us in your inbox. It might take a few minutes to
-                      arrive.
-                    </Typography>
-                  </StepContent>
-                </Step>
-                <Step>
-                  <StepLabel>Click the verification link</StepLabel>
-                  <StepContent>
-                    <Typography variant="body2">
-                      Click the link in the email to verify your email address. This link expires in
-                      24 hours.
-                    </Typography>
-                  </StepContent>
-                </Step>
-                <Step>
-                  <StepLabel>Return to this page</StepLabel>
-                  <StepContent>
-                    <Typography variant="body2">
-                      After clicking the link, return here and click "I've Verified" to continue.
-                    </Typography>
-                  </StepContent>
-                </Step>
-              </Stepper>
-            </VerificationSteps>
-
-            <Box sx={{ width: '100%', mt: 2 }}>
-              {!emailSent ? (
-                <Button
-                  fullWidth
-                  variant="contained"
-                  size="large"
-                  onClick={handleSendVerification}
-                  disabled={loading}
-                  sx={{ py: 1.5 }}
-                >
-                  {loading ? <CircularProgress size={24} /> : 'Send Verification Email'}
-                </Button>
-              ) : (
-                <Button
-                  fullWidth
-                  variant="contained"
-                  size="large"
-                  onClick={handleRefreshStatus}
-                  disabled={loading || countdown > 0}
-                  startIcon={<RefreshIcon />}
-                  sx={{ py: 1.5 }}
-                >
-                  {loading ? <CircularProgress size={24} /> : "I've Verified My Email"}
-                </Button>
-              )}
-
-              {countdown > 0 && (
-                <Typography
-                  variant="caption"
-                  color="text.secondary"
-                  sx={{ display: 'block', textAlign: 'center', mt: 1 }}
-                >
-                  You can request another email in {countdown} seconds
-                </Typography>
-              )}
-
-              <Box sx={{ mt: 3, display: 'flex', justifyContent: 'space-between' }}>
-                <Link
-                  component="button"
-                  variant="body2"
-                  onClick={() => navigate(-1)}
-                  sx={{ cursor: 'pointer' }}
-                >
-                  ← Go Back
-                </Link>
-
-                <Link
-                  component="button"
-                  variant="body2"
-                  onClick={handleLogout}
-                  sx={{ cursor: 'pointer' }}
-                >
-                  Logout
-                </Link>
-              </Box>
-            </Box>
-
-            {emailSent && (
-              <Box sx={{ mt: 4, width: '100%', p: 2, bgcolor: 'grey.50', borderRadius: 2 }}>
-                <Typography variant="subtitle2" gutterBottom>
-                  Didn't receive the email?
-                </Typography>
-                <Typography variant="body2" color="text.secondary" paragraph>
-                  • Check your spam or junk folder
-                </Typography>
-                <Typography variant="body2" color="text.secondary" paragraph>
-                  • Make sure {userEmail} is the correct email address
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  •{' '}
-                  <Link
-                    component="button"
-                    variant="body2"
-                    onClick={handleSendVerification}
-                    disabled={countdown > 0}
-                    sx={{ cursor: countdown > 0 ? 'not-allowed' : 'pointer' }}
-                  >
-                    Click here to resend verification email
-                  </Link>
-                </Typography>
-              </Box>
-            )}
-          </>
-        )}
-      </StyledPaper>
-    </Container>
-  );
-};
-
-export default EmailVerification;
+  return <main className="flex min-h-screen items-center justify-center bg-slate-50 px-4 py-12 dark:bg-slate-950"><section className="w-full max-w-lg rounded-2xl border bg-white p-6 shadow-pop dark:bg-slate-900 sm:p-10">
+    <div className="text-center"><div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-brand-50 text-brand-600 dark:bg-brand-950 dark:text-brand-300">{success ? <MailCheck className="h-8 w-8" /> : <Mail className="h-8 w-8" />}</div><h1 className="mt-5 text-3xl font-semibold tracking-tight text-slate-900 dark:text-slate-100">{success ? 'Email Verified!' : 'Verify Your Email'}</h1>{userEmail && !success && <p className="mt-3 text-sm text-slate-500">We've sent a verification email to <strong className="text-slate-700 dark:text-slate-300">{userEmail}</strong></p>}</div>
+    {error && <div className="mt-5 flex items-start gap-3 rounded-lg border border-danger/20 bg-danger-light p-4 text-sm text-danger-dark" role="alert"><AlertCircle className="mt-0.5 h-5 w-5 shrink-0" /><span className="flex-1">{error}</span><button type="button" onClick={() => setError('')} aria-label="Dismiss error">&times;</button></div>}
+    {success ? <div className="mt-6 text-center"><div className="rounded-lg border border-success/20 bg-success-light p-4 text-sm text-success-dark"><CheckCircle2 className="mx-auto mb-2 h-6 w-6" />Your email has been successfully verified!</div><p className="mt-4 text-sm text-slate-600 dark:text-slate-300">You now have full access to all features of your account.</p><div className="mt-6 flex flex-col gap-2 sm:flex-row sm:justify-center"><Button variant="primary" size="lg" onClick={() => navigate('/dashboard')}>Go to Dashboard</Button><Button variant="outline" onClick={() => navigate('/profile')}>Complete Profile</Button></div></div> : <><ol className="mt-8 space-y-5">{steps.map(([title, description], index) => <li key={title} className="flex gap-3"><span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-semibold ${emailSent && index === 0 ? 'bg-success text-white' : index === 0 ? 'bg-brand-600 text-white' : 'bg-slate-100 text-slate-500 dark:bg-slate-800'}`}>{emailSent && index === 0 ? <CheckCircle2 className="h-4 w-4" /> : index + 1}</span><div><h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">{title}</h2><p className="mt-1 text-sm leading-6 text-slate-500">{description}</p></div></li>)}</ol><div className="mt-8">{!emailSent ? <Button fullWidth variant="primary" size="lg" onClick={handleSendVerification} loading={loading}>Send Verification Email</Button> : <Button fullWidth variant="primary" size="lg" onClick={handleRefreshStatus} disabled={loading || countdown > 0} loading={loading} leadingIcon={RefreshCw}>I've Verified My Email</Button>}{countdown > 0 && <p className="mt-2 text-center text-xs text-slate-500">You can request another email in {countdown} seconds</p>}</div><div className="mt-6 flex justify-between border-t pt-5 text-sm"><button type="button" onClick={() => navigate(-1)} className="text-brand-600 hover:text-brand-700">&larr; Go Back</button><button type="button" onClick={handleLogout} className="text-brand-600 hover:text-brand-700">Logout</button></div>{emailSent && <div className="mt-6 rounded-lg bg-slate-50 p-4 text-sm dark:bg-slate-800/60"><h2 className="font-semibold text-slate-900 dark:text-slate-100">Didn't receive the email?</h2><ul className="mt-2 space-y-1 text-xs leading-5 text-slate-500"><li>Check your spam or junk folder</li><li>Make sure {userEmail} is the correct email address</li><li><button type="button" onClick={handleSendVerification} disabled={countdown > 0} className="font-medium text-brand-600 disabled:opacity-50">Click here to resend verification email</button></li></ul></div>}</>}
+  </section></main>;
+}

@@ -17,6 +17,7 @@ import {
   increment,
   limit,
   orderBy,
+  onSnapshot,
   persistentLocalCache,
   persistentMultipleTabManager,
   query,
@@ -27,15 +28,28 @@ import {
   where,
   writeBatch,
 } from 'firebase/firestore';
-import { deleteObject, getDownloadURL, getStorage, ref, uploadBytes } from 'firebase/storage';
+import { getDatabase } from 'firebase/database';
+import {
+  deleteObject,
+  getDownloadURL,
+  getStorage,
+  ref,
+  uploadBytes,
+  uploadString,
+  uploadBytesResumable,
+  listAll,
+  getMetadata,
+} from '../services/cloudinaryStorageCompat';
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
   authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
   projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
   messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
   appId: import.meta.env.VITE_FIREBASE_APP_ID,
+  databaseURL:
+    import.meta.env.VITE_FIREBASE_DATABASE_URL ||
+    'https://career-connect-lesotho-default-rtdb.firebaseio.com',
 };
 
 const validateConfig = () => {
@@ -43,7 +57,6 @@ const validateConfig = () => {
     'apiKey',
     'authDomain',
     'projectId',
-    'storageBucket',
     'messagingSenderId',
     'appId',
   ];
@@ -135,6 +148,7 @@ googleProvider.setCustomParameters({
 console.log('Google Auth Provider configured');
 
 const db = getFirestore(app);
+const database = getDatabase(app);
 
 if (typeof window !== 'undefined') {
   try {
@@ -152,7 +166,7 @@ if (typeof window !== 'undefined') {
   }
 }
 
-const storage = getStorage(app);
+const storage = getStorage();
 
 let analytics = null;
 if (typeof window !== 'undefined') {
@@ -190,6 +204,7 @@ export {
   auth,
   collection,
   db,
+  database,
   deleteDoc,
   deleteObject,
   doc,
@@ -200,6 +215,7 @@ export {
   increment,
   limit,
   orderBy,
+  onSnapshot,
   query,
   // Storage exports
   ref,
@@ -210,8 +226,12 @@ export {
   Timestamp,
   updateDoc,
   uploadBytes,
+  uploadBytesResumable,
+  uploadString,
+  listAll,
+  getMetadata,
   where,
-  writeBatch
+  writeBatch,
 };
 
 export default app;

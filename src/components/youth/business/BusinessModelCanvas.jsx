@@ -8,7 +8,6 @@ import { useNotifications } from '../../../hooks/useNotifications';
 import businessService from '../../../services/businessService'; // Changed to default import
 import { trackEvent } from '../../../utils/analytics';
 import { logger } from '../../../utils/logger';
-import './BusinessModelCanvas.css';
 
 /**
  * BusinessModelCanvas Component

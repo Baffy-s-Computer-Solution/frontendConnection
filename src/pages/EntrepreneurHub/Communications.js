@@ -1,2 +1,1 @@
-import Communications from './Communications';
-export default Communications;
+export { default } from "./Communications.jsx";

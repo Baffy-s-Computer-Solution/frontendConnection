@@ -23,7 +23,7 @@ export const COLOR_SCHEMES = {
 
 // Initial state
 const initialState = {
-  theme: THEMES.SYSTEM,
+  theme: THEMES.LIGHT,
   colorScheme: COLOR_SCHEMES.DEFAULT,
   fontSize: 'medium', // small, medium, large
   reducedMotion: false,
@@ -31,15 +31,32 @@ const initialState = {
   customColors: {},
 };
 
+const getSystemTheme = () => {
+  if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
+    return THEMES.LIGHT;
+  }
+
+  try {
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    return mediaQuery && typeof mediaQuery.matches === 'boolean'
+      ? mediaQuery.matches ? THEMES.DARK : THEMES.LIGHT
+      : THEMES.LIGHT;
+  } catch (error) {
+    logger.error('Failed to read system theme preference:', error);
+    return THEMES.LIGHT;
+  }
+};
+
 // Context provider component
-export const ThemeProvider = ({ children, defaultTheme = THEMES.SYSTEM }) => {
+export const ThemeProvider = ({ children, defaultTheme = THEMES.LIGHT }) => {
   const [state, setState] = useState(() => {
     try {
-      // Load saved theme from localStorage
-      const savedTheme = localStorage.getItem('theme_preferences');
-      if (savedTheme) {
-        const parsed = JSON.parse(savedTheme);
-        return { ...initialState, ...parsed };
+      if (typeof localStorage !== 'undefined') {
+        const savedTheme = localStorage.getItem('theme_preferences');
+        if (savedTheme) {
+          const parsed = JSON.parse(savedTheme);
+          return { ...initialState, ...parsed };
+        }
       }
     } catch (error) {
       logger.error('Failed to load theme preferences:', error);
@@ -47,24 +64,45 @@ export const ThemeProvider = ({ children, defaultTheme = THEMES.SYSTEM }) => {
     return { ...initialState, theme: defaultTheme };
   });
 
-  const [systemTheme, setSystemTheme] = useState(
-    window.matchMedia('(prefers-color-scheme: dark)').matches ? THEMES.DARK : THEMES.LIGHT
-  );
+  const [systemTheme, setSystemTheme] = useState(getSystemTheme);
 
   // Listen for system theme changes
   useEffect(() => {
-    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
+      return undefined;
+    }
+
+    let mediaQuery;
+    try {
+      mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    } catch (error) {
+      logger.error('Failed to subscribe to system theme changes:', error);
+      return undefined;
+    }
+
+    if (!mediaQuery || typeof mediaQuery.matches !== 'boolean') {
+      return undefined;
+    }
 
     const handleChange = (e) => {
       setSystemTheme(e.matches ? THEMES.DARK : THEMES.LIGHT);
     };
 
-    mediaQuery.addEventListener('change', handleChange);
-    return () => mediaQuery.removeEventListener('change', handleChange);
+    if (typeof mediaQuery.addEventListener === 'function') {
+      mediaQuery.addEventListener('change', handleChange);
+      return () => mediaQuery.removeEventListener('change', handleChange);
+    }
+
+    mediaQuery.addListener(handleChange);
+    return () => mediaQuery.removeListener(handleChange);
   }, []);
 
   // Apply theme to document
   useEffect(() => {
+    if (typeof document === 'undefined') {
+      return;
+    }
+
     const root = document.documentElement;
     const activeTheme = state.theme === THEMES.SYSTEM ? systemTheme : state.theme;
 

@@ -8,7 +8,6 @@ import {
   doc,
   getDoc,
   getDocs,
-  increment,
   limit,
   orderBy,
   query,
@@ -19,20 +18,28 @@ import {
   where,
   writeBatch,
 } from 'firebase/firestore';
-import { getDownloadURL, ref, uploadBytes } from 'firebase/storage';
+import { auth, db } from '../config/firebase';
+import supabaseService from './supabaseService';
 
-import { auth, db, storage } from '../config/firebase';
+const fileToDataUrl = (file) => new Promise((resolve, reject) => {
+  const reader = new FileReader();
+  reader.onload = () => resolve(reader.result);
+  reader.onerror = () => reject(new Error('Unable to read selected media'));
+  reader.readAsDataURL(file);
+});
 
 // Helper function to upload multiple media files
 async function uploadMultipleMedia(files, userId, folder) {
   const urls = [];
   for (const file of files) {
-    const fileExt = file.name.split('.').pop();
-    const fileName = `${folder}/${userId}/${Date.now()}_${Math.random().toString(36).substr(2, 9)}.${fileExt}`;
-    const storageRef = ref(storage, fileName);
-
-    await uploadBytes(storageRef, file);
-    const url = await getDownloadURL(storageRef);
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type) || file.size > 5 * 1024 * 1024) {
+      throw new Error('Media must be a JPG, PNG, or WEBP image under 5MB');
+    }
+    const extension = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' }[file.type];
+    const objectPath = `alumni/${userId}/${folder}/${Date.now()}-${Math.random().toString(36).slice(2, 10)}.${extension}`;
+    const uploaded = await supabaseService.uploadBase64({ path: objectPath, file: await fileToDataUrl(file), contentType: file.type });
+    const url = uploaded?.publicUrl || uploaded?.data?.publicUrl || uploaded?.data?.url;
+    if (!uploaded?.success || !url) throw new Error(uploaded?.error || 'Supabase media upload failed');
     urls.push(url);
   }
   return urls;
@@ -40,7 +47,7 @@ async function uploadMultipleMedia(files, userId, folder) {
 
 // Helper function to get post comments
 async function getPostComments(postId, limitCount = 10) {
-  const postRef = doc(db, 'alumni_posts', postId);
+  const postRef = doc(db, 'social_posts', postId);
   const postSnap = await getDoc(postRef);
   const postData = postSnap.data();
   const comments = postData?.comments || [];
@@ -82,35 +89,44 @@ export const alumniSocialService = {
         mediaUrls = await uploadMultipleMedia(postData.mediaFiles, userId, 'posts');
       }
 
+      const author = {
+        id: userId,
+        name: userData.displayName || userData.fullName || userData.name || auth.currentUser.displayName || 'Alumni',
+        role: 'alumni',
+        avatar: userData.photoURL || userData.profilePhoto || null,
+        headline: userData.position || userData.title || 'Alumni',
+      };
       const post = {
-        userId: userId,
-        authorName: userData.name || auth.currentUser.displayName || 'Alumni',
-        authorPhoto: userData.photoURL || null,
-        authorTitle: userData.position || userData.title || 'Alumni',
+        authorId: userId,
+        author,
+        userId,
+        authorName: author.name,
+        authorPhoto: author.avatar,
+        authorTitle: author.headline,
         authorCompany: userData.company || '',
         content: postData.content || '',
-        media: mediaUrls,
+        media: mediaUrls.map((url) => ({ url, type: 'image' })),
         mediaType: postData.mediaType || 'image',
         type: postData.type || 'post',
         privacy: postData.privacy || 'public',
+        visibility: postData.privacy || 'public',
         likes: [],
+        likedBy: [],
         likesCount: 0,
+        likeCount: 0,
         comments: [],
         commentsCount: 0,
+        commentCount: 0,
         shares: 0,
         sharesCount: 0,
+        shareCount: 0,
         tags: postData.tags || [],
         location: postData.location || null,
         createdAt: Timestamp.now(),
         updatedAt: Timestamp.now(),
       };
 
-      const docRef = await addDoc(collection(db, 'alumni_posts'), post);
-
-      await updateDoc(userRef, {
-        postsCount: increment(1),
-        lastPostAt: Timestamp.now(),
-      });
+      const docRef = await addDoc(collection(db, 'social_posts'), post);
 
       return { success: true, data: { id: docRef.id, ...post } };
     } catch (error) {
@@ -120,16 +136,15 @@ export const alumniSocialService = {
   },
 
   // Get feed posts
-  getFeed: async (lastDoc = null, pageSize = 10, filter = 'all') => {
+  getFeed: async (lastDoc = null, pageSize = 10, filter = 'all', sort = 'latest') => {
     const userId = auth.currentUser?.uid;
     if (!userId) throw new Error('Not authenticated');
 
     try {
       let postsQuery = query(
         collection(db, 'alumni_posts'),
-        where('privacy', '==', 'public'),
         orderBy('createdAt', 'desc'),
-        limit(pageSize)
+        limit(pageSize * 2)
       );
 
       if (lastDoc) {
@@ -142,22 +157,46 @@ export const alumniSocialService = {
 
       for (const doc of snapshot.docs) {
         const postData = doc.data();
-        const isLiked = postData.likes?.includes(userId) || false;
+        const isLiked = postData.likes?.includes(userId) || postData.likedBy?.includes(userId) || false;
 
         posts.push({
           id: doc.id,
           ...postData,
           isLiked: isLiked,
-          likeCount: postData.likesCount || postData.likes?.length || 0,
-          commentsCount: postData.commentsCount || postData.comments?.length || 0,
+          likeCount: postData.likeCount ?? postData.likesCount ?? postData.likedBy?.length ?? postData.likes?.length ?? 0,
+          commentsCount: postData.commentCount ?? postData.commentsCount ?? postData.comments?.length ?? 0,
         });
       }
 
+      const [outgoingConnections, incomingConnections] = await Promise.all([
+        getDocs(query(collection(db, 'alumni_connections'), where('userId', '==', userId))),
+        getDocs(query(collection(db, 'alumni_connections'), where('connectedUserId', '==', userId))),
+      ]);
+      const connectedIds = new Set();
+      outgoingConnections.docs.forEach((item) => {
+        const connection = item.data();
+        if (connection.status === 'connected') connectedIds.add(connection.connectedUserId);
+      });
+      incomingConnections.docs.forEach((item) => {
+        const connection = item.data();
+        if (connection.status === 'connected') connectedIds.add(connection.userId);
+      });
+      const visiblePosts = posts.filter((post) => {
+        const privacy = post.privacy || post.visibility || 'public';
+        const visible = privacy === 'public' || post.userId === userId ||
+          (privacy === 'connections' && connectedIds.has(post.userId));
+        return visible && (filter !== 'connections' || connectedIds.has(post.userId) || post.userId === userId);
+      });
+      if (filter === 'trending' || sort === 'trending' || sort === 'popular') {
+        visiblePosts.sort((a, b) => (b.likeCount || 0) - (a.likeCount || 0));
+      }
+      const data = visiblePosts.slice(0, pageSize);
+
       return {
         success: true,
-        data: posts,
+        data,
         lastDoc: lastVisible,
-        hasMore: snapshot.docs.length === pageSize,
+        hasMore: snapshot.docs.length === pageSize * 2,
       };
     } catch (error) {
       console.error('Error getting feed:', error);
@@ -171,10 +210,13 @@ export const alumniSocialService = {
     if (!userId) throw new Error('Not authenticated');
 
     try {
-      const postRef = doc(db, 'alumni_posts', postId);
+      const postRef = doc(db, 'social_posts', postId);
+      const postSnap = await getDoc(postRef);
+      const postData = postSnap.data() || {};
       await updateDoc(postRef, {
-        likes: arrayUnion(userId),
-        likesCount: increment(1),
+        likedBy: arrayUnion(userId),
+        likesCount: (postData.likesCount ?? postData.likeCount ?? 0) + 1,
+        likeCount: (postData.likeCount ?? postData.likesCount ?? 0) + 1,
       });
       return { success: true };
     } catch (error) {
@@ -189,10 +231,13 @@ export const alumniSocialService = {
     if (!userId) throw new Error('Not authenticated');
 
     try {
-      const postRef = doc(db, 'alumni_posts', postId);
+      const postRef = doc(db, 'social_posts', postId);
+      const postSnap = await getDoc(postRef);
+      const postData = postSnap.data() || {};
       await updateDoc(postRef, {
-        likes: arrayRemove(userId),
-        likesCount: increment(-1),
+        likedBy: arrayRemove(userId),
+        likesCount: Math.max(0, (postData.likesCount ?? postData.likeCount ?? 0) - 1),
+        likeCount: Math.max(0, (postData.likeCount ?? postData.likesCount ?? 0) - 1),
       });
       return { success: true };
     } catch (error) {
@@ -213,23 +258,28 @@ export const alumniSocialService = {
 
       const comment = {
         id: `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        authorId: userId,
         userId: userId,
-        authorName: userData.name || auth.currentUser.displayName || 'Alumni',
-        authorPhoto: userData.photoURL || null,
+        authorName: userData.displayName || userData.fullName || userData.name || auth.currentUser.displayName || 'Alumni',
+        authorPhoto: userData.photoURL || userData.profilePhoto || null,
         content: commentText,
+        body: commentText,
         likes: [],
         createdAt: Timestamp.now(),
       };
 
-      const postRef = doc(db, 'alumni_posts', postId);
+      const postRef = doc(db, 'social_posts', postId);
       const postSnap = await getDoc(postRef);
+      if (!postSnap.exists()) return { success: false, error: 'Post not found' };
       const postData = postSnap.data();
 
       const updatedComments = [...(postData.comments || []), comment];
 
       await updateDoc(postRef, {
         comments: updatedComments,
-        commentsCount: increment(1),
+        commentsCount: updatedComments.length,
+        commentCount: updatedComments.length,
+        updatedAt: Timestamp.now(),
       });
 
       return { success: true, data: comment };
@@ -245,47 +295,20 @@ export const alumniSocialService = {
     if (!userId) throw new Error('Not authenticated');
 
     try {
-      const originalPostRef = doc(db, 'alumni_posts', postId);
+      const originalPostRef = doc(db, 'social_posts', postId);
       const originalPostSnap = await getDoc(originalPostRef);
+      if (!originalPostSnap.exists()) return { success: false, error: 'Post not found' };
+
       const originalPost = originalPostSnap.data();
-
-      const userRef = doc(db, 'alumni', userId);
-      const userSnap = await getDoc(userRef);
-      const userData = userSnap.data() || {};
-
-      const sharePost = {
-        userId: userId,
-        authorName: userData.name || auth.currentUser.displayName || 'Alumni',
-        authorPhoto: userData.photoURL || null,
-        authorTitle: userData.position || 'Alumni',
-        content: shareMessage || `Shared a post from ${originalPost.authorName}`,
-        type: 'share',
-        privacy: 'public',
-        originalPost: {
-          id: postId,
-          authorName: originalPost.authorName,
-          authorPhoto: originalPost.authorPhoto,
-          content: originalPost.content,
-          media: originalPost.media,
-        },
-        likes: [],
-        likesCount: 0,
-        comments: [],
-        commentsCount: 0,
-        shares: 0,
-        sharesCount: 0,
-        createdAt: Timestamp.now(),
-        updatedAt: Timestamp.now(),
-      };
-
-      const docRef = await addDoc(collection(db, 'alumni_posts'), sharePost);
-
+      const currentShares = originalPost.shareCount ?? originalPost.sharesCount ?? originalPost.shares ?? 0;
       await updateDoc(originalPostRef, {
-        shares: increment(1),
-        sharesCount: increment(1),
+        shares: currentShares + 1,
+        sharesCount: currentShares + 1,
+        shareCount: currentShares + 1,
+        updatedAt: Timestamp.now(),
       });
 
-      return { success: true, data: { id: docRef.id, ...sharePost } };
+      return { success: true };
     } catch (error) {
       console.error('Error sharing post:', error);
       return { success: false, error: error.message };
@@ -330,22 +353,8 @@ export const alumniSocialService = {
     if (!userId) throw new Error('Not authenticated');
 
     try {
-      const postRef = doc(db, 'alumni_posts', postId);
-      const postSnap = await getDoc(postRef);
-
-      if (!postSnap.exists()) {
-        return { success: false, error: 'Post not found' };
-      }
-
-      if (postSnap.data().userId !== userId) {
-        return { success: false, error: 'Unauthorized' };
-      }
-
+      const postRef = doc(db, 'social_posts', postId);
       await deleteDoc(postRef);
-
-      await updateDoc(doc(db, 'alumni', userId), {
-        postsCount: increment(-1),
-      });
 
       return { success: true };
     } catch (error) {
@@ -385,7 +394,6 @@ export const alumniSocialService = {
       const notificationsQuery = query(
         collection(db, 'alumni_notifications'),
         where('userId', '==', userId),
-        orderBy('createdAt', 'desc'),
         limit(50)
       );
 
@@ -393,7 +401,11 @@ export const alumniSocialService = {
       const notifications = snapshot.docs.map((doc) => ({
         id: doc.id,
         ...doc.data(),
-      }));
+      })).sort((a, b) => {
+        const aDate = a.createdAt?.toDate?.() || new Date(a.createdAt || 0);
+        const bDate = b.createdAt?.toDate?.() || new Date(b.createdAt || 0);
+        return bDate - aDate;
+      });
 
       return { success: true, data: notifications };
     } catch (error) {
@@ -421,15 +433,14 @@ export const alumniSocialService = {
     try {
       const notificationsQuery = query(
         collection(db, 'alumni_notifications'),
-        where('userId', '==', userId),
-        where('read', '==', false)
+        where('userId', '==', userId)
       );
 
       const snapshot = await getDocs(notificationsQuery);
       const batch = writeBatch(db);
 
-      snapshot.docs.forEach((doc) => {
-        batch.update(doc.ref, { read: true });
+      snapshot.docs.filter((item) => item.data().read === false).forEach((item) => {
+        batch.update(item.ref, { read: true });
       });
 
       await batch.commit();

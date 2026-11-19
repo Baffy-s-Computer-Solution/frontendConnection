@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Container, Row, Col, Card, Button, Spinner, Alert, Badge } from 'react-bootstrap';
+import { Container, Row, Col, Card, Button, Spinner, Alert, Badge } from '../../components/ui/tailwindCompat';
 import {
   BarChart,
   Bar,
@@ -326,3 +326,5 @@ const AIDashboard = () => {
 };
 
 export default AIDashboard;
+
+

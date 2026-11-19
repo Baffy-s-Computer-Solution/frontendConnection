@@ -1,356 +1,84 @@
-/* eslint-disable no-undef */
-/* eslint-disable no-unused-vars */
-import {
-  Box,
-  Container,
-  Typography,
-  Paper,
-  alpha,
-  styled,
-  Skeleton,
-  Breadcrumbs,
-  Link,
-  Button,
-  IconButton,
-  Tooltip,
-} from '@mui/material';
-import React from 'react';
-import {
-  ArrowBack as ArrowBackIcon,
-  Refresh as RefreshIcon,
-  Fullscreen as FullscreenIcon,
-  FullscreenExit as FullscreenExitIcon,
-  PictureAsPdf as PdfIcon,
-  GetApp as DownloadIcon,
-  Print as PrintIcon,
-  Share as ShareIcon,
-} from '@mui/icons-material';
-import { motion } from 'framer-motion';
+import { useMemo, useState } from 'react';
+import { ArrowLeft, Download, Expand, Maximize2, Minimize2, Printer, RefreshCw, Share2 } from 'lucide-react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import Skeleton from '../ui/Skeleton';
 
-import Breadcrumb from './Breadcrumb';
+function Breadcrumbs({ items = [], homePath = '/' }) {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const generated = useMemo(() => {
+    if (items.length) return items;
+    let path = '';
+    return location.pathname.split('/').filter(Boolean).map((part) => {
+      path += `/${part}`;
+      return { label: part.replace(/-/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase()), path };
+    });
+  }, [items, location.pathname]);
 
-const PageWrapper = styled(Box)(({ theme }) => ({
-  minHeight: '100vh',
-  display: 'flex',
-  flexDirection: 'column',
-  backgroundColor: theme.palette.background.default,
-  backgroundImage: `
-    radial-gradient(circle at top left, ${alpha(theme.palette.primary.main, 0.12)}, transparent 32%),
-    radial-gradient(circle at top right, ${alpha(theme.palette.secondary.main, 0.1)}, transparent 28%),
-    linear-gradient(180deg, ${alpha(theme.palette.background.paper, 0.9)} 0%, ${theme.palette.background.default} 100%)
-  `,
-}));
+  return (
+    <nav aria-label="Breadcrumb" className="mt-2 flex flex-wrap items-center gap-1 text-xs text-slate-500">
+      <button type="button" onClick={() => navigate(homePath)} className="rounded px-1 py-0.5 hover:bg-brand-50 hover:text-brand-700 dark:hover:bg-brand-950 dark:hover:text-brand-200">Home</button>
+      {generated.map((item, index) => <span key={item.path || index} className="flex items-center gap-1"><span aria-hidden>/</span>{index === generated.length - 1 ? <span className="font-medium text-slate-700 dark:text-slate-300">{item.label}</span> : <button type="button" onClick={() => navigate(item.path)} className="rounded px-1 py-0.5 hover:bg-brand-50 hover:text-brand-700 dark:hover:bg-brand-950 dark:hover:text-brand-200">{item.label}</button>}</span>)}
+    </nav>
+  );
+}
 
-const PageHeader = styled(Box)(({ theme }) => ({
-  padding: theme.spacing(3, 0),
-  borderBottom: `1px solid ${alpha(theme.palette.divider, 0.6)}`,
-  backgroundColor: alpha(theme.palette.background.paper, 0.82),
-  backdropFilter: 'blur(18px)',
-  marginBottom: theme.spacing(3),
-  position: 'sticky',
-  top: 0,
-  zIndex: 10,
-  [theme.breakpoints.down('sm')]: {
-    padding: theme.spacing(2, 0),
-    marginBottom: theme.spacing(2),
-  },
-}));
-
-const HeaderContent = styled(Box)(({ theme }) => ({
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'space-between',
-  flexWrap: 'wrap',
-  gap: theme.spacing(2),
-  [theme.breakpoints.down('sm')]: {
-    alignItems: 'flex-start',
-  },
-}));
-
-const TitleSection = styled(Box)(({ theme }) => ({
-  display: 'flex',
-  alignItems: 'center',
-  gap: theme.spacing(2),
-  [theme.breakpoints.down('sm')]: {
-    width: '100%',
-    alignItems: 'flex-start',
-    gap: theme.spacing(1.5),
-  },
-}));
-
-const ActionSection = styled(Box)(({ theme }) => ({
-  display: 'flex',
-  alignItems: 'center',
-  gap: theme.spacing(1),
-  flexWrap: 'wrap',
-  justifyContent: 'flex-end',
-  [theme.breakpoints.down('sm')]: {
-    width: '100%',
-    justifyContent: 'flex-start',
-  },
-}));
-
-const StyledPaper = styled(Paper)(({ theme, noPadding }) => ({
-  padding: noPadding ? 0 : theme.spacing(3),
-  borderRadius: theme.spacing(2),
-  boxShadow: '0 24px 60px rgba(15, 23, 42, 0.08)',
-  border: `1px solid ${alpha(theme.palette.common.white, 0.45)}`,
-  background: alpha(theme.palette.background.paper, 0.9),
-  backdropFilter: 'blur(10px)',
-  transition: theme.transitions.create(['box-shadow']),
-  '&:hover': {
-    boxShadow: '0 30px 70px rgba(15, 23, 42, 0.12)',
-  },
-  [theme.breakpoints.down('sm')]: {
-    padding: noPadding ? 0 : theme.spacing(2),
-    borderRadius: theme.spacing(1.5),
-  },
-}));
-
-const PageContainer = ({
-  // Core props
+function PageContainer({
   children,
   title,
   subtitle,
-
-  // Header
   showHeader = true,
   showBreadcrumbs = true,
   showBackButton = false,
   showActions = true,
-
-  // Breadcrumbs
   breadcrumbs = [],
   homePath = '/',
-
-  // Actions
   actions = [],
   onBack,
   onRefresh,
   onDownload,
   onPrint,
   onShare,
-
-  // Loading
   loading = false,
   skeletonCount = 3,
-
-  // Layout
-  maxWidth = 'lg',
   noPadding = false,
   centered = false,
-
-  // Features
   fullscreen = false,
   onFullscreen,
-
-  // Customization
-  headerColor = 'background.paper',
-  backgroundColor = 'background.default',
-
-  // Metadata
   meta = {},
-
   ...props
-}) => {
-  const [isFullscreen, setIsFullscreen] = React.useState(false);
-
-  const toggleFullscreen = () => {
+}) {
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const toggleFullscreen = async () => {
     if (!document.fullscreenElement) {
-      document.documentElement.requestFullscreen();
+      await document.documentElement.requestFullscreen?.();
       setIsFullscreen(true);
     } else {
-      document.exitFullscreen();
+      await document.exitFullscreen?.();
       setIsFullscreen(false);
     }
     onFullscreen?.(!isFullscreen);
   };
-
-  const renderSkeleton = () => {
-    return (
-      <>
-        <Box sx={{ mb: 3 }}>
-          <Skeleton variant="text" width={200} height={40} />
-          <Skeleton variant="text" width={300} height={20} />
-        </Box>
-        {[...Array(skeletonCount)].map((_, index) => (
-          <Skeleton
-            key={index}
-            variant="rectangular"
-            height={100}
-            sx={{ mb: 2, borderRadius: 2 }}
-          />
-        ))}
-      </>
-    );
-  };
-
-  const renderHeader = () => {
-    if (!showHeader) return null;
-
-    return (
-      <PageHeader sx={{ backgroundColor: headerColor }}>
-        <Container maxWidth={maxWidth}>
-          <HeaderContent>
-            <TitleSection>
-              {showBackButton && (
-                <Tooltip title="Go back">
-                  <IconButton onClick={onBack} size="large">
-                    <ArrowBackIcon />
-                  </IconButton>
-                </Tooltip>
-              )}
-
-              <Box>
-                <motion.div
-                  initial={{ opacity: 0, y: -20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.3 }}
-                >
-                  <Typography
-                    variant="h4"
-                    component="h1"
-                    fontWeight={600}
-                    gutterBottom={!!subtitle}
-                    sx={{ letterSpacing: '-0.02em' }}
-                  >
-                    {title}
-                  </Typography>
-                  {subtitle && (
-                    <Typography variant="body1" color="text.secondary">
-                      {subtitle}
-                    </Typography>
-                  )}
-                </motion.div>
-
-                {showBreadcrumbs && (
-                  <motion.div
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ delay: 0.1 }}
-                  >
-                    <Breadcrumbs items={breadcrumbs} homePath={homePath} sx={{ mt: 1 }} />
-                  </motion.div>
-                )}
-              </Box>
-            </TitleSection>
-
-            {showActions && (
-              <ActionSection>
-                {/* Default Actions */}
-                {onRefresh && (
-                  <Tooltip title="Refresh">
-                    <IconButton onClick={onRefresh} size="large">
-                      <RefreshIcon />
-                    </IconButton>
-                  </Tooltip>
-                )}
-
-                {onDownload && (
-                  <Tooltip title="Download">
-                    <IconButton onClick={onDownload} size="large">
-                      <DownloadIcon />
-                    </IconButton>
-                  </Tooltip>
-                )}
-
-                {onPrint && (
-                  <Tooltip title="Print">
-                    <IconButton onClick={onPrint} size="large">
-                      <PrintIcon />
-                    </IconButton>
-                  </Tooltip>
-                )}
-
-                {onShare && (
-                  <Tooltip title="Share">
-                    <IconButton onClick={onShare} size="large">
-                      <ShareIcon />
-                    </IconButton>
-                  </Tooltip>
-                )}
-
-                {fullscreen && (
-                  <Tooltip title={isFullscreen ? 'Exit fullscreen' : 'Fullscreen'}>
-                    <IconButton onClick={toggleFullscreen} size="large">
-                      {isFullscreen ? <FullscreenExitIcon /> : <FullscreenIcon />}
-                    </IconButton>
-                  </Tooltip>
-                )}
-
-                {/* Custom Actions */}
-                {actions.map((action, index) => (
-                  <Button
-                    key={index}
-                    variant={action.variant || 'outlined'}
-                    color={action.color || 'primary'}
-                    startIcon={action.icon}
-                    onClick={action.onClick}
-                    size="medium"
-                  >
-                    {action.label}
-                  </Button>
-                ))}
-              </ActionSection>
-            )}
-          </HeaderContent>
-        </Container>
-      </PageHeader>
-    );
-  };
-
-  const renderContent = () => {
-    if (loading) {
-      return renderSkeleton();
-    }
-
-    if (noPadding) {
-      return children;
-    }
-
-    return (
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4 }}
-      >
-        <StyledPaper noPadding={noPadding}>{children}</StyledPaper>
-      </motion.div>
-    );
-  };
+  const iconActions = [
+    onRefresh && { label: 'Refresh', icon: RefreshCw, onClick: onRefresh },
+    onDownload && { label: 'Download', icon: Download, onClick: onDownload },
+    onPrint && { label: 'Print', icon: Printer, onClick: onPrint },
+    onShare && { label: 'Share', icon: Share2, onClick: onShare },
+    fullscreen && { label: isFullscreen ? 'Exit fullscreen' : 'Fullscreen', icon: isFullscreen ? Minimize2 : Maximize2, onClick: toggleFullscreen },
+  ].filter(Boolean);
 
   return (
-    <PageWrapper sx={{ backgroundColor }}>
-      {renderHeader()}
-
-      <Container
-        maxWidth={maxWidth}
-        sx={{
-          flex: 1,
-          py: 3,
-          display: 'flex',
-          flexDirection: 'column',
-          px: { xs: 1.5, sm: 2, md: 3 },
-          ...(centered && {
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-          }),
-        }}
-      >
-        {renderContent()}
-      </Container>
-
-      {/* Metadata */}
-      {Object.keys(meta).length > 0 && (
-        <Box sx={{ display: 'none' }}>
-          {Object.entries(meta).map(([key, value]) => (
-            <meta key={key} name={key} content={value} />
-          ))}
-        </Box>
-      )}
-    </PageWrapper>
+    <div className="min-h-full bg-slate-50 dark:bg-slate-950" {...props}>
+      {showHeader && <header className="sticky top-0 z-10 border-b bg-white/90 backdrop-blur dark:bg-slate-900/90"><div className="mx-auto flex w-full max-w-7xl flex-wrap items-center justify-between gap-4 px-4 py-4 sm:px-6 lg:px-8"><div className="flex min-w-0 items-start gap-3">{showBackButton && <button type="button" onClick={onBack} className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-900 dark:hover:bg-slate-800 dark:hover:text-slate-100" aria-label="Go back"><ArrowLeft className="h-5 w-5" /></button>}<div className="min-w-0"><h1 className="text-2xl font-semibold tracking-tight text-slate-900 dark:text-slate-100">{title}</h1>{subtitle && <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{subtitle}</p>}{showBreadcrumbs && <Breadcrumbs items={breadcrumbs} homePath={homePath} />}</div></div>{showActions && <div className="flex flex-wrap items-center gap-1">{iconActions.map(({ label, icon: Icon, onClick }) => <button key={label} type="button" onClick={onClick} className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-900 dark:hover:bg-slate-800 dark:hover:text-slate-100" aria-label={label} title={label}><Icon className="h-4 w-4" /></button>)}{actions.map(({label, onClick, icon: Icon, variant}, index) => <button key={label || index} type="button" onClick={onClick} className={`inline-flex h-10 w-10 items-center justify-center rounded-lg transition hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 dark:hover:bg-slate-800 ${variant === 'contained' || variant === 'primary' ? 'bg-brand-600 text-white hover:bg-brand-700 dark:hover:bg-brand-500' : 'text-slate-600 dark:text-slate-300'}`} aria-label={label} title={label}>{Icon ? <Icon className="h-5 w-5" /> : <span className="sr-only">{label}</span>}</button>)}</div>}</div></header>}
+      <main className={`mx-auto flex w-full max-w-7xl flex-1 flex-col px-4 py-6 sm:px-6 lg:px-8 ${centered ? 'items-center justify-center' : ''}`}>
+        {loading ? <div className="space-y-4"><Skeleton className="h-10 w-52" />{Array.from({ length: skeletonCount }, (_, index) => <Skeleton key={index} variant="rectangular" className="h-24 w-full" />)}</div> : noPadding ? children : <div className="animate-fade-in rounded-xl border bg-white p-5 shadow-card dark:bg-slate-900 sm:p-6">{children}</div>}
+      </main>
+      {Object.keys(meta).length > 0 && <div className="hidden">{Object.entries(meta).map(([key, value]) => <meta key={key} name={key} content={value} />)}</div>}
+    </div>
   );
-};
+}
 
+export const PageWrapper = ({ children, ...props }) => <div className="min-h-screen bg-slate-50 dark:bg-slate-950" {...props}>{children}</div>;
+export const PageHeader = ({ children, ...props }) => <header className="border-b bg-white dark:bg-slate-900" {...props}>{children}</header>;
+export const StyledPaper = ({ children, className = '', ...props }) => <section className={`rounded-xl border bg-white p-5 shadow-card dark:bg-slate-900 ${className}`} {...props}>{children}</section>;
 export default PageContainer;

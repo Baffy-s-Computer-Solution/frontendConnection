@@ -3,11 +3,12 @@
  * Production-Ready Cloudinary Service with CORS handling, error recovery, and mobile optimization
  */
 
+import { apiRequest } from './apiClient';
+
 const CLOUDINARY_CONFIG = {
   cloudName: (import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || 'dwz0osyou').trim(),
   uploadPreset: (import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET || 'career_connect_upload').trim(),
   apiKey: (import.meta.env.VITE_CLOUDINARY_API_KEY || '').trim(),
-  apiSecret: (import.meta.env.VITE_CLOUDINARY_API_SECRET || '').trim(),
   baseUrl: 'https://api.cloudinary.com/v1_1',
   secure: true,
 };
@@ -266,12 +267,18 @@ class CloudinaryService {
       // Determine resource type based on file
       const isImage = file.type.startsWith('image/');
       const isVideo = file.type.startsWith('video/');
-      const isPdf = file.type === 'application/pdf';
+      const isRaw = [
+        'application/pdf',
+        'application/msword',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'application/json',
+        'text/csv',
+      ].includes(file.type);
 
       let resourceType = 'auto';
       if (isImage) resourceType = 'image';
       if (isVideo) resourceType = 'video';
-      if (isPdf) resourceType = 'raw';
+      if (isRaw) resourceType = 'raw';
 
       // Build upload options
       const uploadOptions = {
@@ -296,7 +303,9 @@ class CloudinaryService {
         });
       }
 
-      return result;
+      return result.success
+        ? { ...result, resource_type: result.resource_type || resourceType }
+        : result;
     } catch (error) {
       console.error('❌ Cloudinary upload error:', error);
       return {
@@ -358,7 +367,18 @@ class CloudinaryService {
 
       if (!response.ok) {
         const errorText = await response.text();
-        throw new Error(`Cloudinary upload failed: ${errorText}`);
+        let errorPayload;
+        try {
+          errorPayload = JSON.parse(errorText);
+        } catch {
+          errorPayload = null;
+        }
+        const errorMessage =
+          errorPayload?.error?.message ||
+          errorPayload?.message ||
+          errorText ||
+          `HTTP ${response.status}`;
+        throw new Error(`Cloudinary upload failed: ${errorMessage}`);
       }
 
       const data = await response.json();
@@ -391,83 +411,16 @@ class CloudinaryService {
         throw new Error('Public ID is required');
       }
 
-      console.log('🗑️ Deleting from Cloudinary (attempting server-side):', publicId);
+      const result = await apiRequest('/api/media/cloudinary/delete', {
+        method: 'POST',
+        body: { publicId },
+      });
 
-      // Prefer server-side deletion when API base is configured
-      const API_BASE = import.meta.env.VITE_API_BASE_URL || null;
-
-      if (API_BASE) {
-        try {
-          // Attempt to get Firebase auth token if available
-          let token = null;
-          try {
-            // eslint-disable-next-line no-undef
-            const { auth } = await import('../config/firebase');
-            if (auth && auth.currentUser && typeof auth.currentUser.getIdToken === 'function') {
-              token = await auth.currentUser.getIdToken();
-            }
-          } catch (e) {
-            // ignore
-          }
-
-          const response = await fetch(`${API_BASE}/api/media/cloudinary/delete`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              ...(token ? { Authorization: `Bearer ${token}` } : {}),
-            },
-            body: JSON.stringify({ publicId }),
-            credentials: 'include',
-          });
-
-          if (response.ok) {
-            const data = await response.json();
-            if (data.success) {
-              console.log('✅ Server-side Cloudinary delete successful');
-              return { success: true, server: true, results: data.results };
-            }
-            return { success: false, error: data.message || 'Server delete failed' };
-          }
-
-          const errorText = await response.text();
-          console.warn('Server-side Cloudinary delete returned non-OK:', errorText);
-        } catch (serverError) {
-          console.warn('Server-side Cloudinary delete failed, falling back to client-side:', serverError.message);
-        }
+      if (!result?.success) {
+        throw new Error(result?.message || 'Cloudinary delete failed.');
       }
 
-      // Fallback to existing client-side delete approach
-      console.log('🗑️ Deleting from Cloudinary (client-side fallback):', publicId);
-      const timestamp = Math.round(Date.now() / 1000);
-      const signature = await this.generateSignature(publicId, timestamp);
-
-      const formData = new FormData();
-      formData.append('public_id', publicId);
-      formData.append('signature', signature);
-      formData.append('api_key', this.config.apiKey);
-      formData.append('timestamp', timestamp);
-
-      const response2 = await fetch(
-        `https://api.cloudinary.com/v1_1/${this.config.cloudName}/image/destroy`,
-        {
-          method: 'POST',
-          body: formData,
-        }
-      );
-
-      if (!response2.ok) {
-        const errorText2 = await response2.text();
-        throw new Error(`Cloudinary delete failed: ${errorText2}`);
-      }
-
-      const data2 = await response2.json();
-
-      if (data2.result === 'ok') {
-        console.log('✅ Cloudinary delete successful (client-side)');
-        return { success: true };
-      }
-
-      throw new Error(data2.result || 'Delete failed');
+      return { success: true, server: true, results: result.results };
     } catch (error) {
       console.error('❌ Cloudinary delete error:', error);
       return {
@@ -493,6 +446,8 @@ class CloudinaryService {
           'application/msword',
           'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
           'text/plain',
+          'application/json',
+          'text/csv',
         ],
         maxSize: 10 * 1024 * 1024, // 10MB
       },
@@ -647,26 +602,6 @@ class CloudinaryService {
       .join(', ');
 
     return urls;
-  }
-
-  /**
-   * Generate signature for authenticated requests
-   */
-  async generateSignature(publicId, timestamp) {
-    try {
-      // Note: For production, signatures should be generated server-side
-      const stringToSign = `public_id=${publicId}&timestamp=${timestamp}${this.config.apiSecret}`;
-      const encoder = new TextEncoder();
-      const data = encoder.encode(stringToSign);
-
-      // Simple hash - in production use proper server-side signing
-      const hashBuffer = await crypto.subtle.digest('SHA-1', data);
-      const hashArray = Array.from(new Uint8Array(hashBuffer));
-      return hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
-    } catch (error) {
-      console.error('❌ Signature generation error:', error);
-      throw new Error('Signature generation failed');
-    }
   }
 
   /**

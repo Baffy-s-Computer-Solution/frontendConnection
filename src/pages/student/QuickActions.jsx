@@ -1,230 +1,114 @@
-import { Container, Row, Col, Card, Button, Badge } from 'react-bootstrap';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { BriefcaseBusiness, CalendarDays, FileText, GraduationCap, UserRound } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
+import { useStudent } from '../../context/StudentContext';
+import { subscribeToActiveJobs, subscribeToStudentApplications } from '../../services/studentServices';
 
 const QuickActions = () => {
+  const { currentUser } = useAuth();
+  const { studentData } = useStudent();
+  const [jobsCount, setJobsCount] = useState(0);
+  const [applicationsCount, setApplicationsCount] = useState(0);
+  useEffect(() => {
+    const stopJobs = subscribeToActiveJobs((records) => setJobsCount(records.length));
+    const stopApplications = currentUser?.uid ? subscribeToStudentApplications(currentUser.uid, (records) => setApplicationsCount(records.length)) : () => {};
+    return () => { stopJobs(); stopApplications(); };
+  }, [currentUser?.uid]);
   const actions = [
-    {
-      id: 1,
-      title: 'Apply for Jobs',
-      description: 'Browse and apply to available job positions',
-      icon: 'bi-briefcase',
-      color: 'primary',
-      link: '/student/browse-jobs',
-      count: 15,
-    },
-    {
-      id: 2,
-      title: 'Register for Courses',
-      description: 'Find and enroll in relevant courses',
-      icon: 'bi-book',
-      color: 'success',
-      link: '/student/browse-courses',
-      count: 8,
-    },
-    {
-      id: 3,
-      title: 'Upload Documents',
-      description: 'Update your resume, certificates, and portfolio',
-      icon: 'bi-upload',
-      color: 'info',
-      link: '/student/documents/upload',
-      count: 3,
-    },
-    {
-      id: 4,
-      title: 'Check Applications',
-      description: 'Review your application status',
-      icon: 'bi-clipboard-check',
-      color: 'warning',
-      link: '/student/applications',
-      count: 5,
-    },
-    {
-      id: 5,
-      title: 'Update Profile',
-      description: 'Keep your profile information current',
-      icon: 'bi-person',
-      color: 'secondary',
-      link: '/student/profile',
-      urgent: true,
-    },
-    {
-      id: 6,
-      title: 'View Calendar',
-      description: 'Check deadlines and scheduled interviews',
-      icon: 'bi-calendar',
-      color: 'danger',
-      link: '/student/calendar',
-      count: 2,
-    },
+    { id: 1, title: 'Find opportunities', description: 'Browse current jobs and internships', color: 'brand', link: '/student/jobs', Icon: BriefcaseBusiness, count: jobsCount },
+    { id: 2, title: 'Explore courses', description: 'Browse published courses and manage learning', color: 'emerald', link: '/student/courses', Icon: GraduationCap },
+    { id: 3, title: 'Manage documents', description: 'Upload and organize your career documents', color: 'sky', link: '/student/documents', Icon: FileText },
+    { id: 4, title: 'Applications', description: 'Review your application status', color: 'amber', link: '/student/applications', Icon: BriefcaseBusiness, count: applicationsCount },
+    { id: 5, title: 'Your profile', description: 'Keep your profile information current', color: 'slate', link: '/student/profile', Icon: UserRound },
+    { id: 6, title: 'Calendar', description: 'See deadlines and scheduled interviews', color: 'rose', link: '/student/calendar', Icon: CalendarDays },
   ];
 
-  const pendingTasks = [
-    { id: 1, task: 'Complete JavaScript course assignment', due: 'Tomorrow' },
-    { id: 2, task: 'Submit application for Tech Internship', due: 'In 2 days' },
-    { id: 3, task: 'Update resume with new project', due: 'This week' },
-    { id: 4, task: 'Schedule career counseling session', due: 'Next week' },
-  ];
+  const pendingTasks = [];
+
+  const colorClasses = {
+    brand: 'bg-brand-100 text-brand-700',
+    emerald: 'bg-emerald-100 text-emerald-700',
+    sky: 'bg-sky-100 text-sky-700',
+    amber: 'bg-amber-100 text-amber-700',
+    slate: 'bg-slate-200 text-slate-700',
+    rose: 'bg-rose-100 text-rose-700',
+  };
 
   return (
-    <Container className="py-4">
-      <h2 className="mb-4">Quick Actions Dashboard</h2>
+    <main className="w-full px-4 py-6 sm:px-6 lg:px-8">
+      <h1 className="mb-6 text-2xl font-semibold text-slate-900 dark:text-slate-100">Quick Actions Dashboard</h1>
 
-      <Row className="mb-4">
-        <Col md={8}>
-          <h4 className="mb-3">🚀 Quick Access</h4>
-          <Row>
+      <div className="mb-6 grid gap-4 xl:grid-cols-[2fr_1fr]">
+        <section>
+          <h2 className="mb-3 text-lg font-semibold text-slate-900 dark:text-slate-100">🚀 Quick Access</h2>
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             {actions.map((action) => (
-              <Col md={4} key={action.id} className="mb-3">
-                <Card className="shadow-sm h-100 border-0">
-                  <Card.Body className="text-center">
-                    <div
-                      className={`bg-${action.color}-subtle p-3 rounded-circle d-inline-flex mb-3`}
-                    >
-                      <i
-                        className={`bi ${action.icon} text-${action.color}`}
-                        style={{ fontSize: '2rem' }}
-                      ></i>
-                    </div>
-                    <Card.Title>{action.title}</Card.Title>
-                    <Card.Text className="text-muted small">{action.description}</Card.Text>
-                    <div className="mt-3">
-                      <Link to={action.link}>
-                        <Button variant={action.color} className="w-100">
-                          {action.urgent ? 'Update Now' : 'Go There'}
-                        </Button>
-                      </Link>
-                      {action.count && (
-                        <Badge bg="light" text="dark" className="mt-2">
-                          {action.count} available
-                        </Badge>
-                      )}
-                      {action.urgent && (
-                        <Badge bg="danger" className="mt-2">
-                          Urgent
-                        </Badge>
-                      )}
-                    </div>
-                  </Card.Body>
-                </Card>
-              </Col>
-            ))}
-          </Row>
-        </Col>
-
-        <Col md={4}>
-          <Card className="shadow-sm h-100">
-            <Card.Body>
-              <Card.Title>📝 Pending Tasks</Card.Title>
-              <div className="list-group list-group-flush">
-                {pendingTasks.map((task) => (
-                  <div
-                    key={task.id}
-                    className="list-group-item d-flex justify-content-between align-items-center"
-                  >
-                    <div>
-                      <div className="form-check">
-                        <input
-                          className="form-check-input"
-                          type="checkbox"
-                          id={`task-${task.id}`}
-                        />
-                        <label className="form-check-label" htmlFor={`task-${task.id}`}>
-                          {task.task}
-                        </label>
-                      </div>
-                      <small className="text-muted">Due: {task.due}</small>
-                    </div>
-                    <Badge bg="warning" text="dark">
-                      Pending
-                    </Badge>
-                  </div>
-                ))}
-              </div>
-
-              <div className="mt-4">
-                <h6>Recent Activity</h6>
-                <div className="timeline">
-                  <div className="timeline-item">
-                    <small className="text-muted">2 hours ago</small>
-                    <p className="mb-1">Applied for Software Developer position</p>
-                  </div>
-                  <div className="timeline-item">
-                    <small className="text-muted">Yesterday</small>
-                    <p className="mb-1">Completed React course module</p>
-                  </div>
-                  <div className="timeline-item">
-                    <small className="text-muted">3 days ago</small>
-                    <p className="mb-1">Updated profile information</p>
-                  </div>
+              <div key={action.id} className="rounded-xl border bg-white p-5 shadow-card dark:bg-slate-900">
+                <div className={`mb-4 inline-flex rounded-full p-3 ${colorClasses[action.color]}`}>
+                  <action.Icon className="h-5 w-5" aria-hidden="true" />
+                  <span className="text-2xl">{action.id === 1 ? '💼' : action.id === 2 ? '📚' : action.id === 3 ? '📤' : action.id === 4 ? '📋' : action.id === 5 ? '👤' : '📅'}</span>
+                </div>
+                <h3 className="text-base font-semibold text-slate-900 dark:text-slate-100">{action.title}</h3>
+                <p className="mt-2 text-sm text-slate-500">{action.description}</p>
+                <div className="mt-4 flex flex-col gap-2">
+                  <Link to={action.link} className="inline-flex items-center justify-center rounded-xl bg-brand-600 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700">Open</Link>
+                  {action.count && <span className="inline-flex self-center rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-700 dark:bg-slate-800 dark:text-slate-200">{action.count} available</span>}
+                  {action.urgent && <span className="inline-flex self-center rounded-full bg-danger px-2.5 py-1 text-xs font-medium text-white">Urgent</span>}
                 </div>
               </div>
-            </Card.Body>
-          </Card>
-        </Col>
-      </Row>
+            ))}
+          </div>
+        </section>
 
-      <Row>
-        <Col md={6}>
-          <Card className="shadow-sm">
-            <Card.Body>
-              <Card.Title>📊 Quick Stats</Card.Title>
-              <Row className="text-center">
-                <Col md={4}>
-                  <div className="p-3">
-                    <h3 className="text-primary">15</h3>
-                    <p className="text-muted mb-0">Jobs Viewed</p>
+        <aside className="rounded-xl border bg-white p-5 shadow-card dark:bg-slate-900">
+          <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">📝 Pending Tasks</h2>
+          <div className="mt-4 space-y-3">
+            {pendingTasks.length === 0 ? <p className="rounded-lg bg-slate-50 p-3 text-sm text-slate-500 dark:bg-slate-800">No task records are available.</p> : pendingTasks.map((task) => (
+              <div key={task.id} className="flex items-start justify-between gap-3 rounded-lg border border-slate-200 p-3 dark:border-slate-700">
+                <div className="flex items-start gap-2">
+                  <input type="checkbox" className="mt-1 h-4 w-4 rounded border-slate-300 text-brand-600" id={`task-${task.id}`} />
+                  <div>
+                    <label htmlFor={`task-${task.id}`} className="text-sm text-slate-700 dark:text-slate-200">{task.task}</label>
+                    <p className="mt-1 text-xs text-slate-500">Due: {task.due}</p>
                   </div>
-                </Col>
-                <Col md={4}>
-                  <div className="p-3">
-                    <h3 className="text-success">8</h3>
-                    <p className="text-muted mb-0">Applications</p>
-                  </div>
-                </Col>
-                <Col md={4}>
-                  <div className="p-3">
-                    <h3 className="text-warning">92%</h3>
-                    <p className="text-muted mb-0">Profile Score</p>
-                  </div>
-                </Col>
-              </Row>
-            </Card.Body>
-          </Card>
-        </Col>
+                </div>
+                <span className="inline-flex rounded-full bg-amber-100 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-amber-700">Pending</span>
+              </div>
+            ))}
+          </div>
 
-        <Col md={6}>
-          <Card className="shadow-sm">
-            <Card.Body>
-              <Card.Title>⚡ Quick Tips</Card.Title>
-              <div className="alert alert-info">
-                <i className="bi bi-lightbulb me-2"></i>
-                <strong>Tip:</strong> Complete your profile to get better job matches
-              </div>
-              <div className="alert alert-success">
-                <i className="bi bi-lightbulb me-2"></i>
-                <strong>Tip:</strong> Apply within 24 hours for new job postings
-              </div>
-              <div className="alert alert-warning">
-                <i className="bi bi-lightbulb me-2"></i>
-                <strong>Tip:</strong> Upload all required documents before applying
-              </div>
-            </Card.Body>
-          </Card>
-        </Col>
-      </Row>
-
-      <div className="text-center mt-4">
-        <Button variant="primary" size="lg" className="me-3">
-          <i className="bi bi-lightning-charge me-2"></i>
-          Quick Apply to Top Matches
-        </Button>
-        <Button variant="outline-secondary" size="lg">
-          <i className="bi bi-arrow-clockwise me-2"></i>
-          Refresh Dashboard
-        </Button>
+          <div className="mt-6">
+            <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Recent Activity</h3>
+            <p className="mt-3 text-sm text-slate-500">Your actual activity appears on the Activity page.</p>
+          </div>
+        </aside>
       </div>
-    </Container>
+
+      <div className="grid gap-4 lg:grid-cols-2">
+        <section className="rounded-xl border bg-white p-5 shadow-card dark:bg-slate-900">
+          <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">📊 Quick Stats</h2>
+          <div className="mt-4 grid gap-4 sm:grid-cols-3 text-center">
+            <div><h3 className="text-3xl font-semibold text-brand-600">{jobsCount}</h3><p className="mt-1 text-sm text-slate-500">Open opportunities</p></div>
+            <div><h3 className="text-3xl font-semibold text-emerald-600">{applicationsCount}</h3><p className="mt-1 text-sm text-slate-500">Applications</p></div>
+            <div><h3 className="text-3xl font-semibold text-amber-600">{Number(studentData?.profileCompletion) || 0}%</h3><p className="mt-1 text-sm text-slate-500">Profile completion</p></div>
+          </div>
+        </section>
+
+        <section className="rounded-xl border bg-white p-5 shadow-card dark:bg-slate-900">
+          <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">⚡ Quick Tips</h2>
+          <div className="mt-4 space-y-3">
+            <div className="rounded-lg border border-sky-200 bg-sky-50 p-3 text-sm text-sky-800 dark:border-sky-800 dark:bg-sky-950/40 dark:text-sky-200"><strong>Tip:</strong> Complete your profile to get better job matches</div>
+            <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-200"><strong>Tip:</strong> Apply within 24 hours for new job postings</div>
+            <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200"><strong>Tip:</strong> Upload all required documents before applying</div>
+          </div>
+        </section>
+      </div>
+
+      <div className="mt-6 flex flex-wrap justify-center gap-3">
+        <Link to="/student/job-matches" className="inline-flex items-center rounded-xl bg-brand-600 px-4 py-2.5 text-sm font-semibold text-white">View your job matches</Link>
+      </div>
+    </main>
   );
 };
 

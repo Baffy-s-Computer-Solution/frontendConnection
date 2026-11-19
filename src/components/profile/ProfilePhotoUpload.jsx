@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import PropTypes from 'prop-types';
-import { Card, Button, Image, Spinner, Alert, Modal, Row, Col, ProgressBar } from 'react-bootstrap';
+import { Card, Button, Image, Spinner, Alert, Modal, Row, Col, ProgressBar } from '../ui/tailwindCompat';
 import {
   FiUpload,
   FiCamera,
@@ -18,7 +18,6 @@ import {
 import { useAuth } from '../../context/AuthContext';
 import { useNotifications } from '../../hooks/useNotifications';
 import { cloudinaryService } from '../../services/cloudinaryService';
-import './ProfilePhotoUpload.css';
 
 /**
  * ProfilePhotoUpload Component

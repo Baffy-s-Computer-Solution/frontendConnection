@@ -177,12 +177,12 @@ export const MentorProvider = ({ children }) => {
 
   // Fetch mentorship requests
   const fetchMentorshipRequests = useCallback(async () => {
-    if (!user) return;
+    if (!user || !mentorUserId) return;
 
     setState((prev) => ({ ...prev, loading: true, error: null }));
 
     try {
-      const requests = await mentorService.getMentorshipRequests();
+      const requests = await mentorService.getMentorshipRequests(mentorUserId);
       setState((prev) => ({
         ...prev,
         mentorshipRequests: requests,
@@ -196,7 +196,7 @@ export const MentorProvider = ({ children }) => {
         error: error.message || 'Failed to fetch requests',
       }));
     }
-  }, [user]);
+  }, [user, mentorUserId]);
 
   // Fetch reviews
   const fetchReviews = useCallback(

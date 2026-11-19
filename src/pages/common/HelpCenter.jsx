@@ -12,7 +12,6 @@ import {
   ArrowRight,
   ExternalLink,
 } from 'lucide-react';
-import './CommonPages.css';
 
 const HelpCenter = () => {
   const [searchQuery, setSearchQuery] = useState('');

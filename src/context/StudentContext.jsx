@@ -1,5 +1,5 @@
 /* eslint-disable no-unused-vars */
-import { doc, getDoc, serverTimestamp, setDoc, updateDoc } from 'firebase/firestore';
+import { doc, getDoc, onSnapshot, serverTimestamp, setDoc, updateDoc } from 'firebase/firestore';
 import { createContext, useCallback, useContext, useEffect, useState } from 'react';
 
 import { db } from '../config/firebase';
@@ -94,11 +94,11 @@ export const StudentProvider = ({ children }) => {
       hasCurrentUser: !!currentUser,
       userData: userData
         ? {
-          email: userData.email,
-          userType: userData.userType,
-          role: userData.role,
-          type: userData.type,
-        }
+            email: userData.email,
+            userType: userData.userType,
+            role: userData.role,
+            type: userData.type,
+          }
         : null,
       studentId: currentUser?.uid,
     });
@@ -170,7 +170,7 @@ export const StudentProvider = ({ children }) => {
           email: currentUser.email || '',
           fullName: currentUser.displayName || currentUser.email?.split('@')[0] || 'Student',
           userType: 'student',
-          profileCompletion: 30,
+          profileCompletion: 0,
           qualifications: {
             educationLevel: 'Not specified',
             overallGrade: 'Not specified',
@@ -199,7 +199,7 @@ export const StudentProvider = ({ children }) => {
         email: currentUser?.email || '',
         fullName: currentUser?.displayName || currentUser?.email?.split('@')[0] || 'Student',
         userType: 'student',
-        profileCompletion: 30,
+        profileCompletion: 0,
         qualifications: {
           educationLevel: 'Not specified',
           overallGrade: 'Not specified',
@@ -428,19 +428,26 @@ export const StudentProvider = ({ children }) => {
     }
   };
 
-  // Listen for auth changes
+  // Keep profile details and completion synchronized with Firestore changes.
   useEffect(() => {
-    if (currentUser) {
-      console.log('👤 Auth changed, refreshing student data...');
-      fetchStudentData();
-    } else {
-      console.log('👤 User logged out, clearing student data');
+    if (!currentUser?.uid) {
       setStudentData(null);
       setError(null);
       setInitialized(true);
       setLoading(false);
+      return undefined;
     }
-  }, [currentUser, userData, fetchStudentData]); // Added userData dependency
+    fetchStudentData();
+    return onSnapshot(doc(db, 'students', currentUser.uid), (snapshot) => {
+      if (!snapshot.exists()) return;
+      setStudentData({ id: snapshot.id, ...snapshot.data() });
+      setInitialized(true);
+      setLoading(false);
+    }, (listenError) => {
+      console.error('Student profile realtime listener failed:', listenError);
+      setError(listenError.message);
+    });
+  }, [currentUser?.uid, fetchStudentData]);
 
   // Value to provide
   const value = {

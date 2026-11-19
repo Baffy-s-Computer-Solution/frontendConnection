@@ -1,16 +1,52 @@
 import { useState } from 'react';
-import { motion } from 'framer-motion';
 import {
+  ArrowUpRight,
+  Globe2,
   Mail,
+  MessageCircle,
   Phone,
-  MapPin,
   Send,
-  Clock,
-  MessageSquare,
-  CheckCircle,
-  AlertCircle,
 } from 'lucide-react';
-import './CommonPages.css';
+
+const CONTACT_EMAIL = 'khoalibafokeng@gmail.com';
+const CONTACT_PHONE = '+266 632 10786';
+const CONTACT_PHONE_LINK = '+26663210786';
+const WHATSAPP_LINK =
+  'https://wa.me/26663210786?text=Hello%2C%20I%20would%20like%20to%20know%20more%20about%20Career%20Connect%20Lesotho.';
+const DEVELOPER_SITE = 'https://baffy.vercel.app/';
+
+const CONTACT_OPTIONS = [
+  {
+    title: 'Email',
+    detail: CONTACT_EMAIL,
+    description: 'Open your email app and write to us.',
+    href: `mailto:${CONTACT_EMAIL}`,
+    icon: Mail,
+  },
+  {
+    title: 'Call',
+    detail: CONTACT_PHONE,
+    description: 'Call the Career Connect team in Lesotho.',
+    href: `tel:${CONTACT_PHONE_LINK}`,
+    icon: Phone,
+  },
+  {
+    title: 'WhatsApp',
+    detail: 'Chat with us',
+    description: 'Start a WhatsApp conversation with a prepared message.',
+    href: WHATSAPP_LINK,
+    icon: MessageCircle,
+    external: true,
+  },
+  {
+    title: 'Developer',
+    detail: "Baffy's Computer Solutions",
+    description: 'Visit the team developing this platform.',
+    href: DEVELOPER_SITE,
+    icon: Globe2,
+    external: true,
+  },
+];
 
 const Contact = () => {
   const [formData, setFormData] = useState({
@@ -19,294 +55,218 @@ const Contact = () => {
     subject: '',
     message: '',
   });
+  const [emailDraft, setEmailDraft] = useState('');
 
-  const [formStatus, setFormStatus] = useState({
-    submitted: false,
-    success: false,
-    message: '',
-  });
-
-  const [loading, setLoading] = useState(false);
-
-  const contactInfo = [
-    {
-      icon: Mail,
-      title: 'Email Us',
-      details: 'support@youthentrepreneur.com',
-      subDetails: 'info@youthentrepreneur.com',
-      action: 'mailto:support@youthentrepreneur.com',
-    },
-    {
-      icon: Phone,
-      title: 'Call Us',
-      details: '+1 (555) 123-4567',
-      subDetails: 'Mon-Fri, 9am-6pm EST',
-      action: 'tel:+15551234567',
-    },
-    {
-      icon: MapPin,
-      title: 'Visit Us',
-      details: '123 Innovation Drive',
-      subDetails: 'San Francisco, CA 94105',
-      action: 'https://maps.google.com/?q=123+Innovation+Drive+San+Francisco',
-    },
-    {
-      icon: Clock,
-      title: 'Business Hours',
-      details: 'Monday - Friday',
-      subDetails: '9:00 AM - 6:00 PM EST',
-    },
-  ];
-
-  const handleChange = (e) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value,
-    });
+  const handleChange = (event) => {
+    const { name, value } = event.target;
+    setFormData((current) => ({ ...current, [name]: value }));
+    setEmailDraft('');
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setLoading(true);
+  const handleSubmit = (event) => {
+    event.preventDefault();
+    const subject = formData.subject.trim() || 'Career Connect Lesotho enquiry';
+    const body = [
+      `Name: ${formData.name.trim()}`,
+      `Reply email: ${formData.email.trim()}`,
+      '',
+      formData.message.trim(),
+    ].join('\n');
 
-    // Simulate API call
-    try {
-      await new Promise((resolve) => setTimeout(resolve, 1500));
-      setFormStatus({
-        submitted: true,
-        success: true,
-        message: "Thank you for contacting us! We'll get back to you soon.",
-      });
-      setFormData({ name: '', email: '', subject: '', message: '' });
-    } catch (error) {
-      setFormStatus({
-        submitted: true,
-        success: false,
-        message: 'Something went wrong. Please try again.',
-      });
-    } finally {
-      setLoading(false);
-      setTimeout(() => {
-        setFormStatus({ submitted: false, success: false, message: '' });
-      }, 5000);
-    }
+    setEmailDraft(
+      `mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
+    );
   };
-
-  const faqs = [
-    {
-      question: 'How quickly do you respond to inquiries?',
-      answer: 'We aim to respond to all inquiries within 24-48 hours during business days.',
-    },
-    {
-      question: 'Can I schedule a demo?',
-      answer:
-        "Absolutely! Please fill out the contact form and mention you'd like a demo, and we'll arrange it.",
-    },
-    {
-      question: 'Do you offer support for international users?',
-      answer:
-        'Yes, we support users worldwide with 24/7 email support and flexible scheduling for calls.',
-    },
-  ];
 
   return (
-    <div className="common-page">
-      {/* Hero Section */}
+    <main className="common-page">
       <section className="page-hero">
         <div className="hero-content">
-          <motion.h1
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
-          >
-            Contact Us
-          </motion.h1>
-          <motion.p
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.1 }}
-          >
-            We're here to help and answer any questions you might have
-          </motion.p>
+          <span className="section-kicker justify-center">
+            <MessageCircle aria-hidden="true" />
+            We&apos;re here to help
+          </span>
+          <h1 className="mt-4">Let&apos;s connect</h1>
+          <p>
+            Questions about opportunities, partnerships, or the platform? Contact the Career
+            Connect Lesotho team using the channel that works best for you.
+          </p>
         </div>
       </section>
 
-      {/* Contact Info Cards */}
-      <section className="contact-info-section">
-        <div className="container">
-          <div className="info-grid">
-            {contactInfo.map((item, index) => {
-              const Icon = item.icon;
-              const Content = (
-                <>
-                  <Icon className="info-icon" />
-                  <h3>{item.title}</h3>
-                  <p className="info-detail">{item.details}</p>
-                  {item.subDetails && <p className="info-subdetail">{item.subDetails}</p>}
-                </>
-              );
-
-              return item.action ? (
-                <motion.a
-                  key={index}
-                  href={item.action}
-                  className="info-card"
-                  target={item.action.startsWith('http') ? '_blank' : undefined}
-                  rel={item.action.startsWith('http') ? 'noopener noreferrer' : undefined}
-                  initial={{ opacity: 0, y: 20 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true }}
-                  transition={{ delay: index * 0.1 }}
-                >
-                  {Content}
-                </motion.a>
-              ) : (
-                <motion.div
-                  key={index}
-                  className="info-card"
-                  initial={{ opacity: 0, y: 20 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true }}
-                  transition={{ delay: index * 0.1 }}
-                >
-                  {Content}
-                </motion.div>
-              );
-            })}
-          </div>
-        </div>
-      </section>
-
-      {/* Contact Form Section */}
-      <section className="contact-form-section">
-        <div className="container">
-          <div className="form-container">
-            <motion.div
-              className="form-header"
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-            >
-              <MessageSquare className="form-icon" />
-              <h2>Send us a message</h2>
-              <p>Fill out the form below and we'll get back to you as soon as possible</p>
-            </motion.div>
-
-            {formStatus.submitted && (
-              <motion.div
-                className={`alert ${formStatus.success ? 'alert-success' : 'alert-error'}`}
-                initial={{ opacity: 0, y: -10 }}
-                animate={{ opacity: 1, y: 0 }}
+      <section className="py-12 sm:py-16">
+        <div className="landing-shell">
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            {CONTACT_OPTIONS.map(({ title, detail, description, href, icon: Icon, external }) => (
+              <a
+                key={title}
+                href={href}
+                target={external ? '_blank' : undefined}
+                rel={external ? 'noreferrer' : undefined}
+                className="group rounded-2xl border border-slate-200 bg-white p-5 shadow-card transition hover:-translate-y-0.5 hover:border-brand-300 hover:shadow-pop dark:border-slate-800 dark:bg-slate-900 dark:hover:border-brand-700"
               >
-                {formStatus.success ? <CheckCircle size={20} /> : <AlertCircle size={20} />}
-                {formStatus.message}
-              </motion.div>
-            )}
-
-            <motion.form
-              onSubmit={handleSubmit}
-              className="contact-form"
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: 0.2 }}
-            >
-              <div className="form-row">
-                <div className="form-group">
-                  <label htmlFor="name">Full Name *</label>
-                  <input
-                    type="text"
-                    id="name"
-                    name="name"
-                    value={formData.name}
-                    onChange={handleChange}
-                    required
-                    placeholder="Enter your full name"
-                  />
-                </div>
-                <div className="form-group">
-                  <label htmlFor="email">Email Address *</label>
-                  <input
-                    type="email"
-                    id="email"
-                    name="email"
-                    value={formData.email}
-                    onChange={handleChange}
-                    required
-                    placeholder="Enter your email"
-                  />
-                </div>
-              </div>
-
-              <div className="form-group">
-                <label htmlFor="subject">Subject *</label>
-                <input
-                  type="text"
-                  id="subject"
-                  name="subject"
-                  value={formData.subject}
-                  onChange={handleChange}
-                  required
-                  placeholder="What is this regarding?"
-                />
-              </div>
-
-              <div className="form-group">
-                <label htmlFor="message">Message *</label>
-                <textarea
-                  id="message"
-                  name="message"
-                  value={formData.message}
-                  onChange={handleChange}
-                  required
-                  rows="6"
-                  placeholder="Tell us how we can help..."
-                />
-              </div>
-
-              <button type="submit" className="submit-button" disabled={loading}>
-                {loading ? (
-                  'Sending...'
-                ) : (
-                  <>
-                    Send Message <Send size={18} />
-                  </>
-                )}
-              </button>
-            </motion.form>
-          </div>
-        </div>
-      </section>
-
-      {/* FAQ Section */}
-      <section className="contact-faq-section">
-        <div className="container">
-          <motion.h2
-            className="section-title"
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-          >
-            Frequently Asked Questions
-          </motion.h2>
-          <div className="faq-grid">
-            {faqs.map((faq, index) => (
-              <motion.div
-                key={index}
-                className="faq-item"
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: index * 0.1 }}
-              >
-                <h3>{faq.question}</h3>
-                <p>{faq.answer}</p>
-              </motion.div>
+                <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-brand-50 text-brand-700 dark:bg-brand-950/60 dark:text-brand-200">
+                  <Icon className="h-5 w-5" aria-hidden="true" />
+                </span>
+                <span className="mt-4 flex items-center gap-2 text-sm font-semibold text-slate-900 dark:text-slate-100">
+                  {title}
+                  {external && <ArrowUpRight className="h-4 w-4" aria-hidden="true" />}
+                </span>
+                <span className="mt-1 block break-words text-sm font-medium text-brand-700 dark:text-brand-300">
+                  {detail}
+                </span>
+                <span className="mt-2 block text-sm leading-6 text-slate-500 dark:text-slate-400">
+                  {description}
+                </span>
+              </a>
             ))}
           </div>
+
+          <div className="mt-8 grid items-start gap-8 lg:grid-cols-[minmax(0,1.15fr)_minmax(18rem,0.85fr)]">
+            <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-card dark:border-slate-800 dark:bg-slate-900 sm:p-8">
+              <div className="mb-6">
+                <span className="inline-flex h-11 w-11 items-center justify-center rounded-xl bg-brand-50 text-brand-700 dark:bg-brand-950/60 dark:text-brand-200">
+                  <Send className="h-5 w-5" aria-hidden="true" />
+                </span>
+                <h2 className="mt-4 text-2xl font-semibold text-slate-900 dark:text-slate-100">
+                  Write us a message
+                </h2>
+                <p className="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-400">
+                  This form prepares an email in your own email app. Your message is not sent until
+                  you review and send that email.
+                </p>
+              </div>
+
+              <form onSubmit={handleSubmit} className="space-y-5">
+                <div className="grid gap-5 sm:grid-cols-2">
+                  <div>
+                    <label htmlFor="contact-name" className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">
+                      Your name
+                    </label>
+                    <input
+                      id="contact-name"
+                      name="name"
+                      value={formData.name}
+                      onChange={handleChange}
+                      autoComplete="name"
+                      required
+                      className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="contact-email" className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">
+                      Your email
+                    </label>
+                    <input
+                      id="contact-email"
+                      name="email"
+                      type="email"
+                      value={formData.email}
+                      onChange={handleChange}
+                      autoComplete="email"
+                      required
+                      className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label htmlFor="contact-subject" className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">
+                    Subject
+                  </label>
+                  <input
+                    id="contact-subject"
+                    name="subject"
+                    value={formData.subject}
+                    onChange={handleChange}
+                    required
+                    className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="contact-message" className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">
+                    Message
+                  </label>
+                  <textarea
+                    id="contact-message"
+                    name="message"
+                    value={formData.message}
+                    onChange={handleChange}
+                    required
+                    rows={6}
+                    className="w-full resize-y rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm leading-6 text-slate-900 outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  className="inline-flex items-center gap-2 rounded-xl bg-brand-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-brand-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2"
+                >
+                  Prepare email
+                  <Send className="h-4 w-4" aria-hidden="true" />
+                </button>
+              </form>
+
+              {emailDraft && (
+                <div
+                  className="mt-5 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900 dark:border-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-200"
+                  role="status"
+                >
+                  <p>Your email draft is ready. Open it to review and send your message.</p>
+                  <a
+                    href={emailDraft}
+                    className="mt-3 inline-flex items-center gap-2 font-semibold underline underline-offset-2"
+                  >
+                    Open email draft
+                    <ArrowUpRight className="h-4 w-4" aria-hidden="true" />
+                  </a>
+                </div>
+              )}
+            </section>
+
+            <aside className="space-y-5">
+              <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-card dark:border-slate-800 dark:bg-slate-900">
+                <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
+                  Developed in Lesotho
+                </h2>
+                <p className="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-400">
+                  Career Connect Lesotho is powered by Baffy&apos;s Computer Solutions, a local
+                  technology company delivering web, mobile, database, AI, and cloud solutions.
+                </p>
+                <a
+                  href={DEVELOPER_SITE}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-brand-700 hover:text-brand-600 dark:text-brand-300 dark:hover:text-brand-200"
+                >
+                  Visit Baffy&apos;s Computer Solutions
+                  <ArrowUpRight className="h-4 w-4" aria-hidden="true" />
+                </a>
+              </section>
+
+              <a
+                href={WHATSAPP_LINK}
+                target="_blank"
+                rel="noreferrer"
+                className="flex items-center gap-4 rounded-2xl bg-emerald-700 p-5 text-white transition hover:bg-emerald-600"
+              >
+                <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-white/15">
+                  <MessageCircle className="h-6 w-6" aria-hidden="true" />
+                </span>
+                <span className="flex-1">
+                  <strong className="block text-base">Prefer WhatsApp?</strong>
+                  <span className="mt-1 block text-sm text-emerald-50">
+                    Start a direct chat with our team.
+                  </span>
+                </span>
+                <ArrowUpRight className="h-5 w-5 shrink-0" aria-hidden="true" />
+              </a>
+            </aside>
+          </div>
         </div>
       </section>
-    </div>
+    </main>
   );
 };
 

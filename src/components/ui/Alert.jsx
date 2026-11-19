@@ -1,208 +1,61 @@
-/* eslint-disable no-unused-vars */
-import { useState, useEffect } from 'react';
-import {
-  Alert as MuiAlert,
-  AlertTitle,
-  Box,
-  IconButton,
-  Collapse,
-  alpha,
-  styled,
-  useTheme,
-} from '@mui/material';
-import {
-  CheckCircle as CheckCircleIcon,
-  Error as ErrorIcon,
-  Info as InfoIcon,
-  Warning as WarningIcon,
-  Close as CloseIcon,
-  Download as DownloadIcon,
-  ContentCopy as CopyIcon,
-  Refresh as RefreshIcon,
-} from '@mui/icons-material';
-import { motion, AnimatePresence } from 'framer-motion';
+import { useEffect, useState } from 'react';
+import { AlertCircle, CheckCircle2, ChevronDown, Info, TriangleAlert, X } from 'lucide-react';
+import { cn } from '../../lib/cn';
 
-const StyledAlert = styled(MuiAlert)(({ theme, severity, variant, customcolor }) => {
-  const getColor = () => {
-    if (customcolor) return customcolor;
-    switch (severity) {
-      case 'success':
-        return theme.palette.success.main;
-      case 'error':
-        return theme.palette.error.main;
-      case 'warning':
-        return theme.palette.warning.main;
-      case 'info':
-        return theme.palette.info.main;
-      default:
-        return theme.palette.primary.main;
-    }
-  };
+const styles = {
+  success: { shell: 'border-success/20 bg-success-light text-success-dark', icon: CheckCircle2 },
+  error: { shell: 'border-danger/20 bg-danger-light text-danger-dark', icon: AlertCircle },
+  warning: { shell: 'border-warning/20 bg-warning-light text-warning-dark', icon: TriangleAlert },
+  info: { shell: 'border-info/20 bg-info-light text-info-dark', icon: Info },
+};
 
-  const color = getColor();
-
-  return {
-    borderRadius: theme.spacing(1),
-    padding: theme.spacing(1, 2),
-    ...(variant === 'outlined' && {
-      border: `1px solid ${color}`,
-      backgroundColor: 'transparent',
-      color: color,
-    }),
-    ...(variant === 'filled' && {
-      backgroundColor: color,
-      color: theme.palette.getContrastText(color),
-      '& .MuiAlert-icon': {
-        color: theme.palette.getContrastText(color),
-      },
-    }),
-    ...(variant === 'standard' && {
-      backgroundColor: alpha(color, 0.08),
-      color: theme.palette.text.primary,
-    }),
-  };
-});
-
-const Alert = ({
-  // Core props
+export default function Alert({
   children,
   title,
   severity = 'info',
   variant = 'standard',
-
-  // Features
   closable = false,
   collapsible = false,
   actions = [],
   icon,
-
-  // State
   open = true,
   onClose,
-
-  // Animation
-  animated = true,
-
-  // Customization
-  rounded = true,
-  elevation = 0,
-
-  // Callbacks
-  onAction,
-
+  className,
   ...props
-}) => {
-  const theme = useTheme();
+}) {
   const [isOpen, setIsOpen] = useState(open);
   const [collapsed, setCollapsed] = useState(false);
+  const config = styles[severity] || styles.info;
+  const Icon = config.icon;
 
-  useEffect(() => {
-    setIsOpen(open);
-  }, [open]);
+  useEffect(() => setIsOpen(open), [open]);
 
-  const handleClose = () => {
+  if (!isOpen) return null;
+
+  const close = () => {
     setIsOpen(false);
     onClose?.();
   };
 
-  const handleAction = (action) => {
-    action.onClick?.();
-    onAction?.(action);
-  };
-
-  const getIcon = () => {
-    if (icon) return icon;
-
-    switch (severity) {
-      case 'success':
-        return <CheckCircleIcon />;
-      case 'error':
-        return <ErrorIcon />;
-      case 'warning':
-        return <WarningIcon />;
-      case 'info':
-        return <InfoIcon />;
-      default:
-        return <InfoIcon />;
-    }
-  };
-
-  const alertContent = (
-    <StyledAlert
-      severity={severity}
-      variant={variant}
-      icon={getIcon()}
-      action={
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-          {/* Custom Actions */}
-          {actions.map((action, index) => (
-            <IconButton
-              key={index}
-              size="small"
-              onClick={() => handleAction(action)}
-              sx={{
-                color: variant === 'filled' ? 'inherit' : action.color || severity,
-                '&:hover': {
-                  backgroundColor: alpha(theme.palette.common.white, 0.1),
-                },
-              }}
-            >
-              {action.icon}
-            </IconButton>
-          ))}
-
-          {/* Close Button */}
-          {closable && (
-            <IconButton
-              size="small"
-              onClick={handleClose}
-              sx={{
-                color: variant === 'filled' ? 'inherit' : theme.palette.text.secondary,
-              }}
-            >
-              <CloseIcon fontSize="small" />
-            </IconButton>
-          )}
-        </Box>
-      }
-      sx={{
-        borderRadius: rounded ? theme.shape.borderRadius : 0,
-        boxShadow: elevation ? theme.shadows[elevation] : 'none',
-        cursor: collapsible ? 'pointer' : 'default',
-        '& .MuiAlert-message': {
-          width: '100%',
-        },
-      }}
-      onClick={() => collapsible && setCollapsed(!collapsed)}
-      {...props}
-    >
-      {title && <AlertTitle>{title}</AlertTitle>}
-
-      <AnimatePresence initial={false}>
-        {(!collapsible || !collapsed) && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: 'auto', opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.2 }}
-          >
-            {children}
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </StyledAlert>
+  return (
+    <div role="alert" className={cn('flex gap-3 rounded-lg border p-4 text-sm animate-fade-in', variant === 'filled' ? 'border-transparent text-white' : config.shell, variant === 'filled' && severity === 'success' && 'bg-success', variant === 'filled' && severity === 'error' && 'bg-danger', variant === 'filled' && severity === 'warning' && 'bg-warning', variant === 'filled' && severity === 'info' && 'bg-info', className)} {...props}>
+      {icon || <Icon aria-hidden className="mt-0.5 h-5 w-5 shrink-0" />}
+      <div className="min-w-0 flex-1">
+        <div className={cn('flex items-start justify-between gap-3', collapsible && 'cursor-pointer')} onClick={() => collapsible && setCollapsed((value) => !value)}>
+          <div>{title && <p className="font-semibold">{title}</p>}{!collapsible && children}</div>
+          <div className="flex shrink-0 items-center gap-1">
+            {actions.map((action, index) => <button key={action.label || index} type="button" onClick={() => action.onClick?.()} className="rounded p-1 hover:bg-black/10" aria-label={action.label}>{action.icon}</button>)}
+            {collapsible && <ChevronDown aria-hidden className={cn('h-4 w-4 transition-transform', collapsed && '-rotate-90')} />}
+            {closable && <button type="button" onClick={close} className="rounded p-1 hover:bg-black/10" aria-label="Close"><X aria-hidden className="h-4 w-4" /></button>}
+          </div>
+        </div>
+        {collapsible ? !collapsed && <div className="mt-1">{children}</div> : null}
+      </div>
+    </div>
   );
+}
 
-  return animated ? <Collapse in={isOpen}>{alertContent}</Collapse> : isOpen && alertContent;
-};
-
-// Pre-configured alert types
 export const SuccessAlert = (props) => <Alert severity="success" variant="filled" {...props} />;
-
 export const ErrorAlert = (props) => <Alert severity="error" variant="filled" {...props} />;
-
 export const WarningAlert = (props) => <Alert severity="warning" variant="filled" {...props} />;
-
 export const InfoAlert = (props) => <Alert severity="info" variant="filled" {...props} />;
-
-export default Alert;

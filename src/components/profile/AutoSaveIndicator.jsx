@@ -1,7 +1,7 @@
 /* eslint-disable no-unused-vars */
 import PropTypes from 'prop-types';
-import { Badge, Spinner, Tooltip, OverlayTrigger } from 'react-bootstrap';
-import { FaSave, FaCheck, FaExclamationTriangle, FaClock, FaCloud } from 'react-icons/fa';
+import { Badge, Spinner, Tooltip, OverlayTrigger } from '../ui/tailwindCompat';
+import { FaSave, FaCheck, FaExclamationTriangle, FaClock, FaCloud } from "react-icons/fa";
 
 /**
  * AutoSaveIndicator Component

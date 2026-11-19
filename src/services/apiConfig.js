@@ -17,22 +17,43 @@ const resolveApiBaseUrl = () => {
     import.meta.env.VITE_BASE_URL_API ||
     '';
 
-  // Safety fallback: when running locally, avoid broken remote DNS targets
-  // unless explicitly forced.
-  if (isLocalHost() && import.meta.env.VITE_FORCE_REMOTE_API !== 'true') {
-    if (!envUrl || !/localhost|127\.0\.0\.1/i.test(envUrl)) {
-      return 'http://localhost:5001';
+  if (envUrl && envUrl.trim()) {
+    try {
+      return new URL(envUrl).toString().replace(/\/+$/, '');
+    } catch (e) {
+      console.warn('Invalid API URL configured:', envUrl);
     }
   }
 
-  // On Firebase Hosting, prefer same-origin so /api rewrites can route traffic.
-  if (isFirebaseHosted() && import.meta.env.VITE_FORCE_REMOTE_API !== 'true') {
-    return window.location.origin;
+  // For production/hosted environments
+  if (isFirebaseHosted()) {
+    // Firebase Hosting is static; send API traffic to the deployed backend.
+    return (
+      import.meta.env.VITE_API_BASE_URL ||
+      'https://career-connect-backend-79v0.onrender.com'
+    );
   }
 
-  return (envUrl || 'http://localhost:5000').replace(/\/+$/, '');
+  // For local development
+  if (isLocalHost()) {
+    // Use localhost with appropriate port
+    const port = import.meta.env.VITE_API_PORT || '5000';
+    return `http://localhost:${port}`;
+  }
+
+  // Final fallback: use current origin if everything else fails
+  return typeof window !== 'undefined' ? window.location.origin : 'http://localhost:5000';
 };
 
 export const API_BASE_URL = resolveApiBaseUrl();
+
+if (
+  import.meta.env.VITE_APP_ENVIRONMENT === 'production' &&
+  !API_BASE_URL.startsWith('https://')
+) {
+  console.warn('Production alumni API URL must use HTTPS.');
+}
+
+console.log('🔧 API Base URL resolved:', API_BASE_URL);
 
 export default API_BASE_URL;

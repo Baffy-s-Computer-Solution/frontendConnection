@@ -12,6 +12,4 @@ export { default as ReviewApplications } from './ReviewApplications.jsx';
 export { default as Settings } from './Settings.jsx';
 export { default as StudentManagement } from './StudentManagement.jsx';
 
-// Re-export types and utilities
-export * from './types';
-export * from './constants';
+

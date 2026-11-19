@@ -13,19 +13,8 @@ import {
   Alert,
   Tabs,
   Tab,
-} from 'react-bootstrap';
-import {
-  FaRobot,
-  FaUserCheck,
-  FaChartLine,
-  FaFilter,
-  FaSync,
-  FaStar,
-  FaGraduationCap,
-  FaBriefcase,
-  FaLightbulb,
-} from 'react-icons/fa';
-import './AIMatching.css';
+} from '../../../components/ui/tailwindOnly';
+import { FaRobot, FaUserCheck, FaChartLine, FaFilter, FaSync, FaStar, FaGraduationCap, FaBriefcase, FaLightbulb } from "react-icons/fa";
 
 const AIMatching = () => {
   const [candidates, setCandidates] = useState([]);
@@ -113,62 +102,54 @@ const AIMatching = () => {
   };
 
   return (
-    <Container fluid className="ai-matching-container px-4 py-3">
-      <div className="d-flex align-items-center mb-4">
-        <FaRobot className="text-primary me-3" size={32} />
+    <Container fluid className="px-4 py-3">
+      <div className="mb-4 flex items-center gap-3">
+        <FaRobot className="text-blue-600" size={32} />
         <div>
-          <h2>AI Candidate Matching</h2>
-          <p className="text-muted">Smart matching using artificial intelligence</p>
+          <h2 className="text-2xl font-semibold text-slate-900 dark:text-white">AI Candidate Matching</h2>
+          <p className="text-sm text-slate-500 dark:text-slate-400">Smart matching using artificial intelligence</p>
         </div>
       </div>
 
       {/* AI Insights Card */}
       {aiInsights && (
-        <Card className="border-0 shadow-sm mb-4 bg-primary text-white">
-          <Card.Body>
-            <Row>
-              <Col md={8}>
-                <h4 className="mb-3">🤖 AI Hiring Insights</h4>
-                <Row>
-                  <Col md={4}>
-                    <div className="mb-3">
-                      <div className="small">Market Demand</div>
-                      <h5>{aiInsights.marketDemand}</h5>
-                    </div>
+        <Card className="mb-4 overflow-hidden border-0 bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-sm">
+          <Card.Body className="p-6">
+            <Row className="items-center gap-4">
+              <Col md={8} className="space-y-4">
+                <h4 className="text-xl font-semibold">AI Hiring Insights</h4>
+                <Row className="gap-4">
+                  <Col md={4} className="space-y-2">
+                    <div className="text-xs uppercase tracking-wide text-blue-100">Market Demand</div>
+                    <h5 className="text-base font-medium text-white">{aiInsights.marketDemand}</h5>
                   </Col>
-                  <Col md={4}>
-                    <div className="mb-3">
-                      <div className="small">Salary Benchmark</div>
-                      <h5>{aiInsights.salaryBenchmark}</h5>
-                    </div>
+                  <Col md={4} className="space-y-2">
+                    <div className="text-xs uppercase tracking-wide text-blue-100">Salary Benchmark</div>
+                    <h5 className="text-base font-medium text-white">{aiInsights.salaryBenchmark}</h5>
                   </Col>
-                  <Col md={4}>
-                    <div className="mb-3">
-                      <div className="small">Competitor Activity</div>
-                      <h5>{aiInsights.competitorHiring}</h5>
-                    </div>
+                  <Col md={4} className="space-y-2">
+                    <div className="text-xs uppercase tracking-wide text-blue-100">Competitor Activity</div>
+                    <h5 className="text-base font-medium text-white">{aiInsights.competitorHiring}</h5>
                   </Col>
                 </Row>
                 <div className="mt-3">
-                  <h6>AI Recommendations:</h6>
-                  <ul className="mb-0">
+                  <h6 className="mb-2 text-sm font-semibold uppercase tracking-wide text-blue-100">AI Recommendations:</h6>
+                  <ul className="mb-0 list-disc space-y-1 pl-5 text-sm text-blue-50">
                     {aiInsights.recommendations.map((rec, idx) => (
-                      <li key={idx} className="small">
-                        {rec}
-                      </li>
+                      <li key={idx}>{rec}</li>
                     ))}
                   </ul>
                 </div>
               </Col>
               <Col md={4} className="text-center">
                 <div className="mb-3">
-                  <div className="display-4">{aiInsights.avgMatchScore}%</div>
-                  <div className="small">Average Match Score</div>
+                  <div className="text-5xl font-bold tracking-tight">{aiInsights.avgMatchScore}%</div>
+                  <div className="text-sm text-blue-100">Average Match Score</div>
                 </div>
-                <Button variant="light" className="mt-2">
-                  <FaChartLine className="me-2" />
+                <button className="mt-2 inline-flex items-center rounded-xl bg-white px-4 py-2 text-sm font-medium text-blue-700 shadow-sm hover:bg-blue-50">
+                  <FaChartLine className="mr-2" />
                   View Detailed Analysis
-                </Button>
+                </button>
               </Col>
             </Row>
           </Card.Body>
@@ -215,10 +196,10 @@ const AIMatching = () => {
               </Form.Select>
             </Col>
             <Col md={3}>
-              <Button variant="primary" className="w-100" onClick={fetchAIMatches}>
-                <FaSync className="me-2" />
+              <button className="w-full rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700" onClick={fetchAIMatches}>
+                <FaSync className="mr-2 inline" />
                 Refresh Matches
-              </Button>
+              </button>
             </Col>
           </Row>
         </Card.Body>
@@ -335,7 +316,7 @@ const AIMatching = () => {
       {/* AI Features Info */}
       <Card className="border-0 shadow-sm mt-4">
         <Card.Body>
-          <h5 className="mb-3">🎯 How AI Matching Works</h5>
+          <h5 className="mb-3">ðŸŽ¯ How AI Matching Works</h5>
           <Row>
             <Col md={4}>
               <div className="text-center p-3">
@@ -384,3 +365,5 @@ const AIMatching = () => {
 };
 
 export default AIMatching;
+
+

@@ -1,4 +1,20 @@
 import axios from 'axios';
+import {
+  addDoc,
+  collection,
+  doc,
+  getDoc,
+  getDocs,
+  limit,
+  onSnapshot,
+  orderBy,
+  query,
+  Timestamp,
+  updateDoc,
+  where,
+} from 'firebase/firestore';
+
+import { db } from '../config/firebase';
 
 // AI API Configuration
 const AI_API_BASE_URL = import.meta.env.VITE_AI_API_URL || 'https://baffkay20-ai-backend.hf.space';
@@ -19,6 +35,27 @@ export const AI_MODELS = {
   STUDENT_INTERNSHIP_PREDICTOR: 'student_internship_predictor',
   STUDENT_COMPANY_MATCHER: 'student_company_matcher',
   FUNDING_ELIGIBILITY: 'funding_eligibility',
+  BUSINESS_PREDICTOR: 'business_predictor',
+  FUNDING_RECOMMENDER: 'funding_recommender',
+  MENTOR_MATCHER: 'mentor_matcher',
+};
+
+const AI_TASK_STATUS = {
+  PENDING: 'pending',
+  PROCESSING: 'processing',
+  COMPLETED: 'completed',
+  FAILED: 'failed',
+};
+
+const getAnalyticsData = async ({ metrics = [] } = {}) => {
+  const analytics = {};
+  await Promise.all(
+    metrics.map(async (metric) => {
+      const snapshot = await getDocs(collection(db, metric));
+      analytics[metric] = { total: snapshot.size };
+    })
+  );
+  return analytics;
 };
 
 export const AI_ENDPOINTS = {

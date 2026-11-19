@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { Navigate, Outlet, useLocation } from 'react-router-dom';
-import { Spinner } from 'react-bootstrap';
+import { Loader2 } from 'lucide-react';
 
 import { useAuth } from '../../context/AuthContext';
 
@@ -9,16 +9,16 @@ import { ROLE_BASED_REDIRECTS } from './routeConstants';
 // Import Layout for LoadingFallback
 
 export const LoadingFallback = () => (
-  <div className="d-flex flex-column justify-content-center align-items-center min-vh-100 bg-light">
-    <Spinner animation="border" variant="primary" size="lg" />
-    <span className="mt-3 text-muted">Loading Career Connect...</span>
+  <div className="flex min-h-screen flex-col items-center justify-center bg-slate-50 dark:bg-slate-950">
+    <Loader2 className="h-12 w-12 animate-spin text-brand-600" aria-label="Loading" />
+    <span className="mt-3 text-sm text-slate-500">Loading Career Connect...</span>
   </div>
 );
 
 export const LoadingSpinner = () => (
-  <div className="text-center py-5">
-    <Spinner animation="border" variant="primary" />
-    <span className="ms-2">Loading...</span>
+  <div className="flex items-center justify-center py-12">
+    <Loader2 className="h-6 w-6 animate-spin text-brand-600" aria-label="Loading" />
+    <span className="ml-2 text-sm text-slate-500">Loading...</span>
   </div>
 );
 

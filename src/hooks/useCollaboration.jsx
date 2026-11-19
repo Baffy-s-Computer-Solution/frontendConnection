@@ -14,7 +14,7 @@ const useCollaboration = () => {
   const [unreadCount, setUnreadCount] = useState(0);
   const [onlineUsers, setOnlineUsers] = useState([]);
 
-  const unsubscribeRef = useRef({ conversations: null, messages: null });
+  const unsubscribeRef = useRef({ conversations: null, messages: null, presence: null });
 
   // Initialize collaboration
   const initialize = useCallback(async () => {
@@ -77,6 +77,10 @@ const useCollaboration = () => {
         setUnreadCount(totalUnread);
       }
     );
+
+    unsubscribeRef.current.presence = communicationService.subscribeToPresence((presence) => {
+      setOnlineUsers(presence.filter((entry) => entry.isOnline && entry.userId !== currentUser.uid));
+    });
   }, [currentUser, userProfile]);
 
   // Start conversation with a user
@@ -320,6 +324,12 @@ const useCollaboration = () => {
     [currentUser]
   );
 
+  const getAvailableContacts = useCallback(
+    (searchTerm = '') =>
+      communicationService.getAvailableContacts(currentUser?.uid, searchTerm),
+    [currentUser]
+  );
+
   // Add reaction to message
   const addReaction = useCallback(
     async (messageId, reaction) => {
@@ -379,6 +389,9 @@ const useCollaboration = () => {
     if (unsubscribeRef.current.messages) {
       unsubscribeRef.current.messages();
     }
+    if (unsubscribeRef.current.presence) {
+      unsubscribeRef.current.presence();
+    }
   }, []);
 
   // Initialize on mount
@@ -386,10 +399,17 @@ const useCollaboration = () => {
     initialize();
     setupSubscriptions();
 
+    if (currentUser && userProfile) {
+      communicationService.setPresence(currentUser.uid, userProfile.userType, true).catch(() => {});
+    }
+
     return () => {
+      if (currentUser && userProfile) {
+        communicationService.setPresence(currentUser.uid, userProfile.userType, false).catch(() => {});
+      }
       cleanup();
     };
-  }, [initialize, setupSubscriptions, cleanup]);
+  }, [initialize, setupSubscriptions, cleanup, currentUser, userProfile]);
 
   return {
     // State
@@ -412,6 +432,7 @@ const useCollaboration = () => {
     addReaction,
     deleteMessage,
     updateMessage,
+    getAvailableContacts,
     clearError,
 
     // Utilities

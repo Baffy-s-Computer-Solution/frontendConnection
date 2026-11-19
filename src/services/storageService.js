@@ -46,7 +46,7 @@ class StorageService {
       const formData = new FormData();
       formData.append('file', file);
       formData.append('upload_preset', this.cloudinaryConfig.uploadPreset);
-      formData.append('folder', 'career_connect');
+      formData.append('folder', String(path || 'career_connect').replace(/^\/+|\/+$/g, ''));
 
       // Add metadata
       if (metadata.tags) {

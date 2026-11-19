@@ -10,6 +10,7 @@ import {
   limit,
   addDoc,
   updateDoc,
+  setDoc,
   deleteDoc,
   serverTimestamp,
   onSnapshot,
@@ -110,6 +111,12 @@ export const followersService = {
           updatedAt: serverTimestamp(),
           lastEngaged: serverTimestamp(),
         });
+        await setDoc(doc(db, 'company_chat_followers', `${companyId}_${studentId}`), {
+          companyId,
+          followerId: studentId,
+          status: 'active',
+          createdAt: serverTimestamp(),
+        });
 
         return {
           success: true,
@@ -131,6 +138,12 @@ export const followersService = {
       };
 
       const docRef = await addDoc(followersRef, followerData);
+      await setDoc(doc(db, 'company_chat_followers', `${companyId}_${studentId}`), {
+        companyId,
+        followerId: studentId,
+        status: 'active',
+        createdAt: serverTimestamp(),
+      });
 
       return {
         success: true,
@@ -155,6 +168,11 @@ export const followersService = {
         unfollowedAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       });
+
+      const followerSnapshot = await getDoc(followerRef);
+      const followerData = followerSnapshot.exists() ? followerSnapshot.data() : null;
+      const followerId = followerData?.studentId || followerData?.userId;
+      if (followerId) await updateDoc(doc(db, 'company_chat_followers', `${followerData.companyId}_${followerId}`), { status: 'inactive', updatedAt: serverTimestamp() }).catch(() => {});
 
       return { success: true };
     } catch (error) {

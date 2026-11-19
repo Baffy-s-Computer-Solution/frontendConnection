@@ -16,20 +16,8 @@ import {
   Pagination,
   Dropdown,
   Modal,
-} from 'react-bootstrap';
-import {
-  FaSearch,
-  FaUserCheck,
-  FaChartLine,
-  FaFilter,
-  FaSort,
-  FaEnvelope,
-  FaCalendarAlt,
-  FaGraduationCap,
-  FaMapMarkerAlt,
-  FaExternalLinkAlt,
-} from 'react-icons/fa';
-import './CompanyFollowers.css';
+} from '../../../components/ui/tailwindOnly';
+import { FaSearch, FaUserCheck, FaChartLine, FaFilter, FaSort, FaEnvelope, FaCalendarAlt, FaGraduationCap, FaMapMarkerAlt, FaExternalLinkAlt } from "react-icons/fa";
 
 const CompanyFollowers = () => {
   const [followers, setFollowers] = useState([]);
@@ -164,13 +152,13 @@ const CompanyFollowers = () => {
   };
 
   return (
-    <Container fluid className="company-followers-container px-4 py-3">
-      <div className="d-flex justify-content-between align-items-center mb-4">
+    <Container fluid className="px-4 py-3">
+      <div className="mb-4 flex items-center justify-between gap-3">
         <div>
-          <h2>Company Followers</h2>
-          <p className="text-muted">Manage and engage with students following your company</p>
+          <h2 className="text-2xl font-semibold text-slate-900 dark:text-white">Company Followers</h2>
+          <p className="text-sm text-slate-500 dark:text-slate-400">Manage and engage with students following your company</p>
         </div>
-        <Button variant="primary" onClick={() => setShowEngageModal(true)}>
+        <Button className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700" onClick={() => setShowEngageModal(true)}>
           Engage Followers
         </Button>
       </div>
@@ -180,29 +168,29 @@ const CompanyFollowers = () => {
         <Col md={4}>
           <Card className="border-0 shadow-sm h-100">
             <Card.Body className="text-center py-4">
-              <FaUserCheck className="text-primary mb-3" size={32} />
-              <h3>{stats.total}</h3>
-              <p className="text-muted mb-0">Total Followers</p>
+              <FaUserCheck className="mb-3 text-blue-600" size={32} />
+              <h3 className="text-3xl font-semibold text-slate-900 dark:text-slate-100">{stats.total}</h3>
+              <p className="mb-0 text-slate-500 dark:text-slate-400">Total Followers</p>
             </Card.Body>
           </Card>
         </Col>
         <Col md={4}>
           <Card className="border-0 shadow-sm h-100">
             <Card.Body className="text-center py-4">
-              <FaChartLine className="text-success mb-3" size={32} />
-              <h3>{stats.active}</h3>
-              <p className="text-muted mb-0">Active This Month</p>
+              <FaChartLine className="mb-3 text-emerald-600" size={32} />
+              <h3 className="text-3xl font-semibold text-slate-900 dark:text-slate-100">{stats.active}</h3>
+              <p className="mb-0 text-slate-500 dark:text-slate-400">Active This Month</p>
             </Card.Body>
           </Card>
         </Col>
         <Col md={4}>
           <Card className="border-0 shadow-sm h-100">
             <Card.Body className="text-center py-4">
-              <div className="text-warning mb-3" style={{ fontSize: '32px' }}>
+              <div className="mb-3 text-amber-500" style={{ fontSize: '32px' }}>
                 ↑
               </div>
-              <h3>{stats.newThisMonth}</h3>
-              <p className="text-muted mb-0">New This Month</p>
+              <h3 className="text-3xl font-semibold text-slate-900 dark:text-slate-100">{stats.newThisMonth}</h3>
+              <p className="mb-0 text-slate-500 dark:text-slate-400">New This Month</p>
             </Card.Body>
           </Card>
         </Col>
@@ -489,3 +477,5 @@ const CompanyFollowers = () => {
 };
 
 export default CompanyFollowers;
+
+

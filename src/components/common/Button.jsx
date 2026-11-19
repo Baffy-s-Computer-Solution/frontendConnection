@@ -1,3 +1,1 @@
-﻿import React from 'react';
-export const Button = ({ children, onClick }) => <button onClick={onClick}>{children}</button>;
-export default Button;
+export { default } from '../ui/Button';

@@ -1,5 +1,7 @@
 import { createContext, useState, useContext, useEffect, useCallback } from 'react';
+import { doc, getDoc, serverTimestamp, setDoc } from 'firebase/firestore';
 import { useAuth } from './AuthContext';
+import { db } from '../config/firebase';
 
 const CompanyContext = createContext();
 
@@ -37,18 +39,19 @@ export const CompanyProvider = ({ children }) => {
       setLoading(true);
       setError(null);
 
-      // Basic company profile - you can expand this with actual API calls
+      const companySnapshot = await getDoc(doc(db, 'companies', currentUser.uid));
       const companyProfile = {
         id: currentUser.uid,
         email: currentUser.email || '',
-        companyName: currentUser.displayName || currentUser.email?.split('@')[0] || 'Company',
+        companyName:
+          companySnapshot.data()?.companyName ||
+          companySnapshot.data()?.name ||
+          currentUser.displayName ||
+          currentUser.email?.split('@')[0] ||
+          'Company',
         userType: 'company',
-        profileCompletion: 30,
-        industry: 'Not specified',
-        size: 'Not specified',
-        location: 'Not specified',
-        website: '',
-        description: '',
+        profileCompletion: companySnapshot.data()?.profileCompletion || 30,
+        ...companySnapshot.data(),
       };
 
       setCompanyData(companyProfile);
@@ -68,7 +71,11 @@ export const CompanyProvider = ({ children }) => {
     }
 
     try {
-      // Update local state
+      await setDoc(
+        doc(db, 'companies', companyData.id),
+        { ...updates, updatedAt: serverTimestamp(), uid: companyData.id },
+        { merge: true }
+      );
       setCompanyData((prev) => ({
         ...prev,
         ...updates,

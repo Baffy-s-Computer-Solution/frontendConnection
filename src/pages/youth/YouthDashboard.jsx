@@ -2,20 +2,8 @@
 /* eslint-disable no-unused-vars */
 // src/pages/youth/YouthDashboard.jsx
 import { useEffect, useState, useCallback } from 'react';
-import { Container, Row, Col, Card, ProgressBar, Spinner, Alert, Badge } from 'react-bootstrap';
-import {
-  FaLightbulb,
-  FaHandshake,
-  FaChartLine,
-  FaUsers,
-  FaBriefcase,
-  FaGraduationCap,
-  FaTrophy,
-  FaCalendarCheck,
-  FaClock,
-  FaCheckCircle,
-  FaExclamationCircle,
-} from 'react-icons/fa';
+import { Container, Row, Col, Card, ProgressBar, Spinner, Alert, Badge } from '../../components/ui/tailwindCompat';
+import { FaLightbulb, FaHandshake, FaChartLine, FaUsers, FaBriefcase, FaGraduationCap, FaTrophy, FaCalendarCheck, FaClock, FaCheckCircle, FaExclamationCircle } from "react-icons/fa";
 import { Line, Doughnut } from 'react-chartjs-2';
 import {
   Chart as ChartJS,
@@ -45,23 +33,7 @@ ChartJS.register(
 );
 
 const YouthDashboard = () => {
-  // Safely use youth context with error handling
-  let youthContext;
-  try {
-    youthContext = useYouth();
-  } catch (error) {
-    console.error('YouthProvider not available:', error);
-    // Return loading state if provider is not available
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading youth dashboard...</p>
-        </div>
-      </div>
-    );
-  }
-
+  const youthContext = useYouth();
   const {
     youthProfile,
     loading,
@@ -707,3 +679,5 @@ const YouthDashboard = () => {
 };
 
 export default YouthDashboard;
+
+

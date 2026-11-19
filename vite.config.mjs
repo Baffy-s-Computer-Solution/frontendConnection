@@ -1,6 +1,5 @@
 ﻿import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
-import viteCompression from 'vite-plugin-compression';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
@@ -24,23 +23,12 @@ export default defineConfig(({ command, mode }) => {
   //   );
   // }
 
-  // Add compression plugins
-  plugins.push(
-    viteCompression({
-      algorithm: 'gzip',
-      threshold: 10240,
-    }),
-    viteCompression({
-      algorithm: 'brotliCompress',
-      threshold: 10240,
-    })
-  );
-
   return {
     plugins,
     resolve: {
       alias: {
         '@': path.resolve(__dirname, './src'),
+        'firebase/storage': path.resolve(__dirname, './src/services/cloudinaryStorageCompat.js'),
         '@restart/ui/esm/popper': path.resolve(__dirname, './src/shims/restartUiPopper.js'),
         '@restart/ui/esm/popper.js': path.resolve(__dirname, './src/shims/restartUiPopper.js'),
       },
@@ -55,8 +43,8 @@ export default defineConfig(({ command, mode }) => {
         output: {
           manualChunks: {
             vendor: ['react', 'react-dom', 'react-router-dom'],
-            firebase: ['firebase/app', 'firebase/auth', 'firebase/firestore', 'firebase/storage'],
-            ui: ['react-bootstrap', 'bootstrap', 'framer-motion'],
+            firebase: ['firebase/app', 'firebase/auth', 'firebase/firestore'],
+            ui: ['framer-motion'],
             charts: ['chart.js', 'react-chartjs-2', 'recharts'],
             forms: ['formik', 'yup', 'react-hook-form'],
           },
@@ -66,15 +54,21 @@ export default defineConfig(({ command, mode }) => {
     },
     server: {
       port: 5173,
-      host: true,
-      open: true,
+      host: '0.0.0.0',
+      open: false,
       cors: true,
-      strictPort: true,
+      strictPort: false,
+      hmr: {
+        host: 'localhost',
+        protocol: 'ws',
+        port: 5173,
+        clientPort: 5173,
+      },
     },
     preview: {
       port: 4173,
-      host: true,
-      strictPort: true,
+      host: '0.0.0.0',
+      strictPort: false,
     },
     define: {
       'process.env.NODE_ENV': JSON.stringify(mode),

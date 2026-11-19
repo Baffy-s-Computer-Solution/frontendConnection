@@ -2,7 +2,6 @@
 // components/ProfilePhotoUpload.jsx
 import { useCallback, useState } from 'react';
 import PropTypes from 'prop-types';
-import './ProfilePhotoUpload.css';
 
 export const ProfilePhotoUpload = ({
   currentPhoto,

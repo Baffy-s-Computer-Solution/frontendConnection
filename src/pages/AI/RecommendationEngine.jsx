@@ -10,7 +10,7 @@ import {
   Badge,
   ProgressBar,
   ListGroup,
-} from 'react-bootstrap';
+} from '../../components/ui/tailwindCompat';
 import {
   Brain,
   Target,
@@ -421,3 +421,5 @@ const RecommendationEngine = () => {
 };
 
 export default RecommendationEngine;
+
+

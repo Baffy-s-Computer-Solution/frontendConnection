@@ -1,4 +1,4 @@
-import { Container, Card, Button, Row, Col } from 'react-bootstrap';
+import { Container, Card, Button, Row, Col } from '../../components/ui/tailwindCompat';
 import { useNavigate } from 'react-router-dom';
 
 const EntrepreneurDashboard = () => {
@@ -33,3 +33,5 @@ const EntrepreneurDashboard = () => {
 };
 
 export default EntrepreneurDashboard;
+
+

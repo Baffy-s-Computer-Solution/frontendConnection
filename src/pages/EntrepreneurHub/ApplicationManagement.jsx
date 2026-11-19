@@ -13,7 +13,7 @@ import {
   Row,
   Spinner,
   Table,
-} from 'react-bootstrap';
+} from '../../components/ui/tailwindCompat';
 
 import { db } from '../../config/firebase';
 import { useAuth } from '../../context/AuthContext';
@@ -407,3 +407,5 @@ const ApplicationManagement = () => {
 };
 
 export default ApplicationManagement;
+
+

@@ -22,78 +22,13 @@ import {
   Image,
   ProgressBar,
   Offcanvas,
-} from 'react-bootstrap';
-import {
-  FaSearch,
-  FaPaperPlane,
-  FaUsers,
-  FaComment,
-  FaBell,
-  FaRegClock,
-  FaCheckDouble,
-  FaRegUserCircle,
-  FaEllipsisV,
-  FaPhone,
-  FaVideo,
-  FaPaperclip,
-  FaSmile,
-  FaImage,
-  FaFile,
-  FaMicrophone,
-  FaTimes,
-  FaTrash,
-  FaEdit,
-  FaReply,
-  FaForward,
-  FaArchive,
-  FaCog,
-  FaExternalLinkAlt,
-  FaUserPlus,
-  FaUserFriends,
-  FaInfoCircle,
-  FaRegSmile,
-  FaCamera,
-  FaMapMarkerAlt,
-  FaLink,
-  FaShare,
-  FaThumbsUp,
-  FaHeart,
-  FaLaugh,
-  FaSadTear,
-  FaAngry,
-  FaRegThumbsUp,
-  FaRegHeart,
-  FaRegLaugh,
-  FaRegSadTear,
-  FaRegAngry,
-  FaDownload,
-  FaExpand,
-  FaCompress,
-  FaVolumeUp,
-  FaVolumeMute,
-  FaStar,
-  FaRegStar,
-  FaFilter,
-  FaSort,
-  FaEye,
-  FaEyeSlash,
-  FaCheckCircle,
-  FaExclamationCircle,
-  FaCloudUploadAlt,
-  FaSync,
-  FaArrowLeft,
-  FaArrowRight,
-  FaChevronLeft,
-  FaChevronRight,
-  FaBars,
-  FaSignOutAlt,
-} from 'react-icons/fa';
+} from '../../../components/ui/tailwindOnly';
+import { FaSearch, FaPaperPlane, FaUsers, FaComment, FaBell, FaRegClock, FaCheckDouble, FaRegUserCircle, FaEllipsisV, FaPhone, FaVideo, FaPaperclip, FaSmile, FaImage, FaFile, FaMicrophone, FaTimes, FaTrash, FaEdit, FaReply, FaForward, FaArchive, FaCog, FaExternalLinkAlt, FaUserPlus, FaUserFriends, FaInfoCircle, FaRegSmile, FaCamera, FaMapMarkerAlt, FaLink, FaShare, FaThumbsUp, FaHeart, FaLaugh, FaSadTear, FaAngry, FaRegThumbsUp, FaRegHeart, FaRegLaugh, FaRegSadTear, FaRegAngry, FaDownload, FaExpand, FaCompress, FaVolumeUp, FaVolumeMute, FaStar, FaRegStar, FaFilter, FaSort, FaEye, FaEyeSlash, FaCheckCircle, FaExclamationCircle, FaCloudUploadAlt, FaSync, FaArrowLeft, FaArrowRight, FaChevronLeft, FaChevronRight, FaBars, FaSignOutAlt } from "react-icons/fa";
 
 import { useAuth } from '../../../context/AuthContext';
 import { useCollaboration } from '../../../hooks/useCollaboration';
 import { communicationService } from '../../../services/communicationService';
 
-import './CompanyChat.css';
 import EmojiPicker from 'emoji-picker-react';
 
 const CompanyChat = () => {
@@ -116,6 +51,8 @@ const CompanyChat = () => {
     clearError,
     hasActiveConversation,
     getOtherParticipant,
+    getAvailableContacts,
+    createGroupConversation,
   } = useCollaboration();
 
   // State
@@ -138,6 +75,9 @@ const CompanyChat = () => {
   const [showMobileSidebar, setShowMobileSidebar] = useState(false);
   const [showMobileInfoPanel, setShowMobileInfoPanel] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const [availableContacts, setAvailableContacts] = useState([]);
+  const [selectedGroupContacts, setSelectedGroupContacts] = useState([]);
+  const [contactSearch, setContactSearch] = useState('');
 
   // Refs
   const messagesEndRef = useRef(null);
@@ -217,6 +157,32 @@ const CompanyChat = () => {
 
     setFilteredConversations(filtered);
   }, [conversations, searchTerm, activeFilter, sortOrder, currentUser]);
+
+  useEffect(() => {
+    if (!showNewChatModal && !showGroupModal) return;
+    getAvailableContacts(contactSearch).then((result) => {
+      if (result?.success) setAvailableContacts(result.contacts);
+    });
+  }, [showNewChatModal, showGroupModal, contactSearch, getAvailableContacts]);
+
+  const startChatWithContact = async (contact) => {
+    const result = await startConversation(contact);
+    if (result?.success) {
+      setShowNewChatModal(false);
+      setContactSearch('');
+    }
+  };
+
+  const createGroup = async () => {
+    if (!selectedGroupContacts.length) return;
+    const result = await createGroupConversation(selectedGroupContacts, {
+      name: `Team chat (${selectedGroupContacts.length + 1})`,
+    });
+    if (result?.success) {
+      setSelectedGroupContacts([]);
+      setShowGroupModal(false);
+    }
+  };
 
   // Scroll to bottom when new messages arrive
   useEffect(() => {
@@ -781,7 +747,7 @@ const CompanyChat = () => {
                               ? getOtherParticipant?.isOnline
                                 ? 'Online'
                                 : 'Offline'
-                              : `${activeConversation.participants.length} members • Online`}
+                              : `${activeConversation.participants.length} members â€¢ Online`}
                           </small>
                         </div>
                       </div>
@@ -963,13 +929,13 @@ const CompanyChat = () => {
                                       <FaRegSmile />
                                     </Dropdown.Toggle>
                                     <Dropdown.Menu>
-                                      <Dropdown.Item onClick={() => addReaction(msg.id, '👍')}>
+                                      <Dropdown.Item onClick={() => addReaction(msg.id, 'ðŸ‘')}>
                                         <FaThumbsUp className="me-2" /> Like
                                       </Dropdown.Item>
-                                      <Dropdown.Item onClick={() => addReaction(msg.id, '❤️')}>
+                                      <Dropdown.Item onClick={() => addReaction(msg.id, 'â¤ï¸')}>
                                         <FaHeart className="me-2" /> Love
                                       </Dropdown.Item>
-                                      <Dropdown.Item onClick={() => addReaction(msg.id, '😂')}>
+                                      <Dropdown.Item onClick={() => addReaction(msg.id, 'ðŸ˜‚')}>
                                         <FaLaugh className="me-2" /> Laugh
                                       </Dropdown.Item>
                                     </Dropdown.Menu>
@@ -1524,11 +1490,25 @@ const CompanyChat = () => {
           <Modal.Title>New Message</Modal.Title>
         </Modal.Header>
         <Modal.Body>
-          <div className="text-center py-4">
-            <FaComment className="text-muted mb-3" size={48} />
-            <p className="text-muted mb-0">Start a conversation</p>
-            <p className="small text-muted">Select a contact to start chatting</p>
-          </div>
+          <Form.Control
+            value={contactSearch}
+            onChange={(event) => setContactSearch(event.target.value)}
+            placeholder="Search people"
+            className="mb-3"
+          />
+          <ListGroup>
+            {availableContacts.map((contact) => (
+              <ListGroup.Item key={contact.id} action onClick={() => startChatWithContact(contact)}>
+                <div className="d-flex justify-content-between align-items-center">
+                  <span>{contact.name}</span>
+                  <small className={contact.isOnline ? 'text-success' : 'text-muted'}>
+                    {contact.isOnline ? 'Online' : 'Offline'}
+                  </small>
+                </div>
+                <small className="text-muted">{contact.email}</small>
+              </ListGroup.Item>
+            ))}
+          </ListGroup>
         </Modal.Body>
       </Modal>
 
@@ -1537,11 +1517,36 @@ const CompanyChat = () => {
           <Modal.Title>Create Group</Modal.Title>
         </Modal.Header>
         <Modal.Body>
-          <div className="text-center py-4">
-            <FaUsers className="text-muted mb-3" size={48} />
-            <p className="text-muted mb-0">Create group chat</p>
-            <p className="small text-muted">Select participants for your group</p>
-          </div>
+          <Form.Control
+            value={contactSearch}
+            onChange={(event) => setContactSearch(event.target.value)}
+            placeholder="Search people"
+            className="mb-3"
+          />
+          <ListGroup className="mb-3">
+            {availableContacts.map((contact) => {
+              const selected = selectedGroupContacts.some((item) => item.id === contact.id);
+              return (
+                <ListGroup.Item
+                  key={contact.id}
+                  action
+                  active={selected}
+                  onClick={() =>
+                    setSelectedGroupContacts((current) =>
+                      selected
+                        ? current.filter((item) => item.id !== contact.id)
+                        : [...current, contact]
+                    )
+                  }
+                >
+                  {contact.name}
+                </ListGroup.Item>
+              );
+            })}
+          </ListGroup>
+          <Button variant="primary" disabled={!selectedGroupContacts.length} onClick={createGroup}>
+            Create group
+          </Button>
         </Modal.Body>
       </Modal>
     </Container>
@@ -1549,3 +1554,5 @@ const CompanyChat = () => {
 };
 
 export default CompanyChat;
+
+

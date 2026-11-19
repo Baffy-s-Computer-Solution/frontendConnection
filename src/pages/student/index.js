@@ -12,7 +12,7 @@ export { default as Calendar } from './Calendar';
 export { default as Courses } from './Courses';
 export { default as Deadlines } from './Deadlines';
 export { default as Documents } from './Documents';
-export { default as DocumentsUpload } from './DocumentsUpload';
+export { default as DocumentsUpload } from './StudentDocuments';
 export { default as JobMatches } from './JobMatches';
 export { default as Jobs } from './Jobs';
 export { default as Mentorship } from './Mentorship';
@@ -24,13 +24,12 @@ export { default as SearchInstitutions } from './SearchInstitutions';
 export { default as SearchInternships } from './SearchInternships';
 export { default as SearchJobs } from './SearchJobs';
 export { default as StudentApplications } from './StudentApplications';
-export { default as StudentCourses } from './StudentCourses';
+export { default as StudentCourses } from './StudentCoursesLive';
 export { default as StudentDashboard } from './StudentDashboard';
 export { default as StudentDocuments } from './StudentDocuments';
 export { default as StudentJobs } from './StudentJobs';
 export { default as StudentProfile } from './StudentProfile';
+export { default as StudentSettings } from './StudentSettings';
 export { default as ViewApplication } from './ViewApplication';
 
-// Re-export types and utilities
-export * from './types';
-export * from './constants';
+

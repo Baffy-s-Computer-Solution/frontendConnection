@@ -2,7 +2,6 @@
 import React, { useState } from 'react';
 import PropTypes from 'prop-types';
 import LoadingSpinner from '../../layout/LoadingSpinner'; // Fixed: default import, not named import
-import './FundingComponents.css';
 
 /**
  * ApplyModal Component

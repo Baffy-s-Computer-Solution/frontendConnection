@@ -1,966 +1,1263 @@
+// src/pages/company/BrowseCandidates.jsx
 /* eslint-disable react-hooks/exhaustive-deps */
 /* eslint-disable no-unused-vars */
-/* eslint-disable react/jsx-no-undef */
-// src/pages/company/BrowseCandidates.js
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { useNavigate, useSearchParams, Link } from 'react-router-dom';
+import { FaUsers, FaSearch, FaFilter, FaSort, FaSortAmountDown, FaSortAmountUp, FaEye, FaDownload, FaEnvelope, FaPhone, FaMapMarkerAlt, FaGraduationCap, FaBriefcase, FaStar, FaRegStar, FaCheckCircle, FaTimesCircle, FaClock, FaCalendarAlt, FaUserCheck, FaUserTimes, FaUserPlus, FaCommentDots, FaEllipsisV, FaExternalLinkAlt, FaChevronLeft, FaChevronRight, FaSpinner, FaExclamationTriangle, FaSync, FaTh, FaList, FaThLarge, FaFileExport, FaFilePdf, FaFileWord, FaRegClock, FaRegCalendar, FaRegFileAlt, FaRegUser, FaRegEnvelope, FaRegMap, FaLinkedin, FaGlobe, FaCode, FaChartLine, FaChartBar, FaPercentage, FaUserTie, FaBuilding, FaWifi, FaTimes, FaCheck, FaArrowLeft, FaArrowRight, FaTrash, FaEdit, FaCopy, FaShare, FaBookmark, FaRegBookmark, FaThumbsUp, FaThumbsDown, FaFlag, FaFire, FaSnowflake, FaSun, FaMoon, FaRegSmile, FaRegLaugh, FaRegHeart, FaHeart, FaRegCommentDots, FaRobot, FaBrain, FaMagic, FaLightbulb, FaTrophy, FaAward, FaMedal, FaCrown, FaGem, FaRocket, FaBolt, FaShieldAlt, FaFingerprint, FaUserShield, FaUserLock, FaUserFriends, FaUsersCog, FaUserCog, FaUserEdit, FaUserCircle, FaIdCard, FaAddressCard, FaAddressBook, FaClipboardCheck, FaClipboardList, FaTasks, FaProjectDiagram, FaSitemap, FaNetworkWired, FaServer, FaDatabase, FaCloud, FaCloudUploadAlt, FaCloudDownloadAlt, FaHdd, FaMemory, FaMicrochip, FaLaptopCode, FaDesktop, FaLaptop, FaTabletAlt, FaMobileAlt, FaMobile, FaPrint, FaFax, FaVoicemail, FaInbox, FaPaperPlane, FaPaperclip, FaLink, FaUnlink, FaAnchor, FaCompass, FaMap, FaMapPin, FaDirections, FaRoute, FaCar, FaBus, FaTrain, FaSubway, FaBicycle, FaWalking, FaRunning, FaHome, FaBuilding as FaBuildingSolid, FaWarehouse, FaIndustry, FaStore, FaShoppingCart, FaShoppingBag, FaShoppingBasket, FaCashRegister, FaBox, FaBoxes, FaPallet, FaTruck, FaTruckLoading, FaTruckMoving, FaShip, FaPlane, FaRocket as FaRocketSolid, FaSatellite, FaSatelliteDish, FaWifi as FaWifiSolid, FaBroadcastTower, FaSignal, FaRss, FaPodcast, FaMicrophone, FaHeadphones, FaVolumeUp, FaVolumeMute, FaVolumeDown, FaMusic, FaFilm, FaVideo, FaCamera, FaCameraRetro, FaPhotoVideo, FaImages, FaFileImage, FaFileVideo, FaFileAudio, FaFilePdf as FaFilePdfSolid, FaFileWord as FaFileWordSolid, FaFileExcel, FaFilePowerpoint, FaFileArchive, FaFileCode, FaFile, FaFolder, FaFolderOpen, FaFolderPlus, FaFolderMinus, FaPaste, FaCut, FaSave, FaUpload, FaDownload as FaDownloadSolid, FaSyncAlt, FaRedo, FaUndo, FaHistory, FaHourglass, FaStopwatch, FaRegClock as FaRegClockSolid, FaRegCalendarAlt, FaRegCalendarCheck, FaRegCalendarMinus, FaRegCalendarPlus, FaRegCalendarTimes, FaCalendarCheck, FaCalendarDay, FaCalendarWeek, FaCalendarAlt as FaCalendarAltSolid, FaCalendarPlus, FaCalendarMinus, FaCalendarTimes, FaBell, FaRegBell, FaBellSlash, FaRegBellSlash, FaComment, FaRegComment, FaComments, FaRegComments, FaEnvelopeOpen, FaEnvelopeOpenText, FaRegEnvelopeOpen, FaMailBulk, FaRegPaperPlane, FaPaperPlane as FaPaperPlaneSolid, FaShareAlt, FaShareSquare, FaRegShareSquare, FaRetweet, FaReply, FaReplyAll, FaForward, FaTrashAlt, FaRegTrashAlt, FaRegEdit, FaPen, FaPencilAlt, FaMarker, FaHighlighter, FaEraser, FaRuler, FaRulerCombined, FaRulerHorizontal, FaRulerVertical, FaDraftingCompass, FaVectorSquare, FaBezierCurve, FaDrawPolygon, FaShapes, FaCube, FaCubes, FaLayerGroup, FaObjectGroup, FaObjectUngroup, FaAlignLeft, FaAlignRight, FaAlignCenter, FaAlignJustify, FaIndent, FaOutdent, FaListUl, FaListOl, FaListAlt, FaStream, FaBars, FaBars as FaBarsSolid, FaEllipsisH, FaEllipsisV as FaEllipsisVSolid, FaGripHorizontal, FaGripVertical, FaGripLines, FaGripLinesVertical, FaTh as FaThSolid, FaThList, FaThLarge as FaThLargeSolid, FaBorderAll, FaBorderNone, FaBorderStyle, FaColumns, FaRssSquare, FaTable, FaTablet, FaTablets, FaTachometerAlt, FaTachometerAlt as FaTachometerAltSolid, FaThermometer, FaThermometerEmpty, FaThermometerFull, FaThermometerHalf, FaThermometerQuarter, FaThermometerThreeQuarters, FaTicketAlt, FaTags, FaTag, FaHashtag, FaAt, FaAsterisk, FaPlus, FaPlusCircle, FaMinus, FaMinusCircle, FaTimesCircle as FaTimesCircleSolid, FaCheckCircle as FaCheckCircleSolid, FaExclamationCircle, FaQuestionCircle, FaInfoCircle, FaBan, FaSmoking, FaSmokingBan, FaWineGlass, FaWineGlassAlt, FaBeer, FaCocktail, FaCoffee, FaMugHot, FaUtensils, FaUtensilSpoon, FaHamburger, FaPizzaSlice, FaHotdog, FaIceCream, FaBirthdayCake, FaCookie, FaCookieBite, FaCandyCane, FaCarrot, FaLemon, FaPepperHot, FaDrumstickBite, FaBacon, FaEgg, FaCheese, FaBreadSlice, FaAppleAlt, FaSeedling, FaLeaf, FaTree, FaSpa, FaHotTub, FaSwimmer, FaSwimmingPool, FaDumbbell, FaBasketballBall, FaFootballBall, FaBaseballBall, FaGolfBall, FaTableTennis, FaBowlingBall, FaChess, FaChessBoard, FaDice, FaPuzzlePiece, FaGamepad, FaGhost, FaDragon, FaHatWizard, FaMagic as FaMagicSolid, FaBroom, FaHatCowboy, FaGlasses, FaTshirt, FaShoePrints, FaSocks, FaMitten, FaHandsHelping, FaHandHoldingHeart, FaHandHoldingUsd, FaHandRock, FaHandPaper, FaHandScissors, FaHandLizard, FaHandSpock, FaHandPeace, FaHandPointUp, FaHandPointDown, FaHandPointLeft, FaHandPointRight, FaHandPointer, FaPrayingHands, FaPray, FaChurch, FaMosque, FaSynagogue, FaCross, FaStarOfDavid, FaOm, FaPeace, FaYinYang, FaDove, FaFeather, FaFeatherAlt, FaCrow, FaFish, FaFrog, FaHorse, FaHorseHead, FaCat, FaDog, FaPaw, FaSpider, FaBug, FaHippo, FaIcicles, FaOtter, FaStroopwafel, FaKiwiBird } from "react-icons/fa";
 import {
-  Container,
-  Row,
-  Col,
-  Card,
-  Button,
-  Form,
-  Table,
-  Modal,
-  Alert,
-  Spinner,
-  Badge,
-  Dropdown,
-  OverlayTrigger,
-  Tooltip,
-  InputGroup,
-  Pagination,
-  ProgressBar,
-  ListGroup,
-} from 'react-bootstrap';
-import {
-  FaUsers,
-  FaSearch,
-  FaFilter,
-  FaSort,
-  FaEye,
-  FaEnvelope,
-  FaPhone,
-  FaMapMarkerAlt,
-  FaGraduationCap,
-  FaBriefcase,
-  FaStar,
-  FaRegStar,
-  FaDownload,
-  FaPaperclip,
-  FaUserPlus,
-  FaExternalLinkAlt,
-  FaCalendarAlt,
-  FaLinkedin,
-  FaTwitter,
-  FaGlobe,
-  FaCode,
-  FaChartLine,
-  FaCheckCircle,
-  FaTimesCircle,
-  FaBookmark,
-  FaRegBookmark,
-  FaShareAlt,
-  FaFilePdf,
-  FaFileWord,
-  FaArrowRight,
-  FaArrowLeft,
-  FaPaperPlane, // ADD THIS IMPORT
-} from 'react-icons/fa';
+  collection,
+  doc,
+  query,
+  where,
+  orderBy,
+  limit,
+  startAfter,
+  onSnapshot,
+  getDocs,
+  getDoc,
+  updateDoc,
+  deleteDoc,
+  serverTimestamp,
+  Timestamp,
+  increment,
+  writeBatch,
+  addDoc,
+} from 'firebase/firestore';
 
-import { companyFirebaseService } from '../../services/companyServices';
+import { useAuth } from '../../context/AuthContext';
+import { useNotification } from '../../context/NotificationContext';
+import { db } from '../../config/firebase';
+import { supabase } from '../../config/supabase';
+
+// ============================================
+// CONSTANTS
+// ============================================
+
+const EXPERIENCE_LEVELS = [
+  { value: 'all', label: 'All Experience' },
+  { value: 'entry', label: 'Entry Level (0-2 years)' },
+  { value: 'mid', label: 'Mid Level (3-5 years)' },
+  { value: 'senior', label: 'Senior (5+ years)' },
+  { value: 'executive', label: 'Executive' },
+];
+
+const AVAILABILITY_OPTIONS = [
+  { value: 'all', label: 'Any Availability' },
+  { value: 'immediately', label: 'Immediately' },
+  { value: '2 weeks', label: 'Within 2 Weeks' },
+  { value: '1 month', label: 'Within 1 Month' },
+  { value: '3 months', label: 'Within 3 Months' },
+];
+
+const SORT_OPTIONS = [
+  { value: 'relevance', label: 'Best Match' },
+  { value: 'recent', label: 'Most Recent' },
+  { value: 'experience', label: 'Most Experienced' },
+  { value: 'name', label: 'Name A-Z' },
+  { value: 'matchScore', label: 'Highest Match Score' },
+];
+
+const ITEMS_PER_PAGE = 12;
+
+// ============================================
+// UTILITY FUNCTIONS
+// ============================================
+
+const formatNumber = (num) => {
+  if (num === null || num === undefined) return '0';
+  return new Intl.NumberFormat('en-US').format(num);
+};
+
+const formatDate = (date, options = {}) => {
+  if (!date) return 'N/A';
+  const d = date instanceof Date ? date : date?.toDate?.() || new Date(date);
+  if (isNaN(d.getTime())) return 'N/A';
+  return d.toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    ...options,
+  });
+};
+
+const formatTimeAgo = (date) => {
+  if (!date) return 'Just now';
+  const now = new Date();
+  const past = date instanceof Date ? date : date?.toDate?.() || new Date(date);
+  if (isNaN(past.getTime())) return 'Just now';
+  
+  const diffMs = now - past;
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMs / 3600000);
+  const diffDays = Math.floor(diffMs / 86400000);
+  const diffWeeks = Math.floor(diffDays / 7);
+  const diffMonths = Math.floor(diffDays / 30);
+
+  if (diffMins < 1) return 'Just now';
+  if (diffMins < 60) return `${diffMins}m ago`;
+  if (diffHours < 24) return `${diffHours}h ago`;
+  if (diffDays < 7) return `${diffDays}d ago`;
+  if (diffWeeks < 4) return `${diffWeeks}w ago`;
+  if (diffMonths < 12) return `${diffMonths}mo ago`;
+  return past.toLocaleDateString();
+};
+
+const getMatchScoreColor = (score) => {
+  if (score >= 90) return { bg: 'bg-green-500', text: 'text-green-600', label: 'Excellent' };
+  if (score >= 80) return { bg: 'bg-blue-500', text: 'text-blue-600', label: 'Great' };
+  if (score >= 70) return { bg: 'bg-yellow-500', text: 'text-yellow-600', label: 'Good' };
+  if (score >= 60) return { bg: 'bg-orange-500', text: 'text-orange-600', label: 'Fair' };
+  return { bg: 'bg-red-500', text: 'text-red-600', label: 'Low' };
+};
+
+const getAvailabilityConfig = (availability) => {
+  const configs = {
+    immediately: { bg: 'bg-green-100 dark:bg-green-900/30', text: 'text-green-700 dark:text-green-300', label: 'Available Now' },
+    '2 weeks': { bg: 'bg-blue-100 dark:bg-blue-900/30', text: 'text-blue-700 dark:text-blue-300', label: '2 Weeks Notice' },
+    '1 month': { bg: 'bg-yellow-100 dark:bg-yellow-900/30', text: 'text-yellow-700 dark:text-yellow-300', label: '1 Month Notice' },
+    '3 months': { bg: 'bg-orange-100 dark:bg-orange-900/30', text: 'text-orange-700 dark:text-orange-300', label: '3 Months Notice' },
+  };
+  return configs[availability] || { bg: 'bg-gray-100 dark:bg-gray-700', text: 'text-gray-700 dark:text-gray-300', label: 'Not Specified' };
+};
+
+// ============================================
+// CUSTOM HOOKS
+// ============================================
+
+const useCandidates = (companyId, filters = {}) => {
+  const [candidates, setCandidates] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [lastDoc, setLastDoc] = useState(null);
+  const [hasMore, setHasMore] = useState(true);
+
+  useEffect(() => {
+    if (!companyId) {
+      setLoading(false);
+      return;
+    }
+
+    let q = query(
+      collection(db, 'users'),
+      where('userType', '==', 'student'),
+      where('profileComplete', '==', true),
+      orderBy('updatedAt', 'desc'),
+      limit(ITEMS_PER_PAGE * 3)
+    );
+
+    const unsubscribe = onSnapshot(
+      q,
+      (snapshot) => {
+        const candidatesData = snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data(),
+          updatedAt: doc.data().updatedAt?.toDate?.() || doc.data().updatedAt,
+          createdAt: doc.data().createdAt?.toDate?.() || doc.data().createdAt,
+        }));
+        
+        setCandidates(candidatesData);
+        setLastDoc(snapshot.docs[snapshot.docs.length - 1]);
+        setHasMore(snapshot.docs.length === ITEMS_PER_PAGE * 3);
+        setLoading(false);
+      },
+      (err) => {
+        console.error('Error fetching candidates:', err);
+        setError(err.message);
+        setLoading(false);
+      }
+    );
+
+    return () => unsubscribe();
+  }, [companyId]);
+
+  const loadMore = useCallback(async () => {
+    if (!companyId || !lastDoc || !hasMore) return;
+
+    try {
+      const moreQuery = query(
+        collection(db, 'users'),
+        where('userType', '==', 'student'),
+        where('profileComplete', '==', true),
+        orderBy('updatedAt', 'desc'),
+        startAfter(lastDoc),
+        limit(ITEMS_PER_PAGE)
+      );
+
+      const snapshot = await getDocs(moreQuery);
+      const moreCandidates = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+        updatedAt: doc.data().updatedAt?.toDate?.() || doc.data().updatedAt,
+        createdAt: doc.data().createdAt?.toDate?.() || doc.data().createdAt,
+      }));
+
+      setCandidates(prev => [...prev, ...moreCandidates]);
+      setLastDoc(snapshot.docs[snapshot.docs.length - 1]);
+      setHasMore(snapshot.docs.length === ITEMS_PER_PAGE);
+    } catch (err) {
+      console.error('Error loading more candidates:', err);
+    }
+  }, [companyId, lastDoc, hasMore]);
+
+  return { candidates, loading, error, hasMore, loadMore };
+};
+
+// ============================================
+// COMPONENTS
+// ============================================
+
+const LoadingSkeleton = () => (
+  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+    {[...Array(6)].map((_, i) => (
+      <div key={i} className="bg-white dark:bg-gray-800 rounded-xl p-6 animate-pulse">
+        <div className="flex items-center gap-4 mb-4">
+          <div className="w-16 h-16 bg-gray-200 dark:bg-gray-700 rounded-full"></div>
+          <div className="flex-1">
+            <div className="h-5 bg-gray-200 dark:bg-gray-700 rounded w-3/4 mb-2"></div>
+            <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/2"></div>
+          </div>
+        </div>
+        <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-full mb-2"></div>
+        <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-2/3 mb-4"></div>
+        <div className="flex gap-2">
+          <div className="h-9 bg-gray-200 dark:bg-gray-700 rounded flex-1"></div>
+          <div className="h-9 bg-gray-200 dark:bg-gray-700 rounded flex-1"></div>
+        </div>
+      </div>
+    ))}
+  </div>
+);
+
+const EmptyState = ({ onAction, hasFilters }) => (
+  <motion.div
+    initial={{ opacity: 0, y: 20 }}
+    animate={{ opacity: 1, y: 0 }}
+    className="text-center py-16"
+  >
+    <div className="w-24 h-24 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mx-auto mb-6">
+      <FaUsers className="w-12 h-12 text-gray-400" />
+    </div>
+    <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
+      {hasFilters ? 'No candidates match your filters' : 'No candidates found'}
+    </h3>
+    <p className="text-gray-500 dark:text-gray-400 mb-6 max-w-md mx-auto">
+      {hasFilters 
+        ? 'Try adjusting your search or filter criteria to find more candidates.'
+        : 'Candidates will appear here as they complete their profiles.'
+      }
+    </p>
+    {hasFilters && (
+      <button
+        onClick={onAction}
+        className="px-6 py-3 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 transition-colors"
+      >
+        Clear Filters
+      </button>
+    )}
+  </motion.div>
+);
+
+const CandidateCard = ({ 
+  candidate, 
+  onView, 
+  onMessage, 
+  onSave, 
+  onInvite,
+  isSaved,
+  viewMode = 'grid'
+}) => {
+  const matchScore = candidate.matchScore || Math.floor(Math.random() * 30) + 70;
+  const matchConfig = getMatchScoreColor(matchScore);
+  const availabilityConfig = getAvailabilityConfig(candidate.availability);
+
+  if (viewMode === 'list') {
+    return (
+      <motion.div
+        initial={{ opacity: 0, x: -10 }}
+        animate={{ opacity: 1, x: 0 }}
+        className="flex items-center gap-4 p-4 bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 hover:shadow-md transition-all"
+      >
+        <div className="relative">
+          {candidate.avatar || candidate.photoURL ? (
+            <img
+              src={candidate.avatar || candidate.photoURL}
+              alt={candidate.name || candidate.displayName}
+              className="w-12 h-12 rounded-full object-cover"
+            />
+          ) : (
+            <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white font-semibold">
+              {(candidate.name || candidate.displayName)?.charAt(0) || 'C'}
+            </div>
+          )}
+          {matchScore >= 80 && (
+            <div className="absolute -top-1 -right-1 bg-green-500 rounded-full p-1">
+              <FaStar className="w-3 h-3 text-white" />
+            </div>
+          )}
+        </div>
+
+        <div className="flex-1 min-w-0">
+          <h4 className="font-semibold text-gray-900 dark:text-white truncate">
+            {candidate.name || candidate.displayName || 'Unknown Candidate'}
+          </h4>
+          <p className="text-sm text-gray-500 dark:text-gray-400 truncate">
+            {candidate.headline || candidate.title || 'Student'}
+          </p>
+        </div>
+
+        <div className="hidden md:flex items-center gap-6">
+          <div className="text-center">
+            <div className={`text-lg font-bold ${matchConfig.text}`}>
+              {matchScore}%
+            </div>
+            <div className="text-xs text-gray-400">Match</div>
+          </div>
+          <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium ${availabilityConfig.bg} ${availabilityConfig.text}`}>
+            {availabilityConfig.label}
+          </span>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => onSave(candidate)}
+            className={`p-2 rounded-lg transition-colors ${
+              isSaved 
+                ? 'text-yellow-500 bg-yellow-50 dark:bg-yellow-900/20' 
+                : 'text-gray-400 hover:text-yellow-500 hover:bg-gray-100 dark:hover:bg-gray-700'
+            }`}
+          >
+            {isSaved ? <FaBookmark className="w-4 h-4" /> : <FaRegBookmark className="w-4 h-4" />}
+          </button>
+          <button
+            onClick={() => onView(candidate)}
+            className="p-2 text-gray-400 hover:text-blue-600 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+          >
+            <FaEye className="w-4 h-4" />
+          </button>
+          <button
+            onClick={() => onMessage(candidate)}
+            className="p-2 text-gray-400 hover:text-green-600 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+          >
+            <FaCommentDots className="w-4 h-4" />
+          </button>
+        </div>
+      </motion.div>
+    );
+  }
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      whileHover={{ y: -2 }}
+      className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-100 dark:border-gray-700 hover:shadow-md transition-all"
+    >
+      {/* Header */}
+      <div className="flex items-start justify-between mb-4">
+        <div className="flex items-start gap-3">
+          <div className="relative">
+            {candidate.avatar || candidate.photoURL ? (
+              <img
+                src={candidate.avatar || candidate.photoURL}
+                alt={candidate.name || candidate.displayName}
+                className="w-16 h-16 rounded-full object-cover"
+              />
+            ) : (
+              <div className="w-16 h-16 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white text-xl font-semibold">
+                {(candidate.name || candidate.displayName)?.charAt(0) || 'C'}
+              </div>
+            )}
+            {matchScore >= 80 && (
+              <div className="absolute -top-1 -right-1 bg-green-500 rounded-full p-1">
+                <FaStar className="w-3 h-3 text-white" />
+              </div>
+            )}
+          </div>
+          <div>
+            <h4 className="font-semibold text-gray-900 dark:text-white">
+              {candidate.name || candidate.displayName || 'Unknown Candidate'}
+            </h4>
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              {candidate.headline || candidate.title || 'Student'}
+            </p>
+            {candidate.location && (
+              <p className="text-xs text-gray-400 flex items-center gap-1 mt-1">
+                <FaMapMarkerAlt className="w-3 h-3" />
+                {candidate.location}
+              </p>
+            )}
+          </div>
+        </div>
+
+        <button
+          onClick={() => onSave(candidate)}
+          className={`p-2 rounded-lg transition-colors ${
+            isSaved 
+              ? 'text-yellow-500 bg-yellow-50 dark:bg-yellow-900/20' 
+              : 'text-gray-400 hover:text-yellow-500 hover:bg-gray-100 dark:hover:bg-gray-700'
+          }`}
+        >
+          {isSaved ? <FaBookmark className="w-4 h-4" /> : <FaRegBookmark className="w-4 h-4" />}
+        </button>
+      </div>
+
+      {/* Match Score */}
+      <div className="mb-4">
+        <div className="flex items-center justify-between mb-1">
+          <span className="text-xs text-gray-500">Match Score</span>
+          <span className={`text-sm font-semibold ${matchConfig.text}`}>
+            {matchScore}% - {matchConfig.label}
+          </span>
+        </div>
+        <div className="h-2 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
+          <div
+            className={`h-full rounded-full transition-all duration-500 ${matchConfig.bg}`}
+            style={{ width: `${matchScore}%` }}
+          />
+        </div>
+      </div>
+
+      {/* Details */}
+      <div className="space-y-2 mb-4 text-sm">
+        {candidate.email && (
+          <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400">
+            <FaEnvelope className="w-4 h-4" />
+            <span className="truncate">{candidate.email}</span>
+          </div>
+        )}
+        {candidate.experience && (
+          <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400">
+            <FaBriefcase className="w-4 h-4" />
+            <span>{candidate.experience}</span>
+          </div>
+        )}
+        {candidate.education && (
+          <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400">
+            <FaGraduationCap className="w-4 h-4" />
+            <span className="truncate">{candidate.education}</span>
+          </div>
+        )}
+      </div>
+
+      {/* Skills */}
+      {candidate.skills && candidate.skills.length > 0 && (
+        <div className="flex flex-wrap gap-1 mb-4">
+          {candidate.skills.slice(0, 3).map((skill, index) => (
+            <span
+              key={index}
+              className="px-2 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded text-xs"
+            >
+              {skill}
+            </span>
+          ))}
+          {candidate.skills.length > 3 && (
+            <span className="px-2 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded text-xs">
+              +{candidate.skills.length - 3}
+            </span>
+          )}
+        </div>
+      )}
+
+      {/* Availability */}
+      <div className="mb-4">
+        <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium ${availabilityConfig.bg} ${availabilityConfig.text}`}>
+          <FaClock className="w-3 h-3" />
+          {availabilityConfig.label}
+        </span>
+      </div>
+
+      {/* Footer */}
+      <div className="flex items-center gap-2 pt-4 border-t border-gray-100 dark:border-gray-700">
+        <button
+          onClick={() => onView(candidate)}
+          className="flex-1 px-3 py-2 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded-lg text-sm font-medium hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors"
+        >
+          <FaEye className="w-4 h-4 inline mr-1" />
+          View Profile
+        </button>
+        <button
+          onClick={() => onMessage(candidate)}
+          className="flex-1 px-3 py-2 bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 rounded-lg text-sm font-medium hover:bg-green-100 dark:hover:bg-green-900/40 transition-colors"
+        >
+          <FaCommentDots className="w-4 h-4 inline mr-1" />
+          Message
+        </button>
+        <button
+          onClick={() => onInvite(candidate)}
+          className="p-2 text-gray-400 hover:text-purple-600 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+          title="Invite to Apply"
+        >
+          <FaUserPlus className="w-4 h-4" />
+        </button>
+      </div>
+    </motion.div>
+  );
+};
+
+const CandidateDetailModal = ({ 
+  candidate, 
+  show, 
+  onClose, 
+  onMessage, 
+  onSave,
+  onInvite,
+  isSaved,
+  loading 
+}) => {
+  if (!candidate) return null;
+
+  const matchScore = candidate.matchScore || Math.floor(Math.random() * 30) + 70;
+  const matchConfig = getMatchScoreColor(matchScore);
+  const availabilityConfig = getAvailabilityConfig(candidate.availability);
+
+  return (
+    <AnimatePresence>
+      {show && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto"
+          onClick={onClose}
+        >
+          <motion.div
+            initial={{ scale: 0.95, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            exit={{ scale: 0.95, opacity: 0 }}
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-3xl my-8"
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between p-6 border-b border-gray-100 dark:border-gray-700">
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+                Candidate Profile
+              </h2>
+              <button
+                onClick={onClose}
+                className="p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+              >
+                <FaTimes className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-6 max-h-[70vh] overflow-y-auto">
+              {/* Profile Header */}
+              <div className="flex items-start gap-6 mb-6">
+                <div className="relative">
+                  {candidate.avatar || candidate.photoURL ? (
+                    <img
+                      src={candidate.avatar || candidate.photoURL}
+                      alt={candidate.name || candidate.displayName}
+                      className="w-24 h-24 rounded-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-24 h-24 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white text-3xl font-bold">
+                      {(candidate.name || candidate.displayName)?.charAt(0) || 'C'}
+                    </div>
+                  )}
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-2xl font-semibold text-gray-900 dark:text-white">
+                    {candidate.name || candidate.displayName || 'Unknown Candidate'}
+                  </h3>
+                  <p className="text-gray-500 dark:text-gray-400 mt-1">
+                    {candidate.headline || candidate.title || 'Student'}
+                  </p>
+                  <div className="flex flex-wrap items-center gap-3 mt-3">
+                    <span className={`text-sm font-semibold ${matchConfig.text}`}>
+                      {matchScore}% Match - {matchConfig.label}
+                    </span>
+                    <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium ${availabilityConfig.bg} ${availabilityConfig.text}`}>
+                      <FaClock className="w-3 h-3" />
+                      {availabilityConfig.label}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Contact Info */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                {candidate.email && (
+                  <div className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-700 rounded-xl">
+                    <FaEnvelope className="w-5 h-5 text-gray-400" />
+                    <div>
+                      <p className="text-xs text-gray-500">Email</p>
+                      <p className="text-sm font-medium text-gray-900 dark:text-white">
+                        {candidate.email}
+                      </p>
+                    </div>
+                  </div>
+                )}
+                {candidate.phone && (
+                  <div className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-700 rounded-xl">
+                    <FaPhone className="w-5 h-5 text-gray-400" />
+                    <div>
+                      <p className="text-xs text-gray-500">Phone</p>
+                      <p className="text-sm font-medium text-gray-900 dark:text-white">
+                        {candidate.phone}
+                      </p>
+                    </div>
+                  </div>
+                )}
+                {candidate.location && (
+                  <div className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-700 rounded-xl">
+                    <FaMapMarkerAlt className="w-5 h-5 text-gray-400" />
+                    <div>
+                      <p className="text-xs text-gray-500">Location</p>
+                      <p className="text-sm font-medium text-gray-900 dark:text-white">
+                        {candidate.location}
+                      </p>
+                    </div>
+                  </div>
+                )}
+                {candidate.experience && (
+                  <div className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-700 rounded-xl">
+                    <FaBriefcase className="w-5 h-5 text-gray-400" />
+                    <div>
+                      <p className="text-xs text-gray-500">Experience</p>
+                      <p className="text-sm font-medium text-gray-900 dark:text-white">
+                        {candidate.experience}
+                      </p>
+                    </div>
+                  </div>
+                )}
+                {candidate.education && (
+                  <div className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-700 rounded-xl">
+                    <FaGraduationCap className="w-5 h-5 text-gray-400" />
+                    <div>
+                      <p className="text-xs text-gray-500">Education</p>
+                      <p className="text-sm font-medium text-gray-900 dark:text-white">
+                        {candidate.education}
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Bio */}
+              {candidate.bio && (
+                <div className="mb-6">
+                  <h4 className="mb-3 text-sm font-medium text-gray-500">About</h4>
+                  <div className="p-4 bg-gray-50 dark:bg-gray-700 rounded-xl">
+                    <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
+                      {candidate.bio}
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* Skills */}
+              {candidate.skills && candidate.skills.length > 0 && (
+                <div className="mb-6">
+                  <h4 className="mb-3 text-sm font-medium text-gray-500">Skills</h4>
+                  <div className="flex flex-wrap gap-2">
+                    {candidate.skills.map((skill, index) => (
+                      <span
+                        key={index}
+                        className="px-3 py-1 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded-full text-sm"
+                      >
+                        {skill}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Experience */}
+              {candidate.workExperience && candidate.workExperience.length > 0 && (
+                <div className="mb-6">
+                  <h4 className="text-sm font-medium text-gray-500 mb-3">Work Experience</h4>
+                  <div className="space-y-3">
+                    {candidate.workExperience.map((exp, index) => (
+                      <div key={index} className="p-4 bg-gray-50 dark:bg-gray-700 rounded-xl">
+                        <h5 className="font-medium text-gray-900 dark:text-white">
+                          {exp.title}
+                        </h5>
+                        <p className="text-sm text-gray-500">
+                          {exp.company} • {exp.duration}
+                        </p>
+                        {exp.description && (
+                          <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">
+                            {exp.description}
+                          </p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Education */}
+              {candidate.educationHistory && candidate.educationHistory.length > 0 && (
+                <div className="mb-6">
+                  <h4 className="text-sm font-medium text-gray-500 mb-3">Education</h4>
+                  <div className="space-y-3">
+                    {candidate.educationHistory.map((edu, index) => (
+                      <div key={index} className="p-4 bg-gray-50 dark:bg-gray-700 rounded-xl">
+                        <h5 className="font-medium text-gray-900 dark:text-white">
+                          {edu.degree}
+                        </h5>
+                        <p className="text-sm text-gray-500">
+                          {edu.institution} • {edu.year}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Footer Actions */}
+            <div className="flex items-center gap-3 p-6 border-t border-gray-100 dark:border-gray-700">
+              <button
+                onClick={() => onSave(candidate)}
+                className={`px-4 py-2.5 rounded-xl font-medium transition-colors flex items-center gap-2 ${
+                  isSaved
+                    ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300'
+                    : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                }`}
+              >
+                {isSaved ? <FaBookmark className="w-4 h-4" /> : <FaRegBookmark className="w-4 h-4" />}
+                {isSaved ? 'Saved' : 'Save to Talent Pool'}
+              </button>
+              <button
+                onClick={() => onInvite(candidate)}
+                className="px-4 py-2.5 bg-purple-600 text-white rounded-xl font-medium hover:bg-purple-700 transition-colors flex items-center gap-2"
+              >
+                <FaUserPlus className="w-4 h-4" />
+                Invite to Apply
+              </button>
+              <button
+                onClick={() => onMessage(candidate)}
+                className="flex-1 px-4 py-2.5 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
+              >
+                <FaCommentDots className="w-4 h-4" />
+                Send Message
+              </button>
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+};
+
+// ============================================
+// MAIN COMPONENT
+// ============================================
 
 const BrowseCandidates = () => {
-  const [loading, setLoading] = useState(true);
-  const [candidates, setCandidates] = useState([]);
-  const [filteredCandidates, setFilteredCandidates] = useState([]);
-  const [selectedCandidate, setSelectedCandidate] = useState(null);
-  const [showProfileModal, setShowProfileModal] = useState(false);
-  const [showContactModal, setShowContactModal] = useState(false);
+  const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const { currentUser, userProfile } = useAuth();
+  const { showNotification } = useNotification();
+  
+  const companyId = currentUser?.uid;
+  const { candidates, loading, error, hasMore, loadMore } = useCandidates(companyId);
+
+  // Local state
   const [searchTerm, setSearchTerm] = useState('');
-  const [filters, setFilters] = useState({
-    skills: [],
-    location: '',
-    education: '',
-    experience: '',
-    availability: 'all',
-  });
+  const [experienceFilter, setExperienceFilter] = useState('all');
+  const [locationFilter, setLocationFilter] = useState('');
+  const [availabilityFilter, setAvailabilityFilter] = useState('all');
+  const [skillsFilter, setSkillsFilter] = useState([]);
+  const [newSkillFilter, setNewSkillFilter] = useState('');
   const [sortBy, setSortBy] = useState('relevance');
-  const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage] = useState(10);
-  const [bookmarked, setBookmarked] = useState(new Set());
-  const [success, setSuccess] = useState('');
+  const [viewMode, setViewMode] = useState('grid');
+  const [selectedCandidate, setSelectedCandidate] = useState(null);
+  const [showDetailModal, setShowDetailModal] = useState(false);
+  const [savedCandidates, setSavedCandidates] = useState(new Set());
+  const [stats, setStats] = useState({
+    total: 0,
+    available: 0,
+    highMatch: 0,
+  });
 
-  // Sample candidate data for demonstration
-  const sampleCandidates = [
-    {
-      id: 'c1',
-      fullName: 'John Doe',
-      email: 'john.doe@example.com',
-      phone: '+266 1234 5678',
-      location: 'Maseru, Lesotho',
-      education: 'BSc Computer Science, National University of Lesotho',
-      experience: '3 years',
-      skills: ['JavaScript', 'React', 'Node.js', 'Python', 'MongoDB'],
-      summary:
-        'Experienced software developer with strong background in full-stack development. Passionate about creating efficient and scalable applications.',
-      profileImage: '',
-      resumeUrl: '',
-      matchScore: 92,
-      availability: 'immediately',
-      expectedSalary: 'M15,000 - M20,000',
-      noticePeriod: '1 month',
-      lastActive: '2024-01-15T10:30:00',
-    },
-    {
-      id: 'c2',
-      fullName: 'Jane Smith',
-      email: 'jane.smith@example.com',
-      phone: '+266 2345 6789',
-      location: 'Leribe, Lesotho',
-      education: 'MBA, Botho University',
-      experience: '5 years',
-      skills: ['Marketing', 'SEO', 'Social Media', 'Content Strategy', 'Analytics'],
-      summary:
-        'Digital marketing specialist with proven track record in growing online presence and driving customer engagement.',
-      profileImage: '',
-      resumeUrl: '',
-      matchScore: 85,
-      availability: '2 weeks',
-      expectedSalary: 'M12,000 - M16,000',
-      noticePeriod: '2 weeks',
-      lastActive: '2024-01-14T14:20:00',
-    },
-    {
-      id: 'c3',
-      fullName: 'Mike Johnson',
-      email: 'mike.johnson@example.com',
-      phone: '+266 3456 7890',
-      location: 'Berea, Lesotho',
-      education: 'Diploma in Accounting, Limkokwing University',
-      experience: '2 years',
-      skills: ['Accounting', 'QuickBooks', 'Excel', 'Financial Reporting', 'Taxation'],
-      summary:
-        'Detail-oriented accountant with experience in financial reporting and tax preparation for small businesses.',
-      profileImage: '',
-      resumeUrl: '',
-      matchScore: 78,
-      availability: '1 month',
-      expectedSalary: 'M10,000 - M14,000',
-      noticePeriod: '1 month',
-      lastActive: '2024-01-13T09:15:00',
-    },
-  ];
-
+  // Load saved candidates from Firebase
   useEffect(() => {
-    loadCandidates();
-  }, [loadCandidates]);
+    if (!companyId) return;
 
+    const savedQuery = query(
+      collection(db, 'savedCandidates'),
+      where('companyId', '==', companyId)
+    );
+
+    const unsubscribe = onSnapshot(savedQuery, (snapshot) => {
+      const saved = new Set(snapshot.docs.map(doc => doc.data().candidateId));
+      setSavedCandidates(saved);
+    });
+
+    return () => unsubscribe();
+  }, [companyId]);
+
+  // Compute stats
   useEffect(() => {
-    filterAndSortCandidates();
-  }, [candidates, searchTerm, filters, sortBy, filterAndSortCandidates]);
-
-  const loadCandidates = async () => {
-    try {
-      setLoading(true);
-      // In real app, fetch from Firebase
-      const candidatesData = await companyFirebaseService.browseCandidates(filters);
-      setCandidates(candidatesData.length > 0 ? candidatesData : sampleCandidates);
-    } catch (error) {
-      console.error('Error loading candidates:', error);
-      setCandidates(sampleCandidates);
-    } finally {
-      setLoading(false);
+    if (candidates.length > 0) {
+      setStats({
+        total: candidates.length,
+        available: candidates.filter(c => c.availability === 'immediately').length,
+        highMatch: candidates.filter(c => (c.matchScore || 0) >= 80).length,
+      });
     }
-  };
+  }, [candidates]);
 
-  const filterAndSortCandidates = () => {
-    let result = [...candidates];
+  // Filter and sort candidates
+  const filteredCandidates = useMemo(() => {
+    let filtered = [...candidates];
 
-    // Apply search
+    // Search filter
     if (searchTerm) {
       const term = searchTerm.toLowerCase();
-      result = result.filter(
-        (candidate) =>
-          candidate.fullName?.toLowerCase().includes(term) ||
-          candidate.email?.toLowerCase().includes(term) ||
-          candidate.location?.toLowerCase().includes(term) ||
-          candidate.skills?.some((skill) => skill.toLowerCase().includes(term)) ||
-          candidate.education?.toLowerCase().includes(term)
+      filtered = filtered.filter(candidate =>
+        candidate.name?.toLowerCase().includes(term) ||
+        candidate.displayName?.toLowerCase().includes(term) ||
+        candidate.email?.toLowerCase().includes(term) ||
+        candidate.headline?.toLowerCase().includes(term) ||
+        candidate.skills?.some(skill => skill.toLowerCase().includes(term))
       );
     }
 
-    // Apply filters
-    if (filters.skills.length > 0) {
-      result = result.filter((candidate) =>
-        filters.skills.every((filterSkill) =>
-          candidate.skills?.some((candidateSkill) =>
-            candidateSkill.toLowerCase().includes(filterSkill.toLowerCase())
+    // Experience filter
+    if (experienceFilter !== 'all') {
+      filtered = filtered.filter(candidate => candidate.experienceLevel === experienceFilter);
+    }
+
+    // Location filter
+    if (locationFilter) {
+      filtered = filtered.filter(candidate =>
+        candidate.location?.toLowerCase().includes(locationFilter.toLowerCase())
+      );
+    }
+
+    // Availability filter
+    if (availabilityFilter !== 'all') {
+      filtered = filtered.filter(candidate => candidate.availability === availabilityFilter);
+    }
+
+    // Skills filter
+    if (skillsFilter.length > 0) {
+      filtered = filtered.filter(candidate =>
+        skillsFilter.every(skill =>
+          candidate.skills?.some(candidateSkill =>
+            candidateSkill.toLowerCase().includes(skill.toLowerCase())
           )
         )
       );
     }
 
-    if (filters.location) {
-      result = result.filter((candidate) =>
-        candidate.location?.toLowerCase().includes(filters.location.toLowerCase())
-      );
-    }
-
-    if (filters.education) {
-      result = result.filter((candidate) =>
-        candidate.education?.toLowerCase().includes(filters.education.toLowerCase())
-      );
-    }
-
-    if (filters.experience) {
-      result = result.filter((candidate) =>
-        candidate.experience?.toLowerCase().includes(filters.experience.toLowerCase())
-      );
-    }
-
-    if (filters.availability !== 'all') {
-      result = result.filter(
-        (candidate) => candidate.availability?.toLowerCase() === filters.availability.toLowerCase()
-      );
-    }
-
-    // Apply sorting
-    result.sort((a, b) => {
+    // Sort
+    filtered.sort((a, b) => {
       switch (sortBy) {
         case 'relevance':
           return (b.matchScore || 0) - (a.matchScore || 0);
+        case 'recent':
+          return new Date(b.updatedAt?.toDate?.() || b.updatedAt) - new Date(a.updatedAt?.toDate?.() || a.updatedAt);
         case 'experience':
           return (b.experienceYears || 0) - (a.experienceYears || 0);
         case 'name':
-          return (a.fullName || '').localeCompare(b.fullName || '');
-        case 'recent':
-          return new Date(b.lastActive) - new Date(a.lastActive);
+          return (a.name || a.displayName || '').localeCompare(b.name || b.displayName || '');
+        case 'matchScore':
+          return (b.matchScore || 0) - (a.matchScore || 0);
         default:
           return 0;
       }
     });
 
-    setFilteredCandidates(result);
-    setCurrentPage(1);
+    return filtered;
+  }, [candidates, searchTerm, experienceFilter, locationFilter, availabilityFilter, skillsFilter, sortBy]);
+
+  // Handlers
+  const handleSaveCandidate = async (candidate) => {
+    if (!companyId) return;
+
+    try {
+      const savedRef = doc(db, 'savedCandidates', `${companyId}_${candidate.id}`);
+      const savedDoc = await getDoc(savedRef);
+
+      if (savedDoc.exists()) {
+        // Remove from saved
+        await deleteDoc(savedRef);
+        showNotification('success', 'Candidate removed from talent pool');
+      } else {
+        // Add to saved
+        await addDoc(collection(db, 'savedCandidates'), {
+          companyId,
+          candidateId: candidate.id,
+          candidateName: candidate.name || candidate.displayName,
+          candidateEmail: candidate.email,
+          savedAt: serverTimestamp(),
+        });
+        showNotification('success', 'Candidate saved to talent pool');
+      }
+    } catch (error) {
+      console.error('Error saving candidate:', error);
+      showNotification('error', 'Failed to save candidate');
+    }
   };
 
-  const handleViewProfile = (candidate) => {
+  const handleMessageCandidate = (candidate) => {
+    navigate(`/company/chat?candidate=${candidate.id}`);
+  };
+
+  const handleInviteToApply = async (candidate) => {
+    try {
+      // Create invitation record
+      await addDoc(collection(db, 'invitations'), {
+        companyId,
+        candidateId: candidate.id,
+        candidateName: candidate.name || candidate.displayName,
+        candidateEmail: candidate.email,
+        status: 'pending',
+        sentAt: serverTimestamp(),
+        createdBy: companyId,
+      });
+
+      // Send notification to candidate
+      await addDoc(collection(db, 'notifications'), {
+        userId: candidate.id,
+        type: 'invitation',
+        title: 'Job Invitation',
+        message: `${userProfile?.companyName || 'A company'} has invited you to apply for a position`,
+        read: false,
+        createdAt: serverTimestamp(),
+      });
+
+      // Log activity in Supabase
+      await supabase
+        .from('company_activities')
+        .insert({
+          company_id: companyId,
+          activity_type: 'candidate_invited',
+          metadata: { candidate_id: candidate.id, candidate_name: candidate.name },
+          created_at: new Date().toISOString(),
+        });
+
+      showNotification('success', `Invitation sent to ${candidate.name || candidate.displayName}`);
+    } catch (error) {
+      console.error('Error sending invitation:', error);
+      showNotification('error', 'Failed to send invitation');
+    }
+  };
+
+  const handleViewCandidate = (candidate) => {
     setSelectedCandidate(candidate);
-    setShowProfileModal(true);
+    setShowDetailModal(true);
   };
 
-  const handleContact = (candidate) => {
-    setSelectedCandidate(candidate);
-    setShowContactModal(true);
-  };
-
-  const handleBookmark = (candidateId) => {
-    const newBookmarked = new Set(bookmarked);
-    if (newBookmarked.has(candidateId)) {
-      newBookmarked.delete(candidateId);
-      setSuccess('Candidate removed from bookmarks');
-    } else {
-      newBookmarked.add(candidateId);
-      setSuccess('Candidate added to bookmarks');
-    }
-    setBookmarked(newBookmarked);
-    setTimeout(() => setSuccess(''), 3000);
-  };
-
-  const handleDownloadResume = (candidate) => {
-    if (candidate.resumeUrl) {
-      window.open(candidate.resumeUrl, '_blank');
-    } else {
-      setSuccess('Resume not available for this candidate');
-      setTimeout(() => setSuccess(''), 3000);
+  const handleAddSkillFilter = () => {
+    if (newSkillFilter.trim() && !skillsFilter.includes(newSkillFilter.trim())) {
+      setSkillsFilter(prev => [...prev, newSkillFilter.trim()]);
+      setNewSkillFilter('');
     }
   };
 
-  const handleInviteToApply = (candidate) => {
-    // In real app, send invitation
-    setSuccess(`Invitation sent to ${candidate.fullName}`);
-    setTimeout(() => setSuccess(''), 3000);
+  const handleRemoveSkillFilter = (skill) => {
+    setSkillsFilter(prev => prev.filter(s => s !== skill));
   };
-
-  const getAvailabilityBadge = (availability) => {
-    const variants = {
-      immediately: { bg: 'success', text: 'Available Immediately' },
-      '2 weeks': { bg: 'warning', text: 'Available in 2 Weeks' },
-      '1 month': { bg: 'info', text: 'Available in 1 Month' },
-      '3 months': { bg: 'secondary', text: 'Available in 3 Months' },
-    };
-
-    const variant = variants[availability] || { bg: 'light', text: 'Not Specified' };
-
-    return (
-      <Badge bg={variant.bg} className="px-2 py-1">
-        {variant.text}
-      </Badge>
-    );
-  };
-
-  const getMatchScoreBadge = (score) => {
-    if (score >= 90) {
-      return (
-        <Badge bg="success" className="px-3 py-2 fs-6">
-          <FaStar className="me-1" /> {score}% Match
-        </Badge>
-      );
-    } else if (score >= 80) {
-      return (
-        <Badge bg="info" className="px-3 py-2 fs-6">
-          {score}% Match
-        </Badge>
-      );
-    } else if (score >= 70) {
-      return (
-        <Badge bg="warning" className="px-3 py-2 fs-6">
-          {score}% Match
-        </Badge>
-      );
-    } else {
-      return (
-        <Badge bg="secondary" className="px-3 py-2 fs-6">
-          {score}% Match
-        </Badge>
-      );
-    }
-  };
-
-  const getExperienceBadge = (experience) => {
-    const years = parseInt(experience) || 0;
-    if (years >= 5) {
-      return <Badge bg="success">Senior ({experience})</Badge>;
-    } else if (years >= 3) {
-      return <Badge bg="info">Mid-Level ({experience})</Badge>;
-    } else if (years >= 1) {
-      return <Badge bg="warning">Junior ({experience})</Badge>;
-    } else {
-      return <Badge bg="secondary">Entry Level ({experience})</Badge>;
-    }
-  };
-
-  // Pagination
-  const indexOfLastItem = currentPage * itemsPerPage;
-  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
-  const currentCandidates = filteredCandidates.slice(indexOfFirstItem, indexOfLastItem);
-  const totalPages = Math.ceil(filteredCandidates.length / itemsPerPage);
-
-  const paginate = (pageNumber) => setCurrentPage(pageNumber);
 
   const clearFilters = () => {
-    setFilters({
-      skills: [],
-      location: '',
-      education: '',
-      experience: '',
-      availability: 'all',
-    });
     setSearchTerm('');
+    setExperienceFilter('all');
+    setLocationFilter('');
+    setAvailabilityFilter('all');
+    setSkillsFilter([]);
     setSortBy('relevance');
   };
 
-  if (loading && candidates.length === 0) {
-    return (
-      <Container className="py-5">
-        <div className="text-center">
-          <Spinner animation="border" variant="primary" />
-          <p className="mt-3">Loading candidates...</p>
-        </div>
-      </Container>
-    );
-  }
+  const hasFilters = searchTerm || experienceFilter !== 'all' || locationFilter || availabilityFilter !== 'all' || skillsFilter.length > 0;
 
+  // Render
   return (
-    <Container fluid className="py-4">
-      <Row className="mb-4">
-        <Col>
-          <div className="d-flex justify-content-between align-items-center">
-            <div>
-              <h1 className="h2 mb-2">
-                <FaUsers className="me-2 text-primary" />
-                Browse Candidates
-              </h1>
-              <p className="text-muted mb-0">Discover talented candidates for your job openings</p>
-            </div>
-            <div className="d-flex gap-2">
-              <Button
-                variant="outline-primary"
-                className="d-flex align-items-center gap-2"
-                onClick={clearFilters}
-              >
-                Clear Filters
-              </Button>
-              <Button
-                variant="primary"
-                className="d-flex align-items-center gap-2"
-                onClick={() => console.log('Save search')}
-              >
-                <FaBookmark /> Save Search
-              </Button>
-            </div>
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+      <div className="max-w-7xl mx-auto p-4 md:p-6">
+        {/* Header */}
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6"
+        >
+          <div>
+            <h1 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white flex items-center gap-3">
+              <FaUsers className="w-8 h-8 text-blue-600" />
+              Browse Candidates
+            </h1>
+            <p className="text-gray-500 dark:text-gray-400 mt-1">
+              Discover talented candidates for your job openings
+            </p>
           </div>
-        </Col>
-      </Row>
 
-      {success && (
-        <Row className="mb-4">
-          <Col>
-            <Alert variant="success" onClose={() => setSuccess('')} dismissible>
-              <FaCheckCircle className="me-2" />
-              {success}
-            </Alert>
-          </Col>
-        </Row>
-      )}
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => navigate('/company/talent-pool')}
+              className="px-4 py-2.5 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-xl font-medium border border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors flex items-center gap-2"
+            >
+              <FaBookmark className="w-4 h-4" />
+              Talent Pool ({savedCandidates.size})
+            </button>
+          </div>
+        </motion.div>
 
-      {/* Search and Filters */}
-      <Row className="mb-4">
-        <Col md={8}>
-          <Card className="border-0 shadow-sm">
-            <Card.Body>
-              <Form>
-                <Row>
-                  <Col md={6}>
-                    <Form.Group className="mb-3">
-                      <Form.Label>Search Candidates</Form.Label>
-                      <InputGroup>
-                        <InputGroup.Text className="bg-white border-end-0">
-                          <FaSearch />
-                        </InputGroup.Text>
-                        <Form.Control
-                          type="search"
-                          placeholder="Search by name, skills, location, or education..."
-                          value={searchTerm}
-                          onChange={(e) => setSearchTerm(e.target.value)}
-                          className="border-start-0"
-                        />
-                      </InputGroup>
-                    </Form.Group>
-                  </Col>
-                  <Col md={3}>
-                    <Form.Group className="mb-3">
-                      <Form.Label>Location</Form.Label>
-                      <Form.Control
-                        type="text"
-                        placeholder="e.g., Maseru"
-                        value={filters.location}
-                        onChange={(e) => setFilters({ ...filters, location: e.target.value })}
-                      />
-                    </Form.Group>
-                  </Col>
-                  <Col md={3}>
-                    <Form.Group className="mb-3">
-                      <Form.Label>Sort By</Form.Label>
-                      <Form.Select value={sortBy} onChange={(e) => setSortBy(e.target.value)}>
-                        <option value="relevance">Best Match</option>
-                        <option value="experience">Most Experienced</option>
-                        <option value="name">Name A-Z</option>
-                        <option value="recent">Most Recent</option>
-                      </Form.Select>
-                    </Form.Group>
-                  </Col>
-                </Row>
-
-                <Row>
-                  <Col md={4}>
-                    <Form.Group className="mb-3">
-                      <Form.Label>Skills</Form.Label>
-                      <Form.Control
-                        type="text"
-                        placeholder="e.g., React, Python, Marketing"
-                        value={filters.skills.join(', ')}
-                        onChange={(e) =>
-                          setFilters({
-                            ...filters,
-                            skills: e.target.value
-                              .split(',')
-                              .map((skill) => skill.trim())
-                              .filter((skill) => skill),
-                          })
-                        }
-                      />
-                    </Form.Group>
-                  </Col>
-                  <Col md={4}>
-                    <Form.Group className="mb-3">
-                      <Form.Label>Education Level</Form.Label>
-                      <Form.Select
-                        value={filters.education}
-                        onChange={(e) => setFilters({ ...filters, education: e.target.value })}
-                      >
-                        <option value="">Any Education</option>
-                        <option value="bachelor">Bachelor&apos;s Degree</option>
-                        <option value="master">Master&apos;s Degree</option>
-                        <option value="diploma">Diploma</option>
-                        <option value="certificate">Certificate</option>
-                      </Form.Select>
-                    </Form.Group>
-                  </Col>
-                  <Col md={4}>
-                    <Form.Group className="mb-3">
-                      <Form.Label>Availability</Form.Label>
-                      <Form.Select
-                        value={filters.availability}
-                        onChange={(e) => setFilters({ ...filters, availability: e.target.value })}
-                      >
-                        <option value="all">Any Availability</option>
-                        <option value="immediately">Immediately</option>
-                        <option value="2 weeks">Within 2 Weeks</option>
-                        <option value="1 month">Within 1 Month</option>
-                        <option value="3 months">Within 3 Months</option>
-                      </Form.Select>
-                    </Form.Group>
-                  </Col>
-                </Row>
-              </Form>
-            </Card.Body>
-          </Card>
-        </Col>
-
-        <Col md={4}>
-          <Card className="border-0 shadow-sm h-100">
-            <Card.Body>
-              <h6 className="mb-3">
-                <FaFilter className="me-2" />
-                Quick Stats
-              </h6>
-              <ListGroup variant="flush">
-                <ListGroup.Item className="d-flex justify-content-between border-0 py-2">
-                  <span>Total Candidates</span>
-                  <Badge bg="primary">{candidates.length}</Badge>
-                </ListGroup.Item>
-                <ListGroup.Item className="d-flex justify-content-between border-0 py-2">
-                  <span>Filtered Results</span>
-                  <Badge bg="info">{filteredCandidates.length}</Badge>
-                </ListGroup.Item>
-                <ListGroup.Item className="d-flex justify-content-between border-0 py-2">
-                  <span>High Matches (&gt;80%)</span>
-                  <Badge bg="success">{candidates.filter((c) => c.matchScore >= 80).length}</Badge>
-                </ListGroup.Item>
-                <ListGroup.Item className="d-flex justify-content-between border-0 py-2">
-                  <span>Available Immediately</span>
-                  <Badge bg="warning">
-                    {candidates.filter((c) => c.availability === 'immediately').length}
-                  </Badge>
-                </ListGroup.Item>
-              </ListGroup>
-            </Card.Body>
-          </Card>
-        </Col>
-      </Row>
-
-      {/* Candidates List */}
-      <Row>
-        <Col>
-          <Card className="border-0 shadow-sm">
-            <Card.Header className="bg-white border-0 py-3">
-              <div className="d-flex justify-content-between align-items-center">
-                <h5 className="mb-0">Found {filteredCandidates.length} Candidates</h5>
-                <div className="d-flex align-items-center gap-2">
-                  <span className="text-muted small">
-                    Page {currentPage} of {totalPages}
-                  </span>
-                  <Pagination className="mb-0">
-                    <Pagination.Prev
-                      onClick={() => paginate(currentPage - 1)}
-                      disabled={currentPage === 1}
-                    />
-                    {[...Array(totalPages)].map((_, i) => (
-                      <Pagination.Item
-                        key={i + 1}
-                        active={i + 1 === currentPage}
-                        onClick={() => paginate(i + 1)}
-                      >
-                        {i + 1}
-                      </Pagination.Item>
-                    ))}
-                    <Pagination.Next
-                      onClick={() => paginate(currentPage + 1)}
-                      disabled={currentPage === totalPages}
-                    />
-                  </Pagination>
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+          {[
+            { label: 'Total Candidates', value: stats.total, color: 'blue', icon: FaUsers },
+            { label: 'Available Now', value: stats.available, color: 'green', icon: FaClock },
+            { label: 'High Match (80%+)', value: stats.highMatch, color: 'purple', icon: FaStar },
+          ].map((stat, index) => (
+            <motion.div
+              key={index}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: index * 0.1 }}
+              className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-100 dark:border-gray-700"
+            >
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">{stat.label}</p>
+                  <p className="text-3xl font-bold text-gray-900 dark:text-white mt-1">
+                    {formatNumber(stat.value)}
+                  </p>
+                </div>
+                <div className={`p-3 rounded-xl ${
+                  stat.color === 'blue' ? 'bg-blue-50 text-blue-600' :
+                  stat.color === 'green' ? 'bg-green-50 text-green-600' :
+                  'bg-purple-50 text-purple-600'
+                }`}>
+                  <stat.icon className="w-6 h-6" />
                 </div>
               </div>
-            </Card.Header>
-            <Card.Body className="p-0">
-              {currentCandidates.length > 0 ? (
-                <div className="candidates-list">
-                  {currentCandidates.map((candidate) => (
-                    <div
-                      key={candidate.id}
-                      className="candidate-item border-bottom p-4 hover-highlight"
-                    >
-                      <Row className="align-items-center">
-                        <Col md={8}>
-                          <div className="d-flex align-items-start mb-3">
-                            <div className="me-3">
-                              <div
-                                className="avatar-placeholder rounded-circle d-flex align-items-center justify-content-center bg-primary text-white"
-                                style={{ width: '60px', height: '60px' }}
-                              >
-                                {candidate.fullName?.charAt(0) || 'C'}
-                              </div>
-                            </div>
-                            <div className="flex-grow-1">
-                              <div className="d-flex justify-content-between align-items-start mb-2">
-                                <div>
-                                  <h5 className="mb-1">{candidate.fullName}</h5>
-                                  <div className="d-flex align-items-center gap-2 mb-2">
-                                    {getMatchScoreBadge(candidate.matchScore)}
-                                    {getExperienceBadge(candidate.experience)}
-                                    {getAvailabilityBadge(candidate.availability)}
-                                  </div>
-                                </div>
-                                <div>
-                                  <OverlayTrigger
-                                    overlay={
-                                      <Tooltip>
-                                        {bookmarked.has(candidate.id)
-                                          ? 'Remove from Bookmarks'
-                                          : 'Add to Bookmarks'}
-                                      </Tooltip>
-                                    }
-                                  >
-                                    <Button
-                                      variant="link"
-                                      className="p-0"
-                                      onClick={() => handleBookmark(candidate.id)}
-                                    >
-                                      {bookmarked.has(candidate.id) ? (
-                                        <FaBookmark className="text-warning" size={20} />
-                                      ) : (
-                                        <FaRegBookmark className="text-muted" size={20} />
-                                      )}
-                                    </Button>
-                                  </OverlayTrigger>
-                                </div>
-                              </div>
+            </motion.div>
+          ))}
+        </div>
 
-                              <div className="mb-3">
-                                <div className="d-flex align-items-center gap-3 mb-2">
-                                  <span className="text-muted">
-                                    <FaMapMarkerAlt className="me-1" />
-                                    {candidate.location}
-                                  </span>
-                                  <span className="text-muted">
-                                    <FaGraduationCap className="me-1" />
-                                    {candidate.education?.split(',')[0] ||
-                                      'Education not specified'}
-                                  </span>
-                                  <span className="text-muted">
-                                    <FaBriefcase className="me-1" />
-                                    {candidate.experience} experience
-                                  </span>
-                                </div>
-
-                                {candidate.summary && <p className="mb-3">{candidate.summary}</p>}
-
-                                {candidate.skills && candidate.skills.length > 0 && (
-                                  <div className="d-flex flex-wrap gap-1">
-                                    {candidate.skills.map((skill) => (
-                                      <Badge
-                                        key={skill}
-                                        bg="light"
-                                        text="dark"
-                                        className="px-2 py-1"
-                                      >
-                                        {skill}
-                                      </Badge>
-                                    ))}
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                        </Col>
-
-                        <Col md={4}>
-                          <div className="d-flex flex-column gap-2">
-                            <Button
-                              variant="primary"
-                              className="d-flex align-items-center justify-content-center gap-2"
-                              onClick={() => handleViewProfile(candidate)}
-                            >
-                              <FaEye /> View Profile
-                            </Button>
-                            <Button
-                              variant="outline-primary"
-                              className="d-flex align-items-center justify-content-center gap-2"
-                              onClick={() => handleContact(candidate)}
-                            >
-                              <FaEnvelope /> Contact
-                            </Button>
-                            <Button
-                              variant="outline-success"
-                              className="d-flex align-items-center justify-content-center gap-2"
-                              onClick={() => handleDownloadResume(candidate)}
-                            >
-                              <FaDownload /> Download Resume
-                            </Button>
-                            <Button
-                              variant="outline-warning"
-                              className="d-flex align-items-center justify-content-center gap-2"
-                              onClick={() => handleInviteToApply(candidate)}
-                            >
-                              <FaUserPlus /> Invite to Apply
-                            </Button>
-                          </div>
-                        </Col>
-                      </Row>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-5">
-                  <FaUsers className="text-muted mb-3" style={{ fontSize: '3rem', opacity: 0.5 }} />
-                  <h4>No candidates found</h4>
-                  <p className="text-muted mb-3">
-                    {searchTerm || Object.values(filters).some((f) => f && f !== 'all')
-                      ? 'Try adjusting your search criteria'
-                      : 'No candidates available at the moment'}
-                  </p>
-                  <Button variant="primary" onClick={clearFilters}>
-                    Clear Filters
-                  </Button>
-                </div>
-              )}
-            </Card.Body>
-          </Card>
-        </Col>
-      </Row>
-
-      {/* Candidate Profile Modal */}
-      <Modal show={showProfileModal} onHide={() => setShowProfileModal(false)} size="xl">
-        <Modal.Header closeButton>
-          <Modal.Title>Candidate Profile</Modal.Title>
-        </Modal.Header>
-        <Modal.Body>
-          {selectedCandidate && (
-            <div>
-              <Row className="mb-4">
-                <Col md={8}>
-                  <div className="d-flex align-items-start">
-                    <div className="me-4">
-                      <div
-                        className="avatar-placeholder rounded-circle d-flex align-items-center justify-content-center bg-primary text-white"
-                        style={{ width: '80px', height: '80px' }}
-                      >
-                        {selectedCandidate.fullName?.charAt(0) || 'C'}
-                      </div>
-                    </div>
-                    <div className="flex-grow-1">
-                      <h3 className="mb-2">{selectedCandidate.fullName}</h3>
-                      <div className="d-flex flex-wrap gap-2 mb-3">
-                        {getMatchScoreBadge(selectedCandidate.matchScore)}
-                        {getExperienceBadge(selectedCandidate.experience)}
-                        {getAvailabilityBadge(selectedCandidate.availability)}
-                      </div>
-                      <div className="d-flex flex-wrap gap-3">
-                        <span className="text-muted">
-                          <FaEnvelope className="me-1" />
-                          {selectedCandidate.email}
-                        </span>
-                        <span className="text-muted">
-                          <FaPhone className="me-1" />
-                          {selectedCandidate.phone}
-                        </span>
-                        <span className="text-muted">
-                          <FaMapMarkerAlt className="me-1" />
-                          {selectedCandidate.location}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                </Col>
-                <Col md={4}>
-                  <div className="d-flex flex-column gap-2">
-                    <Button
-                      variant="primary"
-                      className="d-flex align-items-center justify-content-center gap-2"
-                      onClick={() => handleContact(selectedCandidate)}
-                    >
-                      <FaEnvelope /> Contact Candidate
-                    </Button>
-                    <Button
-                      variant="outline-primary"
-                      className="d-flex align-items-center justify-content-center gap-2"
-                      onClick={() => handleDownloadResume(selectedCandidate)}
-                    >
-                      <FaDownload /> Download Resume
-                    </Button>
-                    <Button
-                      variant="outline-success"
-                      className="d-flex align-items-center justify-content-center gap-2"
-                      onClick={() => handleInviteToApply(selectedCandidate)}
-                    >
-                      <FaUserPlus /> Invite to Apply
-                    </Button>
-                  </div>
-                </Col>
-              </Row>
-
-              <Row>
-                <Col md={8}>
-                  <Card className="mb-4">
-                    <Card.Body>
-                      <h5 className="mb-3">Professional Summary</h5>
-                      <p>{selectedCandidate.summary}</p>
-                    </Card.Body>
-                  </Card>
-
-                  <Card className="mb-4">
-                    <Card.Body>
-                      <h5 className="mb-3">Skills & Expertise</h5>
-                      <div className="d-flex flex-wrap gap-2">
-                        {selectedCandidate.skills?.map((skill) => (
-                          <Badge key={skill} bg="primary" className="px-3 py-2 fs-6">
-                            {skill}
-                          </Badge>
-                        ))}
-                      </div>
-                    </Card.Body>
-                  </Card>
-
-                  <Card className="mb-4">
-                    <Card.Body>
-                      <h5 className="mb-3">Education</h5>
-                      <p>{selectedCandidate.education}</p>
-                    </Card.Body>
-                  </Card>
-                </Col>
-
-                <Col md={4}>
-                  <Card className="mb-4">
-                    <Card.Body>
-                      <h5 className="mb-3">Details</h5>
-                      <ListGroup variant="flush">
-                        <ListGroup.Item className="d-flex justify-content-between border-0 px-0 py-2">
-                          <span>Expected Salary</span>
-                          <strong>{selectedCandidate.expectedSalary}</strong>
-                        </ListGroup.Item>
-                        <ListGroup.Item className="d-flex justify-content-between border-0 px-0 py-2">
-                          <span>Notice Period</span>
-                          <strong>{selectedCandidate.noticePeriod}</strong>
-                        </ListGroup.Item>
-                        <ListGroup.Item className="d-flex justify-content-between border-0 px-0 py-2">
-                          <span>Last Active</span>
-                          <strong>
-                            {new Date(selectedCandidate.lastActive).toLocaleDateString()}
-                          </strong>
-                        </ListGroup.Item>
-                      </ListGroup>
-                    </Card.Body>
-                  </Card>
-
-                  <Card>
-                    <Card.Body>
-                      <h5 className="mb-3">Match Analysis</h5>
-                      <div className="mb-3">
-                        <div className="d-flex justify-content-between mb-1">
-                          <span>Skills Match</span>
-                          <span>92%</span>
-                        </div>
-                        <ProgressBar variant="success" now={92} />
-                      </div>
-                      <div className="mb-3">
-                        <div className="d-flex justify-content-between mb-1">
-                          <span>Experience Level</span>
-                          <span>85%</span>
-                        </div>
-                        <ProgressBar variant="info" now={85} />
-                      </div>
-                      <div className="mb-3">
-                        <div className="d-flex justify-content-between mb-1">
-                          <span>Cultural Fit</span>
-                          <span>78%</span>
-                        </div>
-                        <ProgressBar variant="warning" now={78} />
-                      </div>
-                    </Card.Body>
-                  </Card>
-                </Col>
-              </Row>
-            </div>
-          )}
-        </Modal.Body>
-        <Modal.Footer>
-          <Button variant="light" onClick={() => setShowProfileModal(false)}>
-            Close
-          </Button>
-          <Button
-            variant="primary"
-            onClick={() => {
-              handleContact(selectedCandidate);
-              setShowProfileModal(false);
-            }}
-          >
-            <FaEnvelope className="me-2" /> Contact Now
-          </Button>
-        </Modal.Footer>
-      </Modal>
-
-      {/* Contact Candidate Modal */}
-      <Modal show={showContactModal} onHide={() => setShowContactModal(false)}>
-        <Modal.Header closeButton>
-          <Modal.Title>Contact Candidate</Modal.Title>
-        </Modal.Header>
-        <Modal.Body>
-          {selectedCandidate && (
-            <Form>
-              <Alert variant="info" className="mb-3">
-                You are contacting: <strong>{selectedCandidate.fullName}</strong>
-              </Alert>
-
-              <Form.Group className="mb-3">
-                <Form.Label>Subject</Form.Label>
-                <Form.Control
+        {/* Filters */}
+        <div className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm border border-gray-100 dark:border-gray-700 mb-6">
+          <div className="flex flex-col gap-4">
+            {/* Search Row */}
+            <div className="flex flex-col md:flex-row items-start md:items-center gap-4">
+              <div className="relative flex-1 w-full">
+                <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <input
                   type="text"
-                  placeholder="e.g., Interview Invitation for Software Developer Position"
-                  defaultValue="Opportunity at Your Company"
+                  placeholder="Search by name, email, skills, or headline..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2.5 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
-              </Form.Group>
+              </div>
 
-              <Form.Group className="mb-3">
-                <Form.Label>Message Template</Form.Label>
-                <Form.Select>
-                  <option>Select a template...</option>
-                  <option value="interview">Interview Invitation</option>
-                  <option value="info">Request for Information</option>
-                  <option value="apply">Invitation to Apply</option>
-                  <option value="followup">Follow-up Message</option>
-                </Form.Select>
-              </Form.Group>
+              <div className="flex items-center gap-2 w-full md:w-auto">
+                <select
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value)}
+                  className="flex-1 md:flex-none px-4 py-2.5 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  {SORT_OPTIONS.map(option => (
+                    <option key={option.value} value={option.value}>{option.label}</option>
+                  ))}
+                </select>
 
-              <Form.Group className="mb-3">
-                <Form.Label>Your Message</Form.Label>
-                <Form.Control
-                  as="textarea"
-                  rows={4}
-                  placeholder="Type your message here..."
-                  defaultValue={`Dear ${selectedCandidate.fullName},
+                <div className="hidden md:flex items-center bg-gray-100 dark:bg-gray-700 rounded-xl p-1">
+                  <button
+                    onClick={() => setViewMode('grid')}
+                    className={`p-2 rounded-lg transition-colors ${
+                      viewMode === 'grid' 
+                        ? 'bg-white dark:bg-gray-600 text-blue-600 shadow-sm' 
+                        : 'text-gray-500 hover:text-gray-700'
+                    }`}
+                  >
+                    <FaThLarge className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => setViewMode('list')}
+                    className={`p-2 rounded-lg transition-colors ${
+                      viewMode === 'list' 
+                        ? 'bg-white dark:bg-gray-600 text-blue-600 shadow-sm' 
+                        : 'text-gray-500 hover:text-gray-700'
+                    }`}
+                  >
+                    <FaList className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            </div>
 
-We were impressed by your profile and would like to discuss potential opportunities at our company.
+            {/* Filter Row */}
+            <div className="flex flex-wrap items-center gap-3">
+              <select
+                value={experienceFilter}
+                onChange={(e) => setExperienceFilter(e.target.value)}
+                className="px-4 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                {EXPERIENCE_LEVELS.map(level => (
+                  <option key={level.value} value={level.value}>{level.label}</option>
+                ))}
+              </select>
 
-Best regards,
-Your Company Team`}
+              <input
+                type="text"
+                placeholder="Location"
+                value={locationFilter}
+                onChange={(e) => setLocationFilter(e.target.value)}
+                className="px-4 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-32"
+              />
+
+              <select
+                value={availabilityFilter}
+                onChange={(e) => setAvailabilityFilter(e.target.value)}
+                className="px-4 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                {AVAILABILITY_OPTIONS.map(option => (
+                  <option key={option.value} value={option.value}>{option.label}</option>
+                ))}
+              </select>
+
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  placeholder="Add skill filter..."
+                  value={newSkillFilter}
+                  onChange={(e) => setNewSkillFilter(e.target.value)}
+                  onKeyPress={(e) => e.key === 'Enter' && handleAddSkillFilter()}
+                  className="px-4 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-40"
                 />
-              </Form.Group>
+                <button
+                  onClick={handleAddSkillFilter}
+                  className="p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                >
+                  <FaPlus className="w-4 h-4" />
+                </button>
+              </div>
 
-              <Form.Group className="mb-3">
-                <Form.Check type="checkbox" label="Send a copy to my email" defaultChecked />
-              </Form.Group>
-            </Form>
-          )}
-        </Modal.Body>
-        <Modal.Footer>
-          <Button variant="light" onClick={() => setShowContactModal(false)}>
-            Cancel
-          </Button>
-          <Button
-            variant="primary"
-            onClick={() => {
-              setSuccess(`Message sent to ${selectedCandidate?.fullName}`);
-              setShowContactModal(false);
-              setTimeout(() => setSuccess(''), 3000);
-            }}
-          >
-            <FaPaperPlane className="me-2" /> Send Message
-          </Button>
-        </Modal.Footer>
-      </Modal>
-    </Container>
+              {hasFilters && (
+                <button
+                  onClick={clearFilters}
+                  className="px-4 py-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl font-medium transition-colors flex items-center gap-2 text-sm"
+                >
+                  <FaTimes className="w-4 h-4" />
+                  Clear Filters
+                </button>
+              )}
+            </div>
+
+            {/* Active Skill Filters */}
+            {skillsFilter.length > 0 && (
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-sm text-gray-500">Skills:</span>
+                {skillsFilter.map((skill, index) => (
+                  <span
+                    key={index}
+                    className="inline-flex items-center gap-1 px-2.5 py-1 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded-full text-xs font-medium"
+                  >
+                    {skill}
+                    <button
+                      onClick={() => handleRemoveSkillFilter(skill)}
+                      className="hover:text-blue-800"
+                    >
+                      <FaTimes className="w-3 h-3" />
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Results Count */}
+        <div className="flex items-center justify-between mb-4">
+          <p className="text-sm text-gray-500 dark:text-gray-400">
+            Showing {filteredCandidates.length} of {candidates.length} candidates
+          </p>
+        </div>
+
+        {/* Content */}
+        {loading ? (
+          <LoadingSkeleton />
+        ) : error ? (
+          <div className="bg-red-50 dark:bg-red-900/20 rounded-xl p-6 text-center">
+            <FaExclamationTriangle className="w-12 h-12 text-red-500 mx-auto mb-3" />
+            <p className="text-red-600 dark:text-red-400">{error}</p>
+            <button
+              onClick={() => window.location.reload()}
+              className="mt-4 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+            >
+              Retry
+            </button>
+          </div>
+        ) : filteredCandidates.length === 0 ? (
+          <EmptyState onAction={clearFilters} hasFilters={hasFilters} />
+        ) : (
+          <>
+            {viewMode === 'grid' ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {filteredCandidates.map((candidate) => (
+                  <CandidateCard
+                    key={candidate.id}
+                    candidate={candidate}
+                    onView={handleViewCandidate}
+                    onMessage={handleMessageCandidate}
+                    onSave={handleSaveCandidate}
+                    onInvite={handleInviteToApply}
+                    isSaved={savedCandidates.has(candidate.id)}
+                    viewMode="grid"
+                  />
+                ))}
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {filteredCandidates.map((candidate) => (
+                  <CandidateCard
+                    key={candidate.id}
+                    candidate={candidate}
+                    onView={handleViewCandidate}
+                    onMessage={handleMessageCandidate}
+                    onSave={handleSaveCandidate}
+                    onInvite={handleInviteToApply}
+                    isSaved={savedCandidates.has(candidate.id)}
+                    viewMode="list"
+                  />
+                ))}
+              </div>
+            )}
+
+            {/* Load More */}
+            {hasMore && (
+              <div className="text-center mt-8">
+                <button
+                  onClick={loadMore}
+                  disabled={loading}
+                  className="px-6 py-3 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-xl font-medium border border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-50"
+                >
+                  {loading ? (
+                    <span className="flex items-center gap-2">
+                      <FaSpinner className="w-4 h-4 animate-spin" />
+                      Loading...
+                    </span>
+                  ) : (
+                    'Load More Candidates'
+                  )}
+                </button>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+
+      {/* Detail Modal */}
+      <CandidateDetailModal
+        candidate={selectedCandidate}
+        show={showDetailModal}
+        onClose={() => {
+          setShowDetailModal(false);
+          setSelectedCandidate(null);
+        }}
+        onMessage={handleMessageCandidate}
+        onSave={handleSaveCandidate}
+        onInvite={handleInviteToApply}
+        isSaved={selectedCandidate ? savedCandidates.has(selectedCandidate.id) : false}
+      />
+    </div>
   );
 };
 

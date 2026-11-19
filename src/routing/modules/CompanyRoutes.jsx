@@ -1,10 +1,11 @@
 import { lazy } from 'react';
-import { Route } from 'react-router-dom';
+import { Navigate, Route } from 'react-router-dom';
 
 import ProtectedRoute from '../../components/layout/ProtectedRoute';
 
 // Lazy loaded company components
 const CompanyDashboard = lazy(() => import('../../pages/company/CompanyDashboard'));
+const CompanySettings = lazy(() => import('../../pages/company/CompanySettings'));
 const CompanyJobs = lazy(() => import('../../pages/company/CompanyJobs'));
 const CompanyApplications = lazy(() => import('../../pages/company/CompanyApplications'));
 const CompanyProfile = lazy(() => import('../../pages/company/CompanyProfile'));
@@ -13,7 +14,7 @@ const ScheduleInterview = lazy(() => import('../../pages/company/ScheduleIntervi
 const ViewAnalytics = lazy(() => import('../../pages/company/ViewAnalytics'));
 const ManageTeams = lazy(() => import('../../pages/company/ManageTeams'));
 const DocumentHub = lazy(() => import('../../pages/company/DocumentHub'));
-const Communication = lazy(() => import('../../pages/company/Communication'));
+const Communication = lazy(() => import('../../pages/company/chat/CompanyChat'));
 const BrowseCandidates = lazy(() => import('../../pages/company/BrowseCandidates'));
 const CompanyAnalytics = lazy(() => import('../../pages/company/CompanyAnalytics'));
 const JobPosting = lazy(() => import('../../pages/company/JobPosting'));
@@ -25,10 +26,13 @@ const CompanyCandidates = lazy(() => import('../../pages/company/CompanyCandidat
 
 // New Company Features
 const CompanyChat = lazy(() => import('../../pages/company/chat/CompanyChat'));
+const Notifications = lazy(() => import('../../pages/Notifications'));
 const CompanyFollowers = lazy(() => import('../../pages/company/followers/CompanyFollowers'));
 const AIMatching = lazy(() => import('../../pages/company/ai-matching/AIMatching'));
-const VideoInterviews = lazy(() => import('../../pages/company/video-interviews/VideoInterviews'));
-const CompanyBranding = lazy(() => import('../../pages/company/branding/CompanyBranding'));
+const VideoInterviews = lazy(() => import('../../pages/company/VideoInterviews'));
+// Branding is edited through the persisted company profile so this route never
+// renders the former placeholder-only branding studio.
+const CompanyBranding = lazy(() => import('../../pages/company/CompanyBranding'));
 const DiversityAnalytics = lazy(
   () => import('../../pages/company/diversity-analytics/DiversityAnalytics')
 );
@@ -42,19 +46,27 @@ const OnboardingAutomation = lazy(
   () => import('../../pages/company/onboarding/OnboardingAutomation')
 );
 const PredictiveAnalyticsHub = lazy(
-  () => import('../../pages/company/predictive-analytics/PredictiveAnalytics')
+  () => import('../../pages/company/predictive-analytics/PredictiveAnalyticsUnavailable')
 );
-const Marketplace = lazy(() => import('../../pages/company/marketplace/Marketplace'));
+const Marketplace = lazy(() => import('../../pages/company/marketplace/MarketplaceDatabase'));
 const TeamWorkspace = lazy(() => import('../../pages/company/team-workspace/TeamWorkspace'));
-
-// Import SettingsPage for company settings
-const SettingsPage = lazy(() => import('../../pages/Settings'));
+const FriendsNetwork = lazy(() => import('../../pages/FriendsNetwork'));
 
 /**
  * Company Routes Module
  * Contains all company-specific routes (requires company authentication)
  */
 export const getCompanyRoutes = () => [
+  <Route
+    key="company-root"
+    path="/company"
+    element={
+      <ProtectedRoute allowedUserTypes={['company']}>
+        <Navigate to="/company/dashboard" replace />
+      </ProtectedRoute>
+    }
+  />,
+
   // Company Dashboard
   <Route
     key="company-dashboard"
@@ -65,6 +77,8 @@ export const getCompanyRoutes = () => [
       </ProtectedRoute>
     }
   />,
+
+  <Route key="company-friends" path="/company/friends" element={<ProtectedRoute allowedUserTypes={['company']}><FriendsNetwork /></ProtectedRoute>} />,
 
   // Company Profile & Settings
   <Route
@@ -82,7 +96,7 @@ export const getCompanyRoutes = () => [
     path="/company/settings"
     element={
       <ProtectedRoute allowedUserTypes={['company']}>
-        <SettingsPage />
+        <CompanySettings />
       </ProtectedRoute>
     }
   />,
@@ -229,6 +243,16 @@ export const getCompanyRoutes = () => [
     element={
       <ProtectedRoute allowedUserTypes={['company']}>
         <CompanyChat />
+      </ProtectedRoute>
+    }
+  />,
+
+  <Route
+    key="company-notifications"
+    path="/company/notifications"
+    element={
+      <ProtectedRoute allowedUserTypes={['company']}>
+        <Notifications />
       </ProtectedRoute>
     }
   />,

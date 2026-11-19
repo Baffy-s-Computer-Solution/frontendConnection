@@ -1,6 +1,6 @@
 // src/routing/modules/YouthRoutes.jsx
 import { lazy } from 'react';
-import { Route } from 'react-router-dom';
+import { Navigate, Route } from 'react-router-dom';
 
 import ProtectedRoute from '../../components/layout/ProtectedRoute';
 
@@ -106,6 +106,16 @@ const RevenueTracking = lazy(() => import('../../pages/youth/analytics/RevenueTr
  */
 export const getYouthRoutes = () => {
   const routes = [
+    <Route
+      key="youth-root"
+      path="/youth"
+      element={
+        <ProtectedRoute allowedUserTypes={['youth', 'entrepreneur']}>
+          <Navigate to="/youth/dashboard" replace />
+        </ProtectedRoute>
+      }
+    />,
+
     // Youth Dashboard
     <Route
       key="youth-dashboard"

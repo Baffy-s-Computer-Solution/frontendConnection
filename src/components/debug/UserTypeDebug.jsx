@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Alert, Badge, Button, Card } from 'react-bootstrap';
+import { Alert, Badge, Button, Card } from '../ui/tailwindCompat';
 
 import { useAuth } from '../../context/AuthContext';
 

@@ -2,6 +2,7 @@ import React from 'react';
 import { Navigate, Route } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import ProtectedRoute from '../../components/layout/ProtectedRoute';
+import { normalizeUserType } from '../../utils/authRoleUtils';
 
 // Lazy load common pages
 const Notifications = React.lazy(() => import('../../pages/Notifications'));
@@ -31,7 +32,8 @@ const DashboardRedirect = () => {
     system: '/system/dashboard',
   };
 
-  const redirectPath = dashboardMap[userProfile.userType] || '/student/dashboard';
+  const normalizedUserType = normalizeUserType(userProfile?.userType || userProfile?.role || 'student');
+  const redirectPath = dashboardMap[normalizedUserType] || '/student/dashboard';
 
   return <Navigate to={redirectPath} replace />;
 };
@@ -51,14 +53,6 @@ export const getCommonRoutes = () => (
       element={
         <ProtectedRoute>
           <Notifications />
-        </ProtectedRoute>
-      }
-    />
-    <Route
-      path="/settings"
-      element={
-        <ProtectedRoute>
-          <Settings />
         </ProtectedRoute>
       }
     />

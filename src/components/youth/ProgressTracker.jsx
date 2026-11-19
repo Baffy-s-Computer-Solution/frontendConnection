@@ -1,4 +1,4 @@
-import { Card, ProgressBar, ListGroup } from 'react-bootstrap';
+import { Card, ProgressBar, ListGroup } from '../ui/tailwindCompat';
 
 const milestones = [
   { id: 1, label: 'Register your venture', progress: 100 },

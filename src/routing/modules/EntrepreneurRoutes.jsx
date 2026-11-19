@@ -1,5 +1,5 @@
 import { lazy } from 'react';
-import { Route } from 'react-router-dom';
+import { Navigate, Route } from 'react-router-dom';
 
 import ProtectedRoute from '../../components/layout/ProtectedRoute';
 
@@ -37,6 +37,16 @@ const ReviewApplications = lazy(() => import('../../pages/EntrepreneurHub/Review
  * Contains all entrepreneur-specific routes
  */
 export const getEntrepreneurRoutes = () => [
+  <Route
+    key="entrepreneur-root"
+    path="/entrepreneur"
+    element={
+      <ProtectedRoute allowedUserTypes={['entrepreneur']}>
+        <Navigate to="/entrepreneur/dashboard" replace />
+      </ProtectedRoute>
+    }
+  />,
+
   // Entrepreneur Dashboard
   <Route
     key="entrepreneur-dashboard"

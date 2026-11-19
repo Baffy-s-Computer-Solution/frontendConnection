@@ -1,4 +1,4 @@
-import { Card, Button, Form } from 'react-bootstrap';
+import { Card, Button, Form } from '../ui/tailwindCompat';
 import { useState } from 'react';
 
 const PitchDeckBuilder = () => {

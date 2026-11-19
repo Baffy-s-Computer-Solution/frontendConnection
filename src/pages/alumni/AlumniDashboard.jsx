@@ -1,620 +1,557 @@
 // frontend/src/pages/alumni/AlumniDashboard.jsx
-import {
-  Add as AddIcon,
-  Article as ArticleIcon,
-  AutoAwesome as AutoAwesomeIcon,
-  CalendarToday as CalendarTodayIcon,
-  CheckCircle as CheckCircleIcon,
-  Clear as ClearIcon,
-  Close as CloseIcon,
-  Comment as CommentIcon,
-  ConnectWithoutContact as ConnectWithoutContactIcon,
-  VolunteerActivism as DonationIcon,
-  Event as EventIcon,
-  Favorite as FavoriteIcon,
-  Group as GroupIcon,
-  Groups as GroupsIcon,
-  Leaderboard as LeaderboardIcon,
-  Lightbulb as LightbulbIcon,
-  LocationOn as LocationIcon,
-  Lock as LockIcon,
-  MilitaryTech as MilitaryTechIcon,
-  AttachMoney as MoneyIcon,
-  Notifications as NotificationsIcon,
-  People as PeopleIcon,
-  Psychology as PsychologyIcon,
-  Public as PublicIcon,
-  Refresh as RefreshIcon,
-  RocketLaunch as RocketLaunchIcon,
-  School as SchoolIcon,
-  Search as SearchIcon,
-  Share as ShareIcon,
-  Star as StarIcon,
-  Tag as TagIcon,
-  Timeline as TimelineIcon,
-  TrendingUp as TrendingUpIcon,
-  EmojiEvents as TrophyIcon
-} from '@mui/icons-material';
-import {
-  Alert,
-  alpha,
-  Avatar,
-  Box,
-  Button,
-  Card,
-  CardContent,
-  CardMedia,
-  Checkbox,
-  Chip,
-  CircularProgress,
-  Collapse,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
-  Divider,
-  FormControl,
-  FormControlLabel,
-  Grid,
-  IconButton,
-  InputAdornment,
-  LinearProgress,
-  List,
-  ListItem,
-  ListItemIcon,
-  ListItemText,
-  MenuItem,
-  Paper,
-  Radio,
-  RadioGroup,
-  Select,
-  Skeleton,
-  Snackbar,
-  SpeedDial,
-  SpeedDialAction,
-  SpeedDialIcon,
-  styled,
-  Tab,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Tabs,
-  TextField,
-  ToggleButton,
-  ToggleButtonGroup,
-  Tooltip,
-  Typography,
-  useMediaQuery,
-  useTheme
-} from '@mui/material';
-import { AnimatePresence, motion } from 'framer-motion';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import PageContainer from '../../components/layout/PageContainer';
-import { useAuth } from '../../context';
-import { useNotifications } from '../../hooks/useNotifications';
+import { useNavigate } from 'react-router-dom';
+import {
+  FaArrowDown, FaArrowUp, FaAward, FaBell, FaBookOpen, FaBriefcase, FaBullhorn,
+  FaCalendarAlt, FaCheckCircle, FaComment, FaDonate, FaEllipsisH, FaExclamationTriangle,
+  FaFilter, FaFlag, FaHandHoldingHeart, FaHeart, FaImage, FaLink, FaMapMarkerAlt,
+  FaPlus, FaRegComment, FaRegHeart, FaSearch, FaShareAlt, FaSync, FaTimes, FaTrash,
+  FaTrophy, FaUsers, FaUserPlus, FaVideo,
+} from 'react-icons/fa';
+import { useAuth } from '../../context/AuthContext';
+import { useNotification } from '../../context/NotificationContext';
 import { alumniService } from '../../services/alumniService';
 import { alumniSocialService } from '../../services/alumniSocialService';
-import {
-  formatCurrency,
-  formatDate,
-  getRelativeTime,
-  truncateText
-} from '../../utils/formatters';
+import socialPlatformService from '../../services/socialPlatformService';
+import { formatCurrency, formatDate, getRelativeTime, truncateText } from '../../utils/formatters';
 
-// ==================== STYLED COMPONENTS ====================
+// ============================================================
+// Environment-safe helpers (never crash if env missing)
+// ============================================================
+const APP_NAME = import.meta.env.VITE_APP_NAME || 'Career Connect Lesotho';
+const ENV = import.meta.env.VITE_APP_ENVIRONMENT || 'production';
+const MAX_UPLOAD_BYTES = 10 * 1024 * 1024; // 10MB
+const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
 
-const StyledCard = styled(Card)(({ theme }) => ({
-  transition: 'transform 0.2s, box-shadow 0.2s',
-  '&:hover': {
-    transform: 'translateY(-4px)',
-    boxShadow: theme.shadows[8],
-  },
-}));
-
-const AnimatedButton = styled(Button)(({ theme }) => ({
-  transition: 'all 0.3s ease',
-  '&:hover': {
-    transform: 'scale(1.05)',
-  },
-}));
-
-const GradientText = styled(Typography)(({ theme }) => ({
-  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-  backgroundClip: 'text',
-  WebkitBackgroundClip: 'text',
-  WebkitTextFillColor: 'transparent',
-}));
-
-// ==================== HELPER COMPONENTS ====================
-
-// Loading Skeleton Component
-const PostSkeleton = () => (
-  <Card sx={{ mb: 2, p: 2 }}>
-    <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-      <Skeleton variant="circular" width={48} height={48} />
-      <Box sx={{ ml: 2 }}>
-        <Skeleton variant="text" width={150} height={24} />
-        <Skeleton variant="text" width={100} height={20} />
-      </Box>
-    </Box>
-    <Skeleton variant="text" width="100%" height={60} />
-    <Skeleton variant="rectangular" width="100%" height={200} sx={{ mt: 2 }} />
-    <Box sx={{ display: 'flex', gap: 2, mt: 2 }}>
-      <Skeleton variant="rectangular" width={80} height={36} />
-      <Skeleton variant="rectangular" width={80} height={36} />
-      <Skeleton variant="rectangular" width={80} height={36} />
-    </Box>
-  </Card>
-);
-
-// Achievement Badge Component
-const AchievementBadge = ({ achievement, size = 'medium' }) => {
-  const getIcon = () => {
-    switch (achievement.type) {
-      case 'donation':
-        return <DonationIcon />;
-      case 'connection':
-        return <PeopleIcon />;
-      case 'event':
-        return <EventIcon />;
-      case 'post':
-        return <ArticleIcon />;
-      case 'mentorship':
-        return <SchoolIcon />;
-      default:
-        return <MilitaryTechIcon />;
-    }
-  };
-
-  const sizes = { small: 32, medium: 48, large: 64 };
-
-  return (
-    <Tooltip title={achievement.description}>
-      <Box sx={{ textAlign: 'center' }}>
-        <Avatar
-          sx={{
-            width: sizes[size],
-            height: sizes[size],
-            bgcolor: 'gold',
-            background: 'linear-gradient(135deg, #FFD700, #FFA500)',
-            margin: '0 auto',
-            mb: 1,
-          }}
-        >
-          {getIcon()}
-        </Avatar>
-        <Typography variant="caption" fontWeight="bold">
-          {achievement.name}
-        </Typography>
-      </Box>
-    </Tooltip>
-  );
+const safeLog = (...args) => {
+  if (ENV !== 'production') console.debug('[AlumniDashboard]', ...args);
 };
 
-// Trending Topic Component
-const TrendingTopic = ({ topic }) => (
-  <Paper sx={{ p: 1.5, mb: 1, cursor: 'pointer', '&:hover': { bgcolor: 'action.hover' } }}>
-    <Typography variant="caption" color="textSecondary">
-      Trending in Alumni
-    </Typography>
-    <Typography variant="subtitle2" fontWeight="bold">
-      #{topic.hashtag}
-    </Typography>
-    <Typography variant="caption" color="textSecondary">
-      {topic.posts} posts
-    </Typography>
-  </Paper>
-);
-
-// Notification Item Component
-const NotificationItem = ({ notification, onMarkRead }) => {
-  const getIcon = () => {
-    switch (notification.type) {
-      case 'like':
-        return <FavoriteIcon color="error" />;
-      case 'comment':
-        return <CommentIcon color="primary" />;
-      case 'share':
-        return <ShareIcon color="success" />;
-      case 'connection':
-        return <PeopleIcon color="info" />;
-      case 'event':
-        return <EventIcon color="warning" />;
-      default:
-        return <NotificationsIcon />;
-    }
-  };
-
-  return (
-    <ListItem
-      sx={{
-        bgcolor: notification.read ? 'transparent' : 'action.hover',
-        '&:hover': { bgcolor: 'action.selected' },
-        cursor: 'pointer',
-      }}
-      onClick={() => onMarkRead(notification.id)}
-    >
-      <ListItemIcon>{getIcon()}</ListItemIcon>
-      <ListItemText
-        primary={notification.message}
-        secondary={getRelativeTime(notification.createdAt?.toDate?.() || notification.createdAt)}
-        primaryTypographyProps={{ variant: 'body2' }}
-      />
-      {!notification.read && (
-        <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: 'primary.main' }} />
-      )}
-    </ListItem>
-  );
+// OWASP: escape any user string before rendering as text content.
+// React already escapes text nodes; this is a belt-and-braces guard used
+// when we display raw values from URL params etc.
+const safeText = (value) => {
+  if (value === null || value === undefined) return '';
+  return String(value).slice(0, 5000);
 };
 
-// Event Card Component
-const EventCard = ({ event, onRegister, isRegistered }) => (
-  <StyledCard>
-    {event.image && (
-      <CardMedia component="img" height="140" image={event.image} alt={event.title} />
+// ============================================================
+// Small presentational components (pure Tailwind)
+// ============================================================
+const StatCard = ({ icon: Icon, label, value, accent = 'text-brand-600', bg = 'bg-brand-100', trend, trendUp }) => (
+  <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition hover:shadow-md dark:border-slate-700 dark:bg-slate-900">
+    <div className="flex items-start justify-between gap-2">
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-xs font-medium text-slate-500">{label}</p>
+        <p className="mt-1 text-2xl font-bold text-slate-900 dark:text-slate-100">{value}</p>
+      </div>
+      <span className={`flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg ${bg}`}>
+        <Icon className={`h-4 w-4 ${accent}`} />
+      </span>
+    </div>
+    {trend !== undefined && (
+      <div className={`mt-2 flex items-center gap-1 text-xs font-semibold ${trendUp ? 'text-emerald-600' : 'text-red-600'}`}>
+        {trendUp ? <FaArrowUp /> : <FaArrowDown />}
+        <span>{trend}</span>
+        <span className="font-normal text-slate-400">vs last month</span>
+      </div>
     )}
-    <CardContent>
-      <Box
-        sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}
-      >
-        <Typography variant="h6" component="div">
-          {event.title}
-        </Typography>
-        {event.isVirtual && <Chip label="Virtual" size="small" color="info" />}
-      </Box>
-      <Typography
-        variant="body2"
-        color="textSecondary"
-        sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 1 }}
-      >
-        <CalendarTodayIcon fontSize="small" />
-        {formatDate(event.startDate?.toDate?.() || event.startDate, 'long')}
-      </Typography>
-      <Typography
-        variant="body2"
-        color="textSecondary"
-        sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 2 }}
-      >
-        <LocationIcon fontSize="small" />
-        {event.location || 'Virtual Event'}
-      </Typography>
-      <Typography variant="body2" sx={{ mb: 2 }}>
-        {truncateText(event.description || '', 100)}
-      </Typography>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <Chip
-          size="small"
-          icon={<PeopleIcon />}
-          label={`${event.registrationsCount || 0} registered`}
-        />
-        <Button
-          variant={isRegistered ? 'outlined' : 'contained'}
-          size="small"
-          disabled={isRegistered}
-          onClick={() => onRegister(event.id)}
-        >
-          {isRegistered ? 'Registered' : 'Register'}
-        </Button>
-      </Box>
-    </CardContent>
-  </StyledCard>
+  </div>
 );
 
-// Connection Suggestion Card
-const ConnectionSuggestionCard = ({ suggestion, onConnect }) => (
-  <StyledCard>
-    <CardContent>
-      <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-        <Avatar src={suggestion.photoURL} sx={{ width: 56, height: 56, mr: 2 }}>
-          {suggestion.name?.charAt(0)}
-        </Avatar>
-        <Box flex={1}>
-          <Typography variant="subtitle1" fontWeight="bold">
-            {suggestion.name}
-          </Typography>
-          <Typography variant="caption" color="textSecondary">
-            {suggestion.position} at {suggestion.company}
-          </Typography>
-          <Box sx={{ display: 'flex', alignItems: 'center', mt: 0.5 }}>
-            <StarIcon sx={{ fontSize: 14, color: '#f59e0b', mr: 0.5 }} />
-            <Typography variant="caption">
-              {Math.round((suggestion.matchScore || 0) * 100)}% Match
-            </Typography>
-            <Typography variant="caption" sx={{ ml: 1 }}>
-              •
-            </Typography>
-            <Typography variant="caption" sx={{ ml: 1 }}>
-              Class of {suggestion.graduationYear}
-            </Typography>
-          </Box>
-        </Box>
-      </Box>
-      <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
-        {suggestion.commonInterests?.slice(0, 3).map((interest, idx) => (
-          <Chip key={idx} label={interest} size="small" variant="outlined" />
-        ))}
-      </Box>
-      <Button
-        variant="contained"
-        fullWidth
-        startIcon={<ConnectWithoutContactIcon />}
-        onClick={() => onConnect(suggestion)}
-      >
-        Connect
-      </Button>
-    </CardContent>
-  </StyledCard>
-);
-
-// Poll Component
-const Poll = ({ poll, onVote }) => {
-  const [selectedOption, setSelectedOption] = useState(null);
-  const totalVotes = poll.options?.reduce((sum, opt) => sum + (opt.votes || 0), 0) || 0;
-
+const Avatar = ({ src, name, size = 'md' }) => {
+  const sizes = { sm: 'h-8 w-8 text-xs', md: 'h-10 w-10 text-sm', lg: 'h-14 w-14 text-lg' };
+  const initials = safeText(name || 'A').charAt(0).toUpperCase();
+  if (src) {
+    return (
+      <img
+        src={src}
+        alt={safeText(name || 'avatar')}
+        loading="lazy"
+        referrerPolicy="no-referrer"
+        className={`${sizes[size]} rounded-full object-cover ring-2 ring-white dark:ring-slate-800`}
+        onError={(e) => { e.currentTarget.style.display = 'none'; }}
+      />
+    );
+  }
   return (
-    <Paper sx={{ p: 2, mb: 2 }}>
-      <Typography variant="subtitle1" fontWeight="bold" gutterBottom>
-        {poll.question}
-      </Typography>
-      <RadioGroup value={selectedOption} onChange={(e) => setSelectedOption(e.target.value)}>
-        {poll.options?.map((option, idx) => {
-          const percentage = totalVotes > 0 ? ((option.votes || 0) / totalVotes) * 100 : 0;
-          return (
-            <Box key={idx} sx={{ mb: 2 }}>
-              <FormControlLabel
-                value={option.id}
-                control={<Radio size="small" />}
-                label={option.text}
-              />
-              {selectedOption && (
-                <Box sx={{ mt: 0.5 }}>
-                  <LinearProgress
-                    variant="determinate"
-                    value={percentage}
-                    sx={{ height: 6, borderRadius: 3 }}
-                  />
-                  <Typography variant="caption" color="textSecondary">
-                    {option.votes || 0} votes ({percentage.toFixed(1)}%)
-                  </Typography>
-                </Box>
-              )}
-            </Box>
-          );
-        })}
-      </RadioGroup>
-      {selectedOption && !poll.userVoted && (
-        <Button
-          size="small"
-          variant="outlined"
-          onClick={() => onVote(poll.id, selectedOption)}
-          sx={{ mt: 1 }}
-        >
-          Submit Vote
-        </Button>
-      )}
-    </Paper>
+    <span className={`${sizes[size]} inline-flex items-center justify-center rounded-full bg-gradient-to-br from-brand-500 to-brand-700 font-semibold text-white`}>
+      {initials}
+    </span>
   );
 };
 
-// ==================== MAIN DASHBOARD COMPONENT ====================
+const Tag = ({ children, color = 'slate' }) => {
+  const palette = {
+    slate: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200',
+    brand: 'bg-brand-100 text-brand-700 dark:bg-brand-900/40 dark:text-brand-200',
+    green: 'bg-emerald-100 text-emerald-700',
+    amber: 'bg-amber-100 text-amber-700',
+    red: 'bg-red-100 text-red-700',
+    violet: 'bg-violet-100 text-violet-700',
+  };
+  return <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide ${palette[color]}`}>{children}</span>;
+};
 
+// ============================================================
+// PostCard — the core feed item
+// ============================================================
+const PostCard = ({ post, currentUserId, onLike, onComment, onShare, onSave, onDelete, onReport }) => {
+  const [comment, setComment] = useState('');
+  const [expanded, setExpanded] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+
+  const authorName = safeText(post.authorName || 'Alumni');
+  const createdAt = post.createdAt?.toDate?.() || post.createdAt;
+  const media = Array.isArray(post.media) ? post.media.filter((u) => typeof u === 'string' && /^https?:\/\//i.test(u)) : [];
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    const text = comment.trim();
+    if (!text || submitting) return;
+    setSubmitting(true);
+    try {
+      await onComment(post.id, text);
+      setComment('');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <article className="mb-4 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm transition hover:shadow-md dark:border-slate-700 dark:bg-slate-900">
+      <header className="flex items-center gap-3 p-4 pb-2">
+        <Avatar src={post.authorPhoto} name={authorName} />
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-semibold text-slate-900 dark:text-slate-100">{authorName}</p>
+          <p className="truncate text-xs text-slate-500">
+            {[post.authorTitle, post.authorCompany, createdAt ? formatDate(createdAt, 'relative') : null].filter(Boolean).join(' · ')}
+          </p>
+        </div>
+        <div className="flex items-center gap-1">
+          <button onClick={() => onReport(post.id)} aria-label="Report post" className="rounded-full p-2 text-slate-400 hover:bg-slate-100 hover:text-red-500 dark:hover:bg-slate-800">
+            <FaFlag className="h-3.5 w-3.5" />
+          </button>
+          {post.userId === currentUserId && (
+            <button
+              onClick={() => setConfirmDelete(true)}
+              aria-label="Delete post"
+              className="rounded-full p-2 text-slate-400 hover:bg-red-50 hover:text-red-500 dark:hover:bg-slate-800"
+            >
+              <FaTrash className="h-3.5 w-3.5" />
+            </button>
+          )}
+        </div>
+      </header>
+
+      {confirmDelete && (
+        <div className="mx-4 mb-2 flex items-center justify-between rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+          <span>Delete this post?</span>
+          <div className="flex gap-2">
+            <button onClick={() => { onDelete(post.id); setConfirmDelete(false); }} className="font-semibold">Yes</button>
+            <button onClick={() => setConfirmDelete(false)} className="text-slate-500">Cancel</button>
+          </div>
+        </div>
+      )}
+
+      {post.content && (
+        <div className="px-4 pb-2">
+          <p className={`whitespace-pre-wrap text-sm text-slate-700 dark:text-slate-200 ${!expanded && post.content.length > 400 ? 'line-clamp-4' : ''}`}>
+            {safeText(post.content)}
+          </p>
+          {post.content.length > 400 && (
+            <button onClick={() => setExpanded(!expanded)} className="mt-1 text-xs font-semibold text-brand-600">
+              {expanded ? 'Show less' : 'Show more'}
+            </button>
+          )}
+        </div>
+      )}
+
+      {media.length > 0 && (
+        <div className={`grid gap-1 px-4 pb-3 ${media.length === 1 ? 'grid-cols-1' : 'grid-cols-2'}`}>
+          {media.slice(0, 4).map((url, i) => (
+            <img
+              key={`${url}-${i}`}
+              src={url}
+              alt={`Post attachment ${i + 1}`}
+              loading="lazy"
+              referrerPolicy="no-referrer"
+              className="max-h-96 w-full rounded-lg object-cover"
+              onError={(e) => { e.currentTarget.parentElement.style.display = 'none'; }}
+            />
+          ))}
+        </div>
+      )}
+
+      {post.location && (
+        <p className="px-4 pb-2 text-xs text-slate-500">
+          <FaMapMarkerAlt className="mr-1 inline" /> {safeText(post.location)}
+        </p>
+      )}
+
+      {Array.isArray(post.tags) && post.tags.length > 0 && (
+        <div className="flex flex-wrap gap-1 px-4 pb-2">
+          {post.tags.slice(0, 5).map((tag, i) => (
+            <span key={i} className="text-xs text-brand-600">#{safeText(tag)}</span>
+          ))}
+        </div>
+      )}
+
+      <div className="flex items-center justify-between border-t border-slate-100 px-2 py-1 dark:border-slate-800">
+        <button
+          onClick={() => onLike(post.id, Boolean(post.isLiked))}
+          aria-label={post.isLiked ? 'Unlike post' : 'Like post'}
+          className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-semibold transition ${post.isLiked ? 'text-red-500' : 'text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800'}`}
+        >
+          {post.isLiked ? <FaHeart /> : <FaRegHeart />}
+          {post.likeCount ?? post.likesCount ?? 0}
+        </button>
+        <button className="flex flex-1 items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-semibold text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800">
+          <FaRegComment />
+          {post.commentCount ?? post.commentsCount ?? post.comments?.length ?? 0}
+        </button>
+        <button
+          onClick={() => onShare(post.id)}
+          className="flex flex-1 items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-semibold text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800"
+        >
+          <FaShareAlt /> Share
+        </button>
+        <button
+          onClick={() => onSave(post.id, Boolean(post.isSaved))}
+          aria-label={post.isSaved ? 'Unsave post' : 'Save post'}
+          className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-semibold transition ${post.isSaved ? 'text-brand-600' : 'text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800'}`}
+        >
+          {post.isSaved ? '★ Saved' : '☆ Save'}
+        </button>
+      </div>
+
+      {Array.isArray(post.comments) && post.comments.length > 0 && (
+        <div className="space-y-1 border-t border-slate-100 px-4 py-2 dark:border-slate-800">
+          {post.comments.slice(-3).map((c, i) => (
+            <p key={c.id || i} className="text-xs text-slate-600 dark:text-slate-300">
+              <strong>{safeText(c.authorName || 'Alumni')}:</strong> {safeText(c.content || c.text || '')}
+            </p>
+          ))}
+        </div>
+      )}
+
+      <form onSubmit={handleSubmit} className="flex gap-2 border-t border-slate-100 p-3 dark:border-slate-800">
+        <input
+          type="text"
+          value={comment}
+          onChange={(e) => setComment(e.target.value.slice(0, 1000))}
+          placeholder="Write a comment…"
+          maxLength={1000}
+          className="flex-1 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200 dark:border-slate-700 dark:bg-slate-800"
+        />
+        <button
+          type="submit"
+          disabled={!comment.trim() || submitting}
+          className="rounded-lg bg-brand-600 px-3 py-2 text-xs font-semibold text-white hover:bg-brand-700 disabled:opacity-50"
+        >
+          {submitting ? '…' : 'Post'}
+        </button>
+      </form>
+    </article>
+  );
+};
+
+// ============================================================
+// MySchoolsCard — the "connect with previous schools" UI
+// ============================================================
+const MySchoolsCard = ({ schools = [], onRequestLink, onUnlink, loading }) => (
+  <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+    <div className="mb-3 flex items-center justify-between">
+      <div className="flex items-center gap-2">
+        <FaBookOpen className="text-brand-600" />
+        <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">My Schools</h3>
+      </div>
+      <button onClick={onRequestLink} className="flex items-center gap-1 text-xs font-semibold text-brand-600 hover:text-brand-700">
+        <FaPlus className="h-3 w-3" /> Add school
+      </button>
+    </div>
+    {loading ? (
+      <div className="space-y-2">
+        {[1, 2].map((i) => <div key={i} className="h-10 animate-pulse rounded-lg bg-slate-100 dark:bg-slate-800" />)}
+      </div>
+    ) : schools.length === 0 ? (
+      <p className="text-xs text-slate-500">No schools linked yet. Connect a school to unlock mentors, jobs, and network suggestions from your alma mater.</p>
+    ) : (
+      <ul className="space-y-2">
+        {schools.map((s) => (
+          <li key={s.id} className="flex items-center gap-3 rounded-lg border border-slate-100 p-2 dark:border-slate-800">
+            <span className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-100 text-brand-700">
+              <FaBookOpen className="h-3.5 w-3.5" />
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-xs font-semibold text-slate-800 dark:text-slate-100">{safeText(s.name)}</p>
+              <p className="truncate text-[11px] text-slate-500">
+                {s.status === 'verified' ? '✓ Verified' : s.status === 'pending' ? '⏳ Pending approval' : 'Unverified'} · {safeText(s.relationship || 'Alumni')}
+              </p>
+            </div>
+            {s.status !== 'pending' && (
+              <button onClick={() => onUnlink(s.id)} className="text-[11px] font-semibold text-slate-400 hover:text-red-500">
+                Remove
+              </button>
+            )}
+          </li>
+        ))}
+      </ul>
+    )}
+  </section>
+);
+
+// ============================================================
+// Main Dashboard
+// ============================================================
 const AlumniDashboard = () => {
-  const { user } = useAuth();
-  const { showNotification } = useNotifications();
-  const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
-  const isTablet = useMediaQuery(theme.breakpoints.down('md'));
+  const navigate = useNavigate();
+  const { currentUser, userProfile } = useAuth();
+  const { addSuccessNotification, addErrorNotification } = useNotification();
 
-  // ==================== STATE MANAGEMENT ====================
-
-  // Feed State
+  // ---- Feed state
   const [posts, setPosts] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [loadingFeed, setLoadingFeed] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [lastDoc, setLastDoc] = useState(null);
   const [hasMore, setHasMore] = useState(true);
-  const [feedFilter, setFeedFilter] = useState('all');
-  const [feedSort, setFeedSort] = useState('latest');
+  const [feedFilter, setFeedFilter] = useState('all'); // all | connections | trending
+  const [feedSort, setFeedSort] = useState('latest'); // latest | popular | discussed
   const [searchQuery, setSearchQuery] = useState('');
   const [showSearch, setShowSearch] = useState(false);
-
-  // UI State
   const [activeTab, setActiveTab] = useState(0);
-  const [notifications, setNotifications] = useState([]);
-  const [unreadCount, setUnreadCount] = useState(0);
-  const [showNotifications, setShowNotifications] = useState(false);
-  const [showCreatePost, setShowCreatePost] = useState(false);
-  const [speedDialOpen, setSpeedDialOpen] = useState(false);
-  const [darkMode, setDarkMode] = useState(false);
 
-  // Data State
+  // ---- Dashboard metrics
   const [stats, setStats] = useState({
-    collectionCounts: {
-      total_connections: 0,
-      active_mentorships: 0,
-      total_donated: 0,
-      events_attended: 0,
-      posts_count: 0,
-      achievements: 0,
-    },
-    engagementScore: 0,
-    recentActivity: [],
-    trendingTopics: [],
-    upcomingBirthdays: [],
+    total_connections: 0, posts_count: 0, total_donated: 0,
+    events_attended: 0, achievements: 0, active_mentorships: 0,
+    engagementScore: 0, trendingTopics: [], recentActivity: [],
   });
-
-  const [donationImpact, setDonationImpact] = useState(null);
   const [upcomingEvents, setUpcomingEvents] = useState([]);
   const [networkSuggestions, setNetworkSuggestions] = useState([]);
   const [insights, setInsights] = useState([]);
-  const [achievements, setAchievements] = useState([]);
-  const [leaderboard, setLeaderboard] = useState([]);
   const [polls, setPolls] = useState([]);
   const [announcements, setAnnouncements] = useState([]);
+  const [leaderboard, setLeaderboard] = useState([]);
+  const [schools, setSchools] = useState([]);
+  const [schoolsLoading, setSchoolsLoading] = useState(true);
 
-  // Dialog States
-  const [donationDialogOpen, setDonationDialogOpen] = useState(false);
-  const [postDialogOpen, setPostDialogOpen] = useState(false);
-  const [connectionDialogOpen, setConnectionDialogOpen] = useState(false);
-  const [selectedSuggestion, setSelectedSuggestion] = useState(null);
-  const [reportDialogOpen, setReportDialogOpen] = useState(false);
-  const [reportPostId, setReportPostId] = useState(null);
+  // ---- Notifications
+  const [notifications, setNotifications] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [showNotifications, setShowNotifications] = useState(false);
+
+  // ---- Dialogs
+  const [showCreatePost, setShowCreatePost] = useState(false);
+  const [showDonation, setShowDonation] = useState(false);
+  const [showShare, setShowShare] = useState(false);
+  const [showReport, setShowReport] = useState(false);
+  const [showSchoolLink, setShowSchoolLink] = useState(false);
+  const [activeSharePostId, setActiveSharePostId] = useState(null);
+  const [activeReportPostId, setActiveReportPostId] = useState(null);
   const [reportReason, setReportReason] = useState('');
-  const [shareDialogOpen, setShareDialogOpen] = useState(false);
-  const [sharePostId, setSharePostId] = useState(null);
   const [shareMessage, setShareMessage] = useState('');
 
-  // Form States
-  const [donationAmount, setDonationAmount] = useState('');
-  const [donationCampaign, setDonationCampaign] = useState('general');
-  const [donationMessage, setDonationMessage] = useState('');
-  const [donationIsAnonymous, setDonationIsAnonymous] = useState(false);
-  const [donationIsRecurring, setDonationIsRecurring] = useState(false);
-  const [donationProcessing, setDonationProcessing] = useState(false);
+  // ---- Create-post form
   const [postContent, setPostContent] = useState('');
   const [selectedMedia, setSelectedMedia] = useState([]);
   const [postPrivacy, setPostPrivacy] = useState('public');
-  const [postTags, setPostTags] = useState([]);
+  const [postTags, setPostTags] = useState('');
   const [postLocation, setPostLocation] = useState('');
   const [isPosting, setIsPosting] = useState(false);
-  const [connectionProcessing, setConnectionProcessing] = useState(false);
+  const [mediaPreviews, setMediaPreviews] = useState([]);
 
-  // Snackbar State
-  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
+  // ---- Donation form
+  const [donationAmount, setDonationAmount] = useState('');
+  const [donationCampaign, setDonationCampaign] = useState('general');
+  const [donationMessage, setDonationMessage] = useState('');
+  const [donationAnonymous, setDonationAnonymous] = useState(false);
+  const [donationRecurring, setDonationRecurring] = useState(false);
+  const [donationProcessing, setDonationProcessing] = useState(false);
 
-  // Refs
+  // ---- School-link form
+  const [schoolName, setSchoolName] = useState('');
+  const [schoolYear, setSchoolYear] = useState('');
+  const [schoolRelationship, setSchoolRelationship] = useState('alumni');
+  const [schoolLinking, setSchoolLinking] = useState(false);
+
   const fileInputRef = useRef(null);
   const feedEndRef = useRef(null);
   const observerRef = useRef(null);
 
-  // ==================== DATA LOADING FUNCTIONS ====================
-
-  const loadFeed = useCallback(
-    async (reset = false) => {
-      if (reset) {
-        setPosts([]);
-        setLastDoc(null);
-        setHasMore(true);
-      }
-
-      if (!reset && (!hasMore || loadingMore)) return;
-
-      const setIsLoading = reset ? setLoading : setLoadingMore;
-      setIsLoading(true);
-
-      try {
-        const result = await alumniSocialService.getFeed(reset ? null : lastDoc, 15, feedFilter);
-
-        if (result.success) {
-          if (reset) {
-            setPosts(result.data);
-          } else {
-            setPosts((prev) => [...prev, ...result.data]);
-          }
-          setLastDoc(result.lastDoc);
-          setHasMore(result.hasMore);
+  // ============================================================
+  // Data loaders — designed to NEVER throw "requires index".
+  // We order by createdAt only (single-field index is automatic),
+  // and filter `privacy` client-side. Same for notifications.
+  // ============================================================
+  const loadFeed = useCallback(async (reset = false) => {
+    if (reset) {
+      setPosts([]);
+      setLastDoc(null);
+      setHasMore(true);
+      setLoadingFeed(true);
+    } else {
+      if (!hasMore || loadingMore) return;
+      setLoadingMore(true);
+    }
+    try {
+      const result = await socialPlatformService.getFeed(userProfile, 30);
+      if (result?.success) {
+        let incoming = (Array.isArray(result.data) ? result.data : []).map((post) => ({
+          ...post,
+          userId: post.authorId || post.author?.id,
+          authorName: post.author?.name || post.authorName || 'Community Member',
+          authorPhoto: post.author?.avatar || post.authorPhoto || '',
+          authorTitle: post.author?.headline || post.authorTitle || post.author?.role || '',
+          authorCompany: post.authorCompany || '',
+          media: (post.media || []).filter((item) => !item?.type || item.type === 'image').map((item) => typeof item === 'string' ? item : item?.url).filter(Boolean),
+          isLiked: Boolean(post.hasLiked),
+          isSaved: Boolean(post.isSaved),
+          comments: (post.comments || []).map((comment) => ({
+            ...comment,
+            content: comment.content || comment.body || comment.text || '',
+          })),
+          commentsCount: post.commentCount ?? post.commentsCount ?? post.comments?.length ?? 0,
+        }));
+        if (feedFilter === 'connections') incoming = incoming.filter((post) => post.userId === currentUser?.uid || post.visibility === 'connections');
+        if (feedFilter === 'trending' || feedSort === 'popular' || feedSort === 'discussed') {
+          incoming.sort((a, b) => (b.likeCount || 0) - (a.likeCount || 0));
         }
-      } catch (error) {
-        console.error('Error loading feed:', error);
-        showNotification('Failed to load feed', 'error');
-      } finally {
-        setIsLoading(false);
+        incoming = incoming.slice(0, 15);
+        setPosts((prev) => (reset ? incoming : [...prev, ...incoming]));
+        setLastDoc(null);
+        setHasMore(false);
+      } else {
+        addErrorNotification('Feed', 'Unable to load feed. Please retry.');
       }
-    },
-    [lastDoc, hasMore, loadingMore, feedFilter, showNotification]
-  );
+    } catch (err) {
+      safeLog('feed error', err);
+      addErrorNotification('Feed', 'Unable to load feed. Please retry.');
+    } finally {
+      setLoadingFeed(false);
+      setLoadingMore(false);
+    }
+  }, [userProfile, currentUser?.uid, feedFilter, feedSort, addErrorNotification]);
 
   const loadDashboardData = useCallback(async () => {
     try {
-      const [
-        metricsRes,
-        eventsRes,
-        suggestionsRes,
-        insightsRes,
-        achievementsRes,
-        leaderboardRes,
-        pollsRes,
-        announcementsRes,
-      ] = await Promise.all([
-        alumniService.getDashboardMetrics(),
-        alumniService.getEvents(),
+      const [metricsRes, eventsRes, suggestionsRes, insightsRes, pollsRes, annRes, lbRes] = await Promise.allSettled([
+        alumniService.getOverview(),
+        alumniService.getUpcomingEvents(),
         alumniService.getNetworkSuggestions(),
-        alumniService.getAIInsights(),
-        alumniService.getAchievements(),
-        alumniService.getLeaderboard(),
-        alumniSocialService.getPolls(),
-        alumniSocialService.getAnnouncements(),
+        alumniService.getInsights(),
+        alumniSocialService.getPolls?.(),
+        alumniSocialService.getAnnouncements?.(),
+        alumniService.getLeaderboard?.(),
       ]);
-
-      if (metricsRes.success) {
-        setStats((prev) => ({ ...prev, ...metricsRes.data.metrics }));
-        if (metricsRes.data.trendingTopics)
-          setStats((prev) => ({ ...prev, trendingTopics: metricsRes.data.trendingTopics }));
+      if (metricsRes.status === 'fulfilled' && metricsRes.value?.success) {
+        setStats((prev) => ({ ...prev, ...(metricsRes.value.data || {}) }));
       }
-      if (eventsRes.success) setUpcomingEvents(eventsRes.data);
-      if (suggestionsRes.success) setNetworkSuggestions(suggestionsRes.data);
-      if (insightsRes.success) setInsights(insightsRes.data?.insights || []);
-      if (achievementsRes.success) setAchievements(achievementsRes.data);
-      if (leaderboardRes.success) setLeaderboard(leaderboardRes.data);
-      if (pollsRes.success) setPolls(pollsRes.data);
-      if (announcementsRes.success) setAnnouncements(announcementsRes.data);
-    } catch (error) {
-      console.error('Error loading dashboard data:', error);
+      if (eventsRes.status === 'fulfilled' && eventsRes.value?.success) setUpcomingEvents(eventsRes.value.data || []);
+      if (suggestionsRes.status === 'fulfilled' && suggestionsRes.value?.success) setNetworkSuggestions(suggestionsRes.value.data || []);
+      if (insightsRes.status === 'fulfilled' && insightsRes.value?.success) setInsights(insightsRes.value.data?.insights || []);
+      if (pollsRes.status === 'fulfilled' && pollsRes.value?.success) setPolls(pollsRes.value.data || []);
+      if (annRes.status === 'fulfilled' && annRes.value?.success) setAnnouncements(annRes.value.data || []);
+      if (lbRes.status === 'fulfilled' && lbRes.value?.success) setLeaderboard(lbRes.value.data || []);
+    } catch (err) {
+      safeLog('dashboard data error', err);
     }
   }, []);
 
   const loadNotifications = useCallback(async () => {
-    const result = await alumniSocialService.getNotifications();
-    if (result.success) {
-      setNotifications(result.data);
-      const unread = result.data.filter((n) => !n.read).length;
-      setUnreadCount(unread);
+    try {
+      const result = await alumniSocialService.getNotifications();
+      if (result?.success) {
+        const list = Array.isArray(result.data) ? result.data : [];
+        setNotifications(list);
+        setUnreadCount(list.filter((n) => !n.read).length);
+      }
+    } catch (err) {
+      safeLog('notifications error', err);
     }
   }, []);
 
-  // ==================== EVENT HANDLERS ====================
+  const loadSchools = useCallback(async () => {
+    setSchoolsLoading(true);
+    try {
+      const res = await alumniService.getLinkedSchools?.();
+      if (res?.success) setSchools(Array.isArray(res.data) ? res.data : []);
+    } catch (err) {
+      safeLog('schools error', err);
+    } finally {
+      setSchoolsLoading(false);
+    }
+  }, []);
 
-  // Post Actions
+  useEffect(() => {
+    loadFeed(true);
+    loadDashboardData();
+    loadNotifications();
+    loadSchools();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [feedFilter, feedSort]);
+
+  // Infinite scroll
+  useEffect(() => {
+    if (observerRef.current) observerRef.current.disconnect();
+    observerRef.current = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasMore && !loadingMore && !loadingFeed) {
+          loadFeed(false);
+        }
+      },
+      { threshold: 0.1 }
+    );
+    if (feedEndRef.current) observerRef.current.observe(feedEndRef.current);
+    return () => observerRef.current?.disconnect();
+  }, [hasMore, loadingMore, loadingFeed, loadFeed]);
+
+  // ============================================================
+  // Handlers
+  // ============================================================
   const handleLike = async (postId, isLiked) => {
-    const result = isLiked
-      ? await alumniSocialService.unlikePost(postId)
-      : await alumniSocialService.likePost(postId);
-
-    if (result.success) {
-      setPosts((prev) =>
-        prev.map((post) =>
-          post.id === postId
-            ? { ...post, isLiked: !isLiked, likeCount: post.likeCount + (isLiked ? -1 : 1) }
-            : post
-        )
-      );
+    try {
+      const result = await socialPlatformService.toggleLike(postId, isLiked);
+      if (result?.success) {
+        setPosts((prev) =>
+          prev.map((p) =>
+            p.id === postId
+              ? { ...p, isLiked: !isLiked, likeCount: Math.max(0, (p.likeCount || 0) + (isLiked ? -1 : 1)) }
+              : p
+          )
+        );
+      }
+    } catch (err) {
+      safeLog('like error', err);
     }
   };
 
-  const handleComment = async (postId, commentText) => {
-    if (!commentText.trim()) return;
-    const result = await alumniSocialService.addComment(postId, commentText);
-    if (result.success) {
+  const handleComment = async (postId, text) => {
+    const result = await socialPlatformService.addComment(postId, text, userProfile);
+    if (result?.success) {
       await loadFeed(true);
-      showNotification('Comment added!', 'success');
+      addSuccessNotification('Comment', 'Comment added');
     }
   };
 
-  const handleShare = async (postId) => {
-    setSharePostId(postId);
-    setShareDialogOpen(true);
+  const handleShare = (postId) => {
+    setActiveSharePostId(postId);
+    setShareMessage('');
+    setShowShare(true);
   };
 
   const handleShareSubmit = async () => {
-    const result = await alumniSocialService.sharePost(sharePostId, shareMessage);
-    if (result.success) {
-      setShareDialogOpen(false);
-      setShareMessage('');
-      showNotification('Post shared successfully!', 'success');
-      await loadFeed(true);
+    if (!activeSharePostId) return;
+    try {
+      const result = await socialPlatformService.sharePost(activeSharePostId);
+      if (result?.success) {
+        setShowShare(false);
+        addSuccessNotification('Share', 'Post shared');
+        await loadFeed(true);
+      }
+    } catch (err) {
+      addErrorNotification('Share', 'Failed to share');
     }
   };
 
@@ -622,1448 +559,931 @@ const AlumniDashboard = () => {
     const result = isSaved
       ? await alumniSocialService.unsavePost(postId)
       : await alumniSocialService.savePost(postId);
-
-    if (result.success) {
-      setPosts((prev) =>
-        prev.map((post) => (post.id === postId ? { ...post, isSaved: !isSaved } : post))
-      );
-      showNotification(isSaved ? 'Removed from saved' : 'Saved!', 'success');
+    if (result?.success) {
+      setPosts((prev) => prev.map((p) => (p.id === postId ? { ...p, isSaved: !isSaved } : p)));
     }
   };
 
   const handleDeletePost = async (postId) => {
-    if (window.confirm('Are you sure you want to delete this post?')) {
-      const result = await alumniSocialService.deletePost(postId);
-      if (result.success) {
-        setPosts((prev) => prev.filter((post) => post.id !== postId));
-        showNotification('Post deleted', 'success');
-      }
+    const result = await alumniSocialService.deletePost(postId);
+    if (result?.success) {
+      setPosts((prev) => prev.filter((p) => p.id !== postId));
+      addSuccessNotification('Post', 'Post deleted');
     }
   };
 
-  const handleReportPost = async (postId) => {
-    setReportPostId(postId);
-    setReportDialogOpen(true);
+  const handleReportPost = (postId) => {
+    setActiveReportPostId(postId);
+    setReportReason('');
+    setShowReport(true);
   };
 
   const handleReportSubmit = async () => {
     if (!reportReason) {
-      showNotification('Please select a reason', 'warning');
+      addErrorNotification('Report', 'Please choose a reason');
       return;
     }
-    const result = await alumniSocialService.reportPost(reportPostId, reportReason);
-    if (result.success) {
-      setReportDialogOpen(false);
-      setReportReason('');
-      showNotification('Report submitted. Thank you for helping keep our community safe.', 'info');
+    try {
+      const result = await alumniSocialService.reportPost(activeReportPostId, reportReason);
+      if (result?.success) {
+        setShowReport(false);
+        addSuccessNotification('Report', 'Report submitted — thank you');
+      }
+    } catch (err) {
+      addErrorNotification('Report', 'Failed to submit report');
     }
   };
 
-  // Donation Handlers
-  const handleDonationSubmit = async () => {
-    if (!donationAmount || parseFloat(donationAmount) <= 0) {
-      showNotification('Please enter a valid amount', 'error');
-      return;
-    }
-
-    setDonationProcessing(true);
-    const success = await alumniService.createDonation({
-      amount: parseFloat(donationAmount),
-      campaign: donationCampaign,
-      message: donationMessage,
-      isAnonymous: donationIsAnonymous,
-      isRecurring: donationIsRecurring,
-      paymentMethod: 'card',
-    });
-
-    setDonationProcessing(false);
-
-    if (success) {
-      setDonationDialogOpen(false);
-      setDonationAmount('');
-      setDonationCampaign('general');
-      setDonationMessage('');
-      setDonationIsAnonymous(false);
-      setDonationIsRecurring(false);
-      showNotification('Thank you for your generous donation!', 'success');
-      await loadDashboardData();
-    } else {
-      showNotification('Donation failed. Please try again.', 'error');
-    }
-  };
-
-  // Post Creation Handlers
-  const handleCreatePost = async () => {
-    if (!postContent.trim() && selectedMedia.length === 0) {
-      showNotification('Please add some content or media', 'warning');
-      return;
-    }
-
-    setIsPosting(true);
-    const result = await alumniSocialService.createPost({
-      content: postContent,
-      mediaFiles: selectedMedia,
-      privacy: postPrivacy,
-      tags: postTags,
-      location: postLocation,
-    });
-
-    if (result.success) {
-      setPostContent('');
-      setSelectedMedia([]);
-      setPostTags([]);
-      setPostLocation('');
-      setPostDialogOpen(false);
-      showNotification('Post created successfully!', 'success');
-      await loadFeed(true);
-    } else {
-      showNotification('Failed to create post', 'error');
-    }
-    setIsPosting(false);
-  };
-
+  // Media select — OWASP: validate type + size
   const handleMediaSelect = (e) => {
-    const files = Array.from(e.target.files);
-    const validFiles = files.filter((file) => file.size <= 10 * 1024 * 1024); // 10MB limit
-    if (validFiles.length !== files.length) {
-      showNotification('Some files exceed 10MB limit and were skipped', 'warning');
+    const files = Array.from(e.target.files || []);
+    const valid = [];
+    for (const file of files) {
+      if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
+        addErrorNotification('Upload', `${file.name}: unsupported type`);
+        continue;
+      }
+      if (file.size > MAX_UPLOAD_BYTES) {
+        addErrorNotification('Upload', `${file.name}: exceeds 10MB`);
+        continue;
+      }
+      valid.push(file);
     }
-    setSelectedMedia((prev) => [...prev, ...validFiles]);
+    if (valid.length > 0) {
+      setSelectedMedia((prev) => [...prev, ...valid]);
+      setMediaPreviews((prev) => [...prev, ...valid.map((f) => URL.createObjectURL(f))]);
+    }
+    e.target.value = '';
   };
 
-  const removeMedia = (index) => {
-    setSelectedMedia((prev) => prev.filter((_, i) => i !== index));
+  const removeMedia = (idx) => {
+    setSelectedMedia((prev) => prev.filter((_, i) => i !== idx));
+    setMediaPreviews((prev) => {
+      const url = prev[idx];
+      if (url) URL.revokeObjectURL(url);
+      return prev.filter((_, i) => i !== idx);
+    });
   };
 
-  // Connection Handlers
-  const handleConnectRequest = async () => {
-    if (!selectedSuggestion) return;
-
-    setConnectionProcessing(true);
-    const success = await alumniService.sendConnectionRequest(selectedSuggestion.id);
-    setConnectionProcessing(false);
-
-    if (success) {
-      setConnectionDialogOpen(false);
-      setSelectedSuggestion(null);
-      showNotification(`Connection request sent to ${selectedSuggestion.name}`, 'success');
-    } else {
-      showNotification('Failed to send connection request', 'error');
+  const handleCreatePost = async () => {
+    if ((!postContent.trim() && selectedMedia.length === 0) || isPosting) return;
+    setIsPosting(true);
+    try {
+      const tags = postTags.split(',').map((t) => t.trim()).filter(Boolean).slice(0, 10);
+      const result = await alumniSocialService.createPost({
+        content: postContent.trim(),
+        mediaFiles: selectedMedia,
+        privacy: postPrivacy,
+        tags,
+        location: postLocation.trim(),
+      });
+      if (result?.success) {
+        setPostContent('');
+        mediaPreviews.forEach((u) => URL.revokeObjectURL(u));
+        setSelectedMedia([]);
+        setMediaPreviews([]);
+        setPostTags('');
+        setPostLocation('');
+        setShowCreatePost(false);
+        addSuccessNotification('Post', 'Post created');
+        await loadFeed(true);
+      } else {
+        addErrorNotification('Post', result?.error || 'Failed to create post');
+      }
+    } finally {
+      setIsPosting(false);
     }
   };
 
-  // Notification Handlers
-  const handleMarkNotificationRead = async (notificationId) => {
-    await alumniSocialService.markNotificationRead(notificationId);
-    setNotifications((prev) =>
-      prev.map((n) => (n.id === notificationId ? { ...n, read: true } : n))
+  const handleDonationSubmit = async () => {
+    const amount = parseFloat(donationAmount);
+    if (!amount || amount < 1) {
+      addErrorNotification('Donation', 'Enter a valid amount (min $1)');
+      return;
+    }
+    if (amount > 50000) {
+      addErrorNotification('Donation', 'For amounts over $50,000 please contact us');
+      return;
+    }
+    setDonationProcessing(true);
+    try {
+      const result = await alumniService.createDonation({
+        amount,
+        campaign: donationCampaign,
+        message: donationMessage.slice(0, 500),
+        isAnonymous: donationAnonymous,
+        isRecurring: donationRecurring,
+        paymentMethod: 'card',
+      });
+      if (result?.success) {
+        setShowDonation(false);
+        setDonationAmount('');
+        setDonationMessage('');
+        setDonationAnonymous(false);
+        setDonationRecurring(false);
+        addSuccessNotification('Thank you', 'Your donation was recorded');
+        await loadDashboardData();
+      } else {
+        addErrorNotification('Donation', result?.error || 'Donation failed');
+      }
+    } finally {
+      setDonationProcessing(false);
+    }
+  };
+
+  const handleRequestSchoolLink = async () => {
+    if (!schoolName.trim()) {
+      addErrorNotification('School', 'Enter a school name');
+      return;
+    }
+    setSchoolLinking(true);
+    try {
+      const res = await alumniService.requestSchoolLink?.({
+        name: schoolName.trim(),
+        graduationYear: schoolYear ? parseInt(schoolYear, 10) : null,
+        relationship: schoolRelationship,
+      });
+      if (res?.success) {
+        setShowSchoolLink(false);
+        setSchoolName('');
+        setSchoolYear('');
+        addSuccessNotification('School', 'Verification request submitted');
+        await loadSchools();
+      } else {
+        addErrorNotification('School', res?.error || 'Request failed');
+      }
+    } finally {
+      setSchoolLinking(false);
+    }
+  };
+
+  const handleUnlinkSchool = async (id) => {
+    if (!window.confirm('Remove this school from your profile?')) return;
+    const res = await alumniService.unlinkSchool?.(id);
+    if (res?.success) {
+      await loadSchools();
+      addSuccessNotification('School', 'School removed');
+    }
+  };
+
+  // ============================================================
+  // Derived data
+  // ============================================================
+  const filteredPosts = useMemo(() => {
+    if (!searchQuery.trim()) return posts;
+    const q = searchQuery.toLowerCase();
+    return posts.filter(
+      (p) =>
+        (p.content || '').toLowerCase().includes(q) ||
+        (p.authorName || '').toLowerCase().includes(q)
     );
-    setUnreadCount((prev) => Math.max(0, prev - 1));
-  };
+  }, [posts, searchQuery]);
 
-  const handleMarkAllRead = async () => {
-    await alumniSocialService.markAllNotificationsRead();
-    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
-    setUnreadCount(0);
-    showNotification('All notifications marked as read', 'success');
-  };
-
-  // Event Handlers
-  const handleEventRegistration = async (eventId) => {
-    const success = await alumniService.registerForEvent(eventId);
-    if (success) {
-      showNotification('Registered for event successfully!', 'success');
-      await loadDashboardData();
-    } else {
-      showNotification('Failed to register for event', 'error');
-    }
-  };
-
-  // Poll Handlers
-  const handlePollVote = async (pollId, optionId) => {
-    const result = await alumniSocialService.votePoll(pollId, optionId);
-    if (result.success) {
-      setPolls((prev) =>
-        prev.map((poll) =>
-          poll.id === pollId
-            ? {
-              ...poll,
-              options: poll.options.map((opt) =>
-                opt.id === optionId ? { ...opt, votes: (opt.votes || 0) + 1 } : opt
-              ),
-              userVoted: true,
-            }
-            : poll
-        )
-      );
-      showNotification('Vote submitted!', 'success');
-    }
-  };
-
-  // ==================== UTILITY FUNCTIONS ====================
-
-  const getEngagementColor = (score) => {
-    if (score >= 80) return '#10b981';
-    if (score >= 60) return '#f59e0b';
-    if (score >= 40) return '#f97316';
-    return '#ef4444';
-  };
-
-  const getEngagementLabel = (score) => {
-    if (score >= 80) return 'Excellent';
-    if (score >= 60) return 'Good';
-    if (score >= 40) return 'Fair';
-    return 'Needs Improvement';
-  };
-
-  // ==================== EFFECTS ====================
-
-  useEffect(() => {
-    loadFeed(true);
-    loadDashboardData();
-    loadNotifications();
-  }, [feedFilter, feedSort]);
-
-  useEffect(() => {
-    // Intersection Observer for infinite scroll
-    if (observerRef.current) observerRef.current.disconnect();
-
-    observerRef.current = new IntersectionObserver(
-      (entries) => {
-        if (entries[0].isIntersecting && hasMore && !loadingMore && !loading) {
-          loadFeed(false);
-        }
-      },
-      { threshold: 0.1 }
-    );
-
-    if (feedEndRef.current) {
-      observerRef.current.observe(feedEndRef.current);
-    }
-
-    return () => {
-      if (observerRef.current) observerRef.current.disconnect();
-    };
-  }, [hasMore, loadingMore, loading, feedEndRef.current]);
-
-  // ==================== RENDER HELPERS ====================
-
-  const statsCards = useMemo(
+  const statCards = useMemo(
     () => [
-      {
-        title: 'Network Size',
-        value: stats.collectionCounts.total_connections || 0,
-        icon: <PeopleIcon />,
-        color: '#3b82f6',
-        trend: '+12%',
-        trendUp: true,
-      },
-      {
-        title: 'Posts Shared',
-        value: stats.collectionCounts.posts_count || 0,
-        icon: <ArticleIcon />,
-        color: '#10b981',
-        trend: '+8%',
-        trendUp: true,
-      },
-      {
-        title: 'Total Donated',
-        value: formatCurrency(stats.collectionCounts.total_donated || 0),
-        icon: <MoneyIcon />,
-        color: '#f59e0b',
-        trend: '+25%',
-        trendUp: true,
-      },
-      {
-        title: 'Events Attended',
-        value: stats.collectionCounts.events_attended || 0,
-        icon: <EventIcon />,
-        color: '#8b5cf6',
-        trend: '+5',
-        trendUp: true,
-      },
-      {
-        title: 'Achievements',
-        value: stats.collectionCounts.achievements || 0,
-        icon: <TrophyIcon />,
-        color: '#ef4444',
-        trend: '+3',
-        trendUp: true,
-      },
-      {
-        title: 'Mentorship Hours',
-        value: stats.collectionCounts.active_mentorships || 0,
-        icon: <SchoolIcon />,
-        color: '#06b6d4',
-        trend: '+15%',
-        trendUp: true,
-      },
+      { label: 'Network Size', value: stats.total_connections || 0, icon: FaUsers, accent: 'text-brand-600', bg: 'bg-brand-100', trend: '+12%', trendUp: true },
+      { label: 'Posts Shared', value: stats.posts_count || 0, icon: FaBullhorn, accent: 'text-emerald-600', bg: 'bg-emerald-100', trend: '+8%', trendUp: true },
+      { label: 'Total Donated', value: formatCurrency(stats.total_donated || 0), icon: FaDonate, accent: 'text-amber-600', bg: 'bg-amber-100', trend: '+25%', trendUp: true },
+      { label: 'Events Attended', value: stats.events_attended || 0, icon: FaCalendarAlt, accent: 'text-violet-600', bg: 'bg-violet-100', trend: '+5', trendUp: true },
+      { label: 'Achievements', value: stats.achievements || 0, icon: FaTrophy, accent: 'text-red-600', bg: 'bg-red-100', trend: '+3', trendUp: true },
+      { label: 'Mentorships', value: stats.active_mentorships || 0, icon: FaHandHoldingHeart, accent: 'text-sky-600', bg: 'bg-sky-100', trend: '+15%', trendUp: true },
     ],
     [stats]
   );
 
-  const speedDialActions = [
-    { icon: <AddIcon />, name: 'Create Post', onClick: () => setPostDialogOpen(true) },
-    { icon: <DonationIcon />, name: 'Donate', onClick: () => setDonationDialogOpen(true) },
-    { icon: <EventIcon />, name: 'Create Event', onClick: () => { } },
-    { icon: <GroupsIcon />, name: 'Find Connections', onClick: () => setActiveTab(1) },
-  ];
+  const engagementColor = stats.engagementScore >= 80 ? 'emerald' : stats.engagementScore >= 60 ? 'amber' : 'red';
 
-  // ==================== MAIN RENDER ====================
-
-  if (loading && posts.length === 0) {
-    return (
-      <PageContainer title="Alumni Dashboard" subtitle="Loading your dashboard...">
-        <Box
-          sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 400 }}
-        >
-          <CircularProgress />
-        </Box>
-      </PageContainer>
-    );
-  }
-
+  // ============================================================
+  // Render
+  // ============================================================
   return (
-    <PageContainer
-      title={`Welcome back, ${user?.displayName || 'Alumni'}!`}
-      subtitle="Connect, share, and make an impact in the alumni community"
-      actions={[
-        {
-          label: 'Search',
-          onClick: () => setShowSearch(!showSearch),
-          variant: 'outlined',
-          icon: <SearchIcon />,
-        },
-        {
-          label: 'Refresh',
-          onClick: () => {
-            loadFeed(true);
-            loadDashboardData();
-          },
-          variant: 'outlined',
-          icon: <RefreshIcon />,
-        },
-        {
-          label: 'Donate',
-          onClick: () => setDonationDialogOpen(true),
-          variant: 'contained',
-          icon: <DonationIcon />,
-        },
-      ]}
-      breadcrumbs={[
-        { label: 'Alumni', path: '/alumni' },
-        { label: 'Dashboard', path: '/alumni/dashboard' },
-      ]}
-    >
-      {/* Search Bar */}
-      <Collapse in={showSearch}>
-        <Paper sx={{ p: 2, mb: 3 }}>
-          <TextField
-            fullWidth
-            placeholder="Search posts, events, connections..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <SearchIcon />
-                </InputAdornment>
-              ),
-              endAdornment: searchQuery && (
-                <InputAdornment position="end">
-                  <IconButton size="small" onClick={() => setSearchQuery('')}>
-                    <ClearIcon />
-                  </IconButton>
-                </InputAdornment>
-              ),
-            }}
-          />
-        </Paper>
-      </Collapse>
+    <main className="min-h-screen bg-slate-50 px-4 py-6 dark:bg-slate-950 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-[1500px]">
 
-      {/* Stats Cards Grid */}
-      <Grid container spacing={3} sx={{ mb: 4 }}>
-        {statsCards.map((card, index) => (
-          <Grid item xs={12} sm={6} md={4} lg={2} key={index}>
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: index * 0.05 }}
-            >
-              <StyledCard>
-                <CardContent>
-                  <Box
-                    sx={{
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'flex-start',
-                    }}
-                  >
-                    <Box>
-                      <Typography color="textSecondary" gutterBottom variant="caption">
-                        {card.title}
-                      </Typography>
-                      <Typography variant="h5" sx={{ fontWeight: 'bold' }}>
-                        {card.value}
-                      </Typography>
-                      {card.trend && (
-                        <Box sx={{ display: 'flex', alignItems: 'center', mt: 0.5 }}>
-                          <TrendingUpIcon
-                            sx={{
-                              fontSize: 12,
-                              color: card.trendUp ? 'success.main' : 'error.main',
-                              mr: 0.5,
-                            }}
-                          />
-                          <Typography
-                            variant="caption"
-                            color={card.trendUp ? 'success.main' : 'error.main'}
-                          >
-                            {card.trend}
-                          </Typography>
-                        </Box>
-                      )}
-                    </Box>
-                    <Avatar sx={{ bgcolor: alpha(card.color, 0.1), color: card.color }}>
-                      {card.icon}
-                    </Avatar>
-                  </Box>
-                </CardContent>
-              </StyledCard>
-            </motion.div>
-          </Grid>
-        ))}
-      </Grid>
-
-      {/* Engagement Score Banner */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, delay: 0.3 }}
-      >
-        <Paper
-          sx={{
-            p: 3,
-            mb: 4,
-            background: `linear-gradient(135deg, ${getEngagementColor(stats.engagementScore)}20, ${getEngagementColor(stats.engagementScore)}05)`,
-            borderLeft: `4px solid ${getEngagementColor(stats.engagementScore)}`,
-          }}
-        >
-          <Grid container alignItems="center" spacing={3}>
-            <Grid item xs={12} md={8}>
-              <Typography variant="h6" gutterBottom>
-                Your Engagement Score
-              </Typography>
-              <Typography variant="body2" color="textSecondary">
-                Based on your activity, connections, donations, and event participation
-              </Typography>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mt: 2 }}>
-                <Chip
-                  label={getEngagementLabel(stats.engagementScore)}
-                  sx={{ bgcolor: getEngagementColor(stats.engagementScore), color: 'white' }}
-                />
-                <Typography variant="caption">
-                  Top {Math.floor(Math.random() * 20) + 1}% of alumni
-                </Typography>
-              </Box>
-            </Grid>
-            <Grid item xs={12} md={4}>
-              <Box
-                sx={{
-                  position: 'relative',
-                  display: 'inline-flex',
-                  width: '100%',
-                  justifyContent: 'center',
-                }}
+        {/* ===== Header ===== */}
+        <header className="mb-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <div className="min-w-0">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-brand-600">Alumni Dashboard · {APP_NAME}</p>
+              <h1 className="mt-1 truncate text-2xl font-bold text-slate-900 dark:text-slate-100 sm:text-3xl">
+                Welcome back, {userProfile?.displayName || currentUser?.displayName || 'Alumni'}
+              </h1>
+              <p className="mt-1 text-sm text-slate-500">
+                Stay connected with your alma mater and community.
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                onClick={() => setShowSearch((v) => !v)}
+                aria-label="Toggle search"
+                className="rounded-lg border border-slate-200 p-2 text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800"
               >
-                <CircularProgress
-                  variant="determinate"
-                  value={stats.engagementScore}
-                  size={100}
-                  thickness={6}
-                  sx={{ color: getEngagementColor(stats.engagementScore) }}
-                />
-                <Box
-                  sx={{
-                    position: 'absolute',
-                    top: 0,
-                    left: 0,
-                    bottom: 0,
-                    right: 0,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                  }}
+                <FaSearch className="h-4 w-4" />
+              </button>
+              <button
+                onClick={() => { loadFeed(true); loadDashboardData(); loadNotifications(); loadSchools(); }}
+                aria-label="Refresh"
+                className="rounded-lg border border-slate-200 p-2 text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800"
+              >
+                <FaSync className="h-4 w-4" />
+              </button>
+              <div className="relative">
+                <button
+                  onClick={() => setShowNotifications((v) => !v)}
+                  aria-label="Notifications"
+                  className="relative rounded-lg border border-slate-200 p-2 text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800"
                 >
-                  <Typography variant="h4" component="div" color="textPrimary">
-                    {stats.engagementScore}
-                  </Typography>
-                </Box>
-              </Box>
-            </Grid>
-          </Grid>
-        </Paper>
-      </motion.div>
-
-      {/* Main Content Tabs */}
-      <Paper sx={{ mb: 4 }}>
-        <Tabs
-          value={activeTab}
-          onChange={(e, v) => {
-            setActiveTab(v);
-            if (v === 0) loadFeed(true);
-          }}
-          variant={isMobile ? 'scrollable' : 'fullWidth'}
-          scrollButtons="auto"
-          sx={{ borderBottom: 1, borderColor: 'divider' }}
-        >
-          <Tab icon={<TimelineIcon />} label="Feed" />
-          <Tab icon={<GroupsIcon />} label="Network" />
-          <Tab icon={<DonationIcon />} label="Impact" />
-          <Tab icon={<EventIcon />} label="Events" />
-          <Tab icon={<PsychologyIcon />} label="Insights" />
-          <Tab icon={<TrophyIcon />} label="Achievements" />
-          <Tab icon={<LeaderboardIcon />} label="Leaderboard" />
-        </Tabs>
-
-        {/* ==================== FEED TAB ==================== */}
-        {activeTab === 0 && (
-          <Box sx={{ p: { xs: 2, sm: 3 } }}>
-            {/* Feed Filters */}
-            <Box
-              sx={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                mb: 3,
-                flexWrap: 'wrap',
-                gap: 2,
-              }}
-            >
-              <ToggleButtonGroup
-                value={feedFilter}
-                exclusive
-                onChange={(e, v) => v && setFeedFilter(v)}
-                size="small"
-              >
-                <ToggleButton value="all">All Posts</ToggleButton>
-                <ToggleButton value="connections">Connections</ToggleButton>
-                <ToggleButton value="trending">Trending</ToggleButton>
-              </ToggleButtonGroup>
-
-              <ToggleButtonGroup
-                value={feedSort}
-                exclusive
-                onChange={(e, v) => v && setFeedSort(v)}
-                size="small"
-              >
-                <ToggleButton value="latest">Latest</ToggleButton>
-                <ToggleButton value="popular">Most Liked</ToggleButton>
-                <ToggleButton value="discussed">Most Discussed</ToggleButton>
-              </ToggleButtonGroup>
-            </Box>
-
-            {/* Create Post Button (Mobile) */}
-            {isMobile && (
-              <Button
-                fullWidth
-                variant="outlined"
-                startIcon={<AddIcon />}
-                onClick={() => setPostDialogOpen(true)}
-                sx={{ mb: 3 }}
-              >
-                Create Post
-              </Button>
-            )}
-
-            {/* Create Post Component (Desktop) */}
-            {!isMobile && <CreatePost onPostCreated={() => loadFeed(true)} />}
-
-            {/* Feed Posts */}
-            <AnimatePresence>
-              {posts.map((post, index) => (
-                <Post
-                  key={post.id}
-                  post={post}
-                  onLike={handleLike}
-                  onComment={handleComment}
-                  onShare={handleShare}
-                  onSave={handleSave}
-                  onDelete={handleDeletePost}
-                  onReport={handleReportPost}
-                  currentUserId={user?.uid}
-                />
-              ))}
-            </AnimatePresence>
-
-            {/* Loading More Indicator */}
-            {loadingMore && (
-              <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
-                <CircularProgress size={40} />
-              </Box>
-            )}
-
-            {/* End of Feed */}
-            <div ref={feedEndRef} />
-
-            {!hasMore && posts.length > 0 && (
-              <Typography variant="body2" color="textSecondary" textAlign="center" sx={{ py: 4 }}>
-                You've seen all posts! 🎉
-              </Typography>
-            )}
-
-            {posts.length === 0 && !loading && (
-              <Paper sx={{ p: 6, textAlign: 'center' }}>
-                <AutoAwesomeIcon sx={{ fontSize: 64, color: 'textSecondary', mb: 2 }} />
-                <Typography variant="h6" gutterBottom>
-                  No posts yet
-                </Typography>
-                <Typography variant="body2" color="textSecondary" sx={{ mb: 3 }}>
-                  Be the first to share something with the alumni community!
-                </Typography>
-                <Button variant="contained" onClick={() => setPostDialogOpen(true)}>
-                  Create Your First Post
-                </Button>
-              </Paper>
-            )}
-          </Box>
-        )}
-
-        {/* ==================== NETWORK TAB ==================== */}
-        {activeTab === 1 && (
-          <Box sx={{ p: { xs: 2, sm: 3 } }}>
-            <Grid container spacing={3}>
-              {/* Left Column - Suggested Connections */}
-              <Grid item xs={12} lg={8}>
-                <Typography variant="h6" gutterBottom>
-                  🤝 Suggested Connections
-                </Typography>
-                <Typography variant="body2" color="textSecondary" sx={{ mb: 3 }}>
-                  Based on your profile, interests, and mutual connections
-                </Typography>
-                <Grid container spacing={2}>
-                  {networkSuggestions?.slice(0, 6).map((suggestion) => (
-                    <Grid item xs={12} sm={6} key={suggestion.id}>
-                      <ConnectionSuggestionCard
-                        suggestion={suggestion}
-                        onConnect={(s) => {
-                          setSelectedSuggestion(s);
-                          setConnectionDialogOpen(true);
+                  <FaBell className="h-4 w-4" />
+                  {unreadCount > 0 && (
+                    <span className="absolute -right-1 -top-1 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
+                      {unreadCount > 9 ? '9+' : unreadCount}
+                    </span>
+                  )}
+                </button>
+                {showNotifications && (
+                  <div className="absolute right-0 z-20 mt-2 w-80 max-w-[90vw] rounded-xl border border-slate-200 bg-white shadow-xl dark:border-slate-700 dark:bg-slate-900">
+                    <div className="flex items-center justify-between border-b border-slate-100 p-3 dark:border-slate-800">
+                      <p className="text-sm font-semibold">Notifications</p>
+                      <button
+                        onClick={async () => {
+                          await alumniSocialService.markAllNotificationsRead?.();
+                          setNotifications((n) => n.map((x) => ({ ...x, read: true })));
+                          setUnreadCount(0);
                         }}
-                      />
-                    </Grid>
-                  ))}
-                </Grid>
-              </Grid>
-
-              {/* Right Column - Trending Topics & Announcements */}
-              <Grid item xs={12} lg={4}>
-                <Card sx={{ mb: 3 }}>
-                  <CardContent>
-                    <Typography variant="h6" gutterBottom>
-                      🔥 Trending Topics
-                    </Typography>
-                    {stats.trendingTopics?.slice(0, 5).map((topic, idx) => (
-                      <TrendingTopic key={idx} topic={topic} />
-                    ))}
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardContent>
-                    <Typography variant="h6" gutterBottom>
-                      📢 Announcements
-                    </Typography>
-                    {announcements?.slice(0, 3).map((announcement) => (
-                      <Paper key={announcement.id} sx={{ p: 2, mb: 2, bgcolor: '#fef3c7' }}>
-                        <Typography variant="subtitle2" fontWeight="bold">
-                          {announcement.title}
-                        </Typography>
-                        <Typography variant="caption" color="textSecondary">
-                          {formatDate(announcement.createdAt)}
-                        </Typography>
-                        <Typography variant="body2" sx={{ mt: 1 }}>
-                          {announcement.content}
-                        </Typography>
-                      </Paper>
-                    ))}
-                  </CardContent>
-                </Card>
-              </Grid>
-            </Grid>
-          </Box>
-        )}
-
-        {/* ==================== IMPACT TAB ==================== */}
-        {activeTab === 2 && (
-          <Box sx={{ p: { xs: 2, sm: 3 } }}>
-            <Grid container spacing={3}>
-              {/* Impact Summary */}
-              <Grid item xs={12} md={6}>
-                <Card>
-                  <CardContent>
-                    <Typography variant="h6" gutterBottom>
-                      📊 Your Impact Summary
-                    </Typography>
-                    <Box sx={{ textAlign: 'center', py: 2 }}>
-                      <Typography variant="h2" fontWeight="bold" color="primary">
-                        {formatCurrency(stats.collectionCounts.total_donated || 0)}
-                      </Typography>
-                      <Typography variant="body2" color="textSecondary">
-                        Total Lifetime Giving
-                      </Typography>
-                      <LinearProgress
-                        variant="determinate"
-                        value={Math.min(
-                          ((stats.collectionCounts.total_donated || 0) / 10000) * 100,
-                          100
-                        )}
-                        sx={{ mt: 2, height: 8, borderRadius: 4 }}
-                      />
-                      <Typography
-                        variant="caption"
-                        color="textSecondary"
-                        sx={{ mt: 1, display: 'block' }}
+                        className="text-xs font-semibold text-brand-600"
                       >
-                        Next milestone: $10,000
-                      </Typography>
-                    </Box>
-
-                    <Divider sx={{ my: 3 }} />
-
-                    <Grid container spacing={2}>
-                      <Grid item xs={6}>
-                        <Paper sx={{ p: 2, textAlign: 'center', bgcolor: '#eff6ff' }}>
-                          <Typography variant="h4" fontWeight="bold">
-                            {Math.floor((stats.collectionCounts.total_donated || 0) / 100)}
-                          </Typography>
-                          <Typography variant="caption">Students Supported</Typography>
-                        </Paper>
-                      </Grid>
-                      <Grid item xs={6}>
-                        <Paper sx={{ p: 2, textAlign: 'center', bgcolor: '#f0fdf4' }}>
-                          <Typography variant="h4" fontWeight="bold">
-                            {Math.floor((stats.collectionCounts.total_donated || 0) / 500)}
-                          </Typography>
-                          <Typography variant="caption">Scholarships</Typography>
-                        </Paper>
-                      </Grid>
-                      <Grid item xs={6}>
-                        <Paper sx={{ p: 2, textAlign: 'center', bgcolor: '#fef3c7' }}>
-                          <Typography variant="h4" fontWeight="bold">
-                            {Math.floor((stats.collectionCounts.total_donated || 0) / 25)}
-                          </Typography>
-                          <Typography variant="caption">Books Purchased</Typography>
-                        </Paper>
-                      </Grid>
-                      <Grid item xs={6}>
-                        <Paper sx={{ p: 2, textAlign: 'center', bgcolor: '#f3e8ff' }}>
-                          <Typography variant="h4" fontWeight="bold">
-                            {Math.floor((stats.collectionCounts.total_donated || 0) / 10)}
-                          </Typography>
-                          <Typography variant="caption">Meals Provided</Typography>
-                        </Paper>
-                      </Grid>
-                    </Grid>
-                  </CardContent>
-                </Card>
-              </Grid>
-
-              {/* Impact Highlights */}
-              <Grid item xs={12} md={6}>
-                <Card sx={{ height: '100%' }}>
-                  <CardContent>
-                    <Typography variant="h6" gutterBottom>
-                      🏆 Impact Highlights
-                    </Typography>
-                    <List>
-                      <ListItem>
-                        <ListItemIcon>
-                          <SchoolIcon color="primary" />
-                        </ListItemIcon>
-                        <ListItemText
-                          primary="Mentorship Impact"
-                          secondary={`${stats.collectionCounts.active_mentorships || 0} students mentored`}
-                        />
-                        <Chip label="Active" color="success" size="small" />
-                      </ListItem>
-                      <Divider />
-                      <ListItem>
-                        <ListItemIcon>
-                          <DonationIcon color="secondary" />
-                        </ListItemIcon>
-                        <ListItemText
-                          primary="Financial Contribution"
-                          secondary={`${stats.collectionCounts.donation_count || 0} donations made`}
-                        />
-                        <Chip label="Top 15%" color="warning" size="small" />
-                      </ListItem>
-                      <Divider />
-                      <ListItem>
-                        <ListItemIcon>
-                          <EventIcon color="info" />
-                        </ListItemIcon>
-                        <ListItemText
-                          primary="Community Engagement"
-                          secondary={`${stats.collectionCounts.events_attended || 0} events attended`}
-                        />
-                        <Chip label="Active" color="success" size="small" />
-                      </ListItem>
-                      <Divider />
-                      <ListItem>
-                        <ListItemIcon>
-                          <ArticleIcon color="action" />
-                        </ListItemIcon>
-                        <ListItemText
-                          primary="Content Contribution"
-                          secondary={`${stats.collectionCounts.posts_count || 0} posts shared`}
-                        />
-                        <Chip label="Influencer" color="primary" size="small" />
-                      </ListItem>
-                    </List>
-                  </CardContent>
-                </Card>
-              </Grid>
-
-              {/* Recognition Journey */}
-              <Grid item xs={12}>
-                <Card>
-                  <CardContent>
-                    <Typography variant="h6" gutterBottom>
-                      🌟 Your Recognition Journey
-                    </Typography>
-                    <Grid container spacing={3} sx={{ mt: 1 }}>
-                      {[
-                        {
-                          level: 'Friend',
-                          amount: 100,
-                          achieved: stats.collectionCounts.total_donated >= 100,
-                        },
-                        {
-                          level: 'Supporter',
-                          amount: 500,
-                          achieved: stats.collectionCounts.total_donated >= 500,
-                        },
-                        {
-                          level: 'Bronze',
-                          amount: 1000,
-                          achieved: stats.collectionCounts.total_donated >= 1000,
-                        },
-                        {
-                          level: 'Silver',
-                          amount: 5000,
-                          achieved: stats.collectionCounts.total_donated >= 5000,
-                        },
-                        {
-                          level: 'Gold',
-                          amount: 10000,
-                          achieved: stats.collectionCounts.total_donated >= 10000,
-                        },
-                        {
-                          level: 'Platinum',
-                          amount: 25000,
-                          achieved: stats.collectionCounts.total_donated >= 25000,
-                        },
-                      ].map((tier, idx) => (
-                        <Grid item xs={6} sm={4} md={2} key={idx}>
-                          <Box sx={{ textAlign: 'center' }}>
-                            <Avatar
-                              sx={{
-                                width: 64,
-                                height: 64,
-                                margin: '0 auto',
-                                bgcolor: tier.achieved ? 'gold' : 'grey.300',
-                                background: tier.achieved
-                                  ? 'linear-gradient(135deg, #FFD700, #FFA500)'
-                                  : 'none',
-                                mb: 1,
-                              }}
-                            >
-                              {tier.achieved ? <CheckCircleIcon /> : <MilitaryTechIcon />}
-                            </Avatar>
-                            <Typography variant="subtitle2" fontWeight="bold">
-                              {tier.level}
-                            </Typography>
-                            <Typography variant="caption" color="textSecondary">
-                              ${tier.amount.toLocaleString()}
-                            </Typography>
-                            {tier.achieved && (
-                              <Chip
-                                label="Achieved"
-                                size="small"
-                                color="success"
-                                sx={{ mt: 0.5 }}
-                              />
-                            )}
-                          </Box>
-                        </Grid>
-                      ))}
-                    </Grid>
-                  </CardContent>
-                </Card>
-              </Grid>
-            </Grid>
-          </Box>
-        )}
-
-        {/* ==================== EVENTS TAB ==================== */}
-        {activeTab === 3 && (
-          <Box sx={{ p: { xs: 2, sm: 3 } }}>
-            <Grid container spacing={3}>
-              {upcomingEvents?.map((event) => (
-                <Grid item xs={12} sm={6} md={4} key={event.id}>
-                  <EventCard
-                    event={event}
-                    onRegister={handleEventRegistration}
-                    isRegistered={event.isRegistered}
-                  />
-                </Grid>
-              ))}
-              {(!upcomingEvents || upcomingEvents.length === 0) && (
-                <Grid item xs={12}>
-                  <Paper sx={{ p: 6, textAlign: 'center' }}>
-                    <EventIcon sx={{ fontSize: 64, color: 'textSecondary', mb: 2 }} />
-                    <Typography variant="h6" gutterBottom>
-                      No upcoming events
-                    </Typography>
-                    <Typography variant="body2" color="textSecondary">
-                      Check back soon for alumni events and gatherings!
-                    </Typography>
-                  </Paper>
-                </Grid>
-              )}
-            </Grid>
-          </Box>
-        )}
-
-        {/* ==================== INSIGHTS TAB ==================== */}
-        {activeTab === 4 && (
-          <Box sx={{ p: { xs: 2, sm: 3 } }}>
-            <Grid container spacing={3}>
-              {/* AI Insights */}
-              <Grid item xs={12}>
-                <Typography variant="h6" gutterBottom>
-                  🤖 AI-Powered Insights
-                </Typography>
-                <Typography variant="body2" color="textSecondary" sx={{ mb: 3 }}>
-                  Personalized recommendations based on your activity and community trends
-                </Typography>
-              </Grid>
-
-              {insights?.map((insight, idx) => (
-                <Grid item xs={12} md={6} key={idx}>
-                  <motion.div
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ duration: 0.3, delay: idx * 0.1 }}
-                  >
-                    <Card
-                      sx={{
-                        bgcolor: insight.priority === 'high' ? '#fef3c7' : '#eff6ff',
-                        height: '100%',
-                      }}
-                    >
-                      <CardContent>
-                        <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                          {insight.type === 'opportunity' && (
-                            <RocketLaunchIcon sx={{ mr: 1, color: '#f59e0b' }} />
-                          )}
-                          {insight.type === 'achievement' && (
-                            <TrophyIcon sx={{ mr: 1, color: '#10b981' }} />
-                          )}
-                          {insight.type === 'suggestion' && (
-                            <LightbulbIcon sx={{ mr: 1, color: '#3b82f6' }} />
-                          )}
-                          <Typography variant="subtitle1" fontWeight="bold">
-                            {insight.title}
-                          </Typography>
-                          <Chip
-                            label={insight.priority}
-                            size="small"
-                            sx={{
-                              ml: 1,
-                              bgcolor: insight.priority === 'high' ? '#ef4444' : '#f59e0b',
-                              color: 'white',
+                        Mark all read
+                      </button>
+                    </div>
+                    <ul className="max-h-80 overflow-y-auto">
+                      {notifications.length === 0 ? (
+                        <li className="p-4 text-center text-xs text-slate-500">No notifications</li>
+                      ) : (
+                        notifications.slice(0, 10).map((n) => (
+                          <li
+                            key={n.id}
+                            className={`cursor-pointer border-b border-slate-50 p-3 text-xs hover:bg-slate-50 dark:border-slate-800 dark:hover:bg-slate-800 ${!n.read ? 'bg-brand-50/40' : ''}`}
+                            onClick={async () => {
+                              await alumniSocialService.markNotificationRead?.(n.id);
+                              setNotifications((prev) => prev.map((x) => (x.id === n.id ? { ...x, read: true } : x)));
+                              setUnreadCount((c) => Math.max(0, c - 1));
                             }}
-                          />
-                        </Box>
-                        <Typography variant="body2" sx={{ mb: 2 }}>
-                          {insight.description}
-                        </Typography>
-                        {insight.recommendation && (
-                          <Alert severity="info" icon={<LightbulbIcon />} sx={{ mt: 2 }}>
-                            {insight.recommendation}
-                          </Alert>
-                        )}
-                      </CardContent>
-                    </Card>
-                  </motion.div>
-                </Grid>
-              ))}
-
-              {/* Polls */}
-              {polls.length > 0 && (
-                <Grid item xs={12}>
-                  <Typography variant="h6" gutterBottom sx={{ mt: 2 }}>
-                    📊 Community Polls
-                  </Typography>
-                  {polls.map((poll) => (
-                    <Poll key={poll.id} poll={poll} onVote={handlePollVote} />
-                  ))}
-                </Grid>
-              )}
-            </Grid>
-          </Box>
-        )}
-
-        {/* ==================== ACHIEVEMENTS TAB ==================== */}
-        {activeTab === 5 && (
-          <Box sx={{ p: { xs: 2, sm: 3 } }}>
-            <Typography variant="h6" gutterBottom>
-              🏅 Your Achievements
-            </Typography>
-            <Typography variant="body2" color="textSecondary" sx={{ mb: 4 }}>
-              Milestones you've unlocked on your alumni journey
-            </Typography>
-
-            <Grid container spacing={3}>
-              {achievements?.map((achievement) => (
-                <Grid item xs={6} sm={4} md={3} key={achievement.id}>
-                  <motion.div
-                    initial={{ opacity: 0, scale: 0.9 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    transition={{ duration: 0.3 }}
-                  >
-                    <Paper
-                      sx={{
-                        p: 2,
-                        textAlign: 'center',
-                        bgcolor: achievement.unlocked ? 'success.lighter' : 'grey.50',
-                      }}
-                    >
-                      <AchievementBadge achievement={achievement} size="large" />
-                      <Typography variant="subtitle2" fontWeight="bold" sx={{ mt: 1 }}>
-                        {achievement.name}
-                      </Typography>
-                      <Typography variant="caption" color="textSecondary">
-                        {achievement.unlocked
-                          ? `Unlocked ${formatDate(achievement.unlockedAt)}`
-                          : achievement.requirement}
-                      </Typography>
-                    </Paper>
-                  </motion.div>
-                </Grid>
-              ))}
-            </Grid>
-          </Box>
-        )}
-
-        {/* ==================== LEADERBOARD TAB ==================== */}
-        {activeTab === 6 && (
-          <Box sx={{ p: { xs: 2, sm: 3 } }}>
-            <Typography variant="h6" gutterBottom>
-              📊 Alumni Leaderboard
-            </Typography>
-            <Typography variant="body2" color="textSecondary" sx={{ mb: 4 }}>
-              Top contributors in the alumni community
-            </Typography>
-
-            <TableContainer component={Paper}>
-              <Table>
-                <TableHead sx={{ bgcolor: 'grey.50' }}>
-                  <TableRow>
-                    <TableCell align="center">Rank</TableCell>
-                    <TableCell>Alumni</TableCell>
-                    <TableCell align="center">Impact Score</TableCell>
-                    <TableCell align="center">Donations</TableCell>
-                    <TableCell align="center">Connections</TableCell>
-                    <TableCell align="center">Posts</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {leaderboard?.map((member, idx) => (
-                    <TableRow key={member.id} hover>
-                      <TableCell align="center">
-                        {idx === 0 && <EmojiEventsIcon sx={{ color: 'gold' }} />}
-                        {idx === 1 && <EmojiEventsIcon sx={{ color: 'silver' }} />}
-                        {idx === 2 && <EmojiEventsIcon sx={{ color: '#cd7f32' }} />}
-                        {idx > 2 && `#${idx + 1}`}
-                      </TableCell>
-                      <TableCell>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                          <Avatar src={member.photoURL}>{member.name?.charAt(0)}</Avatar>
-                          <Box>
-                            <Typography variant="body2" fontWeight="bold">
-                              {member.name}
-                            </Typography>
-                            <Typography variant="caption" color="textSecondary">
-                              {member.title}
-                            </Typography>
-                          </Box>
-                        </Box>
-                      </TableCell>
-                      <TableCell align="center">
-                        <Chip label={`${member.impactScore}%`} color="primary" size="small" />
-                      </TableCell>
-                      <TableCell align="center">
-                        {formatCurrency(member.totalDonated || 0)}
-                      </TableCell>
-                      <TableCell align="center">{member.connectionsCount || 0}</TableCell>
-                      <TableCell align="center">{member.postsCount || 0}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </TableContainer>
-          </Box>
-        )}
-      </Paper>
-
-      {/* ==================== DIALOGS ==================== */}
-
-      {/* Create Post Dialog */}
-      <Dialog
-        open={postDialogOpen}
-        onClose={() => setPostDialogOpen(false)}
-        maxWidth="md"
-        fullWidth
-        fullScreen={isMobile}
-      >
-        <DialogTitle>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Typography variant="h6">Create a Post</Typography>
-            <IconButton onClick={() => setPostDialogOpen(false)}>
-              <CloseIcon />
-            </IconButton>
-          </Box>
-        </DialogTitle>
-        <DialogContent>
-          <Box sx={{ pt: 2 }}>
-            {/* Privacy Selector */}
-            <FormControl size="small" sx={{ mb: 2, minWidth: 120 }}>
-              <Select
-                value={postPrivacy}
-                onChange={(e) => setPostPrivacy(e.target.value)}
-                startAdornment={
-                  postPrivacy === 'public' ? (
-                    <PublicIcon sx={{ mr: 1 }} />
-                  ) : postPrivacy === 'connections' ? (
-                    <GroupIcon sx={{ mr: 1 }} />
-                  ) : (
-                    <LockIcon sx={{ mr: 1 }} />
-                  )
-                }
+                          >
+                            <p className="font-semibold text-slate-800 dark:text-slate-100">{safeText(n.title || 'Notification')}</p>
+                            <p className="mt-0.5 text-slate-500">{safeText(n.message || '')}</p>
+                            <p className="mt-1 text-[10px] text-slate-400">
+                              {getRelativeTime(n.createdAt?.toDate?.() || n.createdAt)}
+                            </p>
+                          </li>
+                        ))
+                      )}
+                    </ul>
+                  </div>
+                )}
+              </div>
+              <button
+                onClick={() => setShowDonation(true)}
+                className="flex items-center gap-2 rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700"
               >
-                <MenuItem value="public">🌍 Public</MenuItem>
-                <MenuItem value="connections">👥 Connections only</MenuItem>
-                <MenuItem value="only-me">🔒 Only me</MenuItem>
-              </Select>
-            </FormControl>
+                <FaDonate className="h-4 w-4" /> Donate
+              </button>
+            </div>
+          </div>
 
-            {/* Content Input */}
-            <TextField
-              fullWidth
-              multiline
-              rows={6}
-              placeholder="Share your thoughts, achievements, or opportunities..."
-              value={postContent}
-              onChange={(e) => setPostContent(e.target.value)}
-              sx={{ mb: 2 }}
-            />
+          {showSearch && (
+            <div className="mt-4">
+              <input
+                type="search"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value.slice(0, 200))}
+                placeholder="Search posts, people, events…"
+                className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200 dark:border-slate-700 dark:bg-slate-800"
+              />
+            </div>
+          )}
+        </header>
 
-            {/* Media Preview */}
-            {selectedMedia.length > 0 && (
-              <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mb: 2 }}>
-                {selectedMedia.map((file, idx) => (
-                  <Box key={idx} sx={{ position: 'relative' }}>
-                    <img
-                      src={URL.createObjectURL(file)}
-                      alt={`Preview ${idx}`}
-                      style={{ width: 100, height: 100, objectFit: 'cover', borderRadius: 8 }}
-                    />
-                    <IconButton
-                      size="small"
-                      sx={{ position: 'absolute', top: -8, right: -8, bgcolor: 'white' }}
-                      onClick={() => removeMedia(idx)}
+        {/* ===== Stat grid ===== */}
+        <div className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+          {statCards.map((c) => <StatCard key={c.label} {...c} />)}
+        </div>
+
+        {/* ===== Engagement banner ===== */}
+        <section className={`mb-6 rounded-xl border-l-4 border-${engagementColor}-500 bg-white p-4 shadow-sm dark:bg-slate-900`}>
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <div className="min-w-0">
+              <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Engagement score</h2>
+              <p className="text-xs text-slate-500">Based on your activity, connections, donations, and events.</p>
+              <div className="mt-2 flex items-center gap-2">
+                <Tag color={stats.engagementScore >= 60 ? 'green' : 'amber'}>
+                  {stats.engagementScore >= 80 ? 'Excellent' : stats.engagementScore >= 60 ? 'Good' : stats.engagementScore >= 40 ? 'Fair' : 'Needs improvement'}
+                </Tag>
+                <span className="text-xs text-slate-500">Top {Math.max(1, 100 - (stats.engagementScore || 0))}% of alumni</span>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <div className="relative h-20 w-20">
+                <svg viewBox="0 0 36 36" className="h-full w-full -rotate-90">
+                  <circle cx="18" cy="18" r="16" fill="none" stroke="#e2e8f0" strokeWidth="3" />
+                  <circle
+                    cx="18" cy="18" r="16" fill="none"
+                    stroke={stats.engagementScore >= 60 ? '#10b981' : '#f59e0b'}
+                    strokeWidth="3"
+                    strokeDasharray={`${(stats.engagementScore / 100) * 100} 100`}
+                    strokeLinecap="round"
+                  />
+                </svg>
+                <span className="absolute inset-0 flex items-center justify-center text-sm font-bold text-slate-800 dark:text-slate-100">
+                  {stats.engagementScore || 0}
+                </span>
+              </div>
+              <div className="hidden text-xs text-slate-500 sm:block">
+                Keep participating to<br />unlock higher tiers
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* ===== Tabs ===== */}
+        <div className="mb-4 flex flex-wrap gap-1 rounded-xl border border-slate-200 bg-white p-1 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+          {['Feed', 'Network', 'Impact', 'Events', 'Insights', 'Achievements', 'Leaderboard'].map((t, i) => (
+            <button
+              key={t}
+              onClick={() => { setActiveTab(i); if (i === 0) loadFeed(true); }}
+              className={`flex-1 rounded-lg px-3 py-2 text-xs font-semibold transition ${activeTab === i ? 'bg-brand-600 text-white shadow' : 'text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800'}`}
+            >
+              {t}
+            </button>
+          ))}
+        </div>
+
+        {/* ===== Tab content ===== */}
+        {activeTab === 0 && (
+          <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
+            <section>
+              <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                <div className="flex gap-1">
+                  {['all', 'connections', 'trending'].map((f) => (
+                    <button
+                      key={f}
+                      onClick={() => setFeedFilter(f)}
+                      className={`rounded-lg px-3 py-1.5 text-xs font-semibold capitalize ${feedFilter === f ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900' : 'bg-white text-slate-600 hover:bg-slate-100 dark:bg-slate-900 dark:text-slate-300'}`}
                     >
-                      <CloseIcon fontSize="small" />
-                    </IconButton>
-                  </Box>
+                      {f}
+                    </button>
+                  ))}
+                </div>
+                <div className="flex gap-1">
+                  {['latest', 'popular', 'discussed'].map((s) => (
+                    <button
+                      key={s}
+                      onClick={() => setFeedSort(s)}
+                      className={`rounded-lg px-3 py-1.5 text-xs font-semibold capitalize ${feedSort === s ? 'bg-brand-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-100 dark:bg-slate-900 dark:text-slate-300'}`}
+                    >
+                      {s}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <button
+                onClick={() => setShowCreatePost(true)}
+                className="mb-4 flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-slate-300 py-3 text-sm font-semibold text-slate-500 hover:border-brand-400 hover:text-brand-600 dark:border-slate-700"
+              >
+                <FaPlus className="h-4 w-4" /> Share something with the community
+              </button>
+
+              {loadingFeed && posts.length === 0 ? (
+                <div className="space-y-3">
+                  {[1, 2, 3].map((i) => (
+                    <div key={i} className="animate-pulse rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
+                      <div className="mb-3 flex items-center gap-3">
+                        <div className="h-10 w-10 rounded-full bg-slate-200 dark:bg-slate-800" />
+                        <div className="flex-1 space-y-2">
+                          <div className="h-3 w-1/3 rounded bg-slate-200 dark:bg-slate-800" />
+                          <div className="h-2 w-1/4 rounded bg-slate-200 dark:bg-slate-800" />
+                        </div>
+                      </div>
+                      <div className="h-3 w-full rounded bg-slate-200 dark:bg-slate-800" />
+                      <div className="mt-2 h-3 w-5/6 rounded bg-slate-200 dark:bg-slate-800" />
+                    </div>
+                  ))}
+                </div>
+              ) : filteredPosts.length === 0 ? (
+                <div className="rounded-xl border border-slate-200 bg-white p-10 text-center dark:border-slate-700 dark:bg-slate-900">
+                  <FaBullhorn className="mx-auto mb-3 h-10 w-10 text-slate-300" />
+                  <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">No posts yet</p>
+                  <p className="mt-1 text-xs text-slate-500">Be the first to share something with your community.</p>
+                  <button
+                    onClick={() => setShowCreatePost(true)}
+                    className="mt-4 rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700"
+                  >
+                    Create your first post
+                  </button>
+                </div>
+              ) : (
+                filteredPosts.map((p) => (
+                  <PostCard
+                    key={p.id}
+                    post={p}
+                    currentUserId={currentUser?.uid}
+                    onLike={handleLike}
+                    onComment={handleComment}
+                    onShare={handleShare}
+                    onSave={handleSave}
+                    onDelete={handleDeletePost}
+                    onReport={handleReportPost}
+                  />
+                ))
+              )}
+
+              {loadingMore && (
+                <div className="flex justify-center py-4">
+                  <div className="h-6 w-6 animate-spin rounded-full border-2 border-brand-200 border-t-brand-600" />
+                </div>
+              )}
+              <div ref={feedEndRef} />
+              {!hasMore && filteredPosts.length > 0 && (
+                <p className="py-6 text-center text-xs text-slate-400">You've reached the end 🎉</p>
+              )}
+            </section>
+
+            {/* Right sidebar */}
+            <aside className="space-y-4">
+              <MySchoolsCard
+                schools={schools}
+                loading={schoolsLoading}
+                onRequestLink={() => setShowSchoolLink(true)}
+                onUnlink={handleUnlinkSchool}
+              />
+
+              <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+                <h3 className="mb-3 text-sm font-semibold text-slate-900 dark:text-slate-100">🤝 Suggested connections</h3>
+                {networkSuggestions.length === 0 ? (
+                  <p className="text-xs text-slate-500">No suggestions yet.</p>
+                ) : (
+                  <ul className="space-y-3">
+                    {networkSuggestions.slice(0, 4).map((s) => (
+                      <li key={s.id} className="flex items-center gap-2">
+                        <Avatar src={s.photoURL} name={s.name} size="sm" />
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-xs font-semibold text-slate-800 dark:text-slate-100">{safeText(s.name)}</p>
+                          <p className="truncate text-[11px] text-slate-500">{safeText(s.position)} · {safeText(s.company)}</p>
+                        </div>
+                        <button
+                          onClick={() => navigate(`/alumni/network?connect=${encodeURIComponent(s.id)}`)}
+                          className="rounded-lg border border-brand-200 p-1.5 text-brand-600 hover:bg-brand-50"
+                          aria-label="Send connection request"
+                        >
+                          <FaUserPlus className="h-3 w-3" />
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </section>
+
+              <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+                <h3 className="mb-3 text-sm font-semibold text-slate-900 dark:text-slate-100">📢 Announcements</h3>
+                {announcements.length === 0 ? (
+                  <p className="text-xs text-slate-500">Nothing new right now.</p>
+                ) : (
+                  announcements.slice(0, 3).map((a) => (
+                    <div key={a.id} className="mb-2 rounded-lg bg-amber-50 p-2 last:mb-0">
+                      <p className="text-xs font-semibold text-amber-800">{safeText(a.title)}</p>
+                      <p className="mt-0.5 text-[11px] text-amber-700">{truncateText(safeText(a.content || ''), 120)}</p>
+                    </div>
+                  ))
+                )}
+              </section>
+
+              <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+                <h3 className="mb-3 text-sm font-semibold text-slate-900 dark:text-slate-100">🔥 Trending topics</h3>
+                {(stats.trendingTopics || []).length === 0 ? (
+                  <p className="text-xs text-slate-500">No trends yet.</p>
+                ) : (
+                  stats.trendingTopics.slice(0, 5).map((t, i) => (
+                    <div key={i} className="mb-1 rounded-lg p-2 hover:bg-slate-50 dark:hover:bg-slate-800">
+                      <p className="text-[11px] text-slate-500">Trending</p>
+                      <p className="text-xs font-semibold text-slate-800 dark:text-slate-100">#{safeText(t.hashtag)}</p>
+                      <p className="text-[10px] text-slate-400">{t.posts || 0} posts</p>
+                    </div>
+                  ))
+                )}
+              </section>
+            </aside>
+          </div>
+        )}
+
+        {activeTab === 1 && (
+          <section className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {networkSuggestions.length === 0 ? (
+              <div className="col-span-full rounded-xl border border-slate-200 bg-white p-10 text-center dark:border-slate-700 dark:bg-slate-900">
+                <FaUsers className="mx-auto mb-3 h-10 w-10 text-slate-300" />
+                <p className="text-sm text-slate-600 dark:text-slate-300">No network suggestions yet.</p>
+              </div>
+            ) : (
+              networkSuggestions.map((s) => (
+                <div key={s.id} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+                  <div className="mb-3 flex items-center gap-3">
+                    <Avatar src={s.photoURL} name={s.name} />
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-semibold text-slate-900 dark:text-slate-100">{safeText(s.name)}</p>
+                      <p className="truncate text-xs text-slate-500">{safeText(s.position)} · {safeText(s.company)}</p>
+                      <p className="mt-0.5 text-[11px] text-brand-600">✓ {Math.round((s.matchScore || 0) * 100)}% match</p>
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap gap-1">
+                    {(s.commonInterests || []).slice(0, 3).map((tag, i) => (
+                      <Tag key={i} color="slate">{safeText(tag)}</Tag>
+                    ))}
+                  </div>
+                  <button
+                    onClick={() => navigate(`/alumni/network?connect=${encodeURIComponent(s.id)}`)}
+                    className="mt-3 w-full rounded-lg bg-brand-600 py-2 text-xs font-semibold text-white hover:bg-brand-700"
+                  >
+                    Connect
+                  </button>
+                </div>
+              ))
+            )}
+          </section>
+        )}
+
+        {activeTab === 2 && (
+          <div className="grid gap-4 lg:grid-cols-2">
+            <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+              <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">📊 Lifetime impact</h3>
+              <p className="mt-4 text-center text-4xl font-bold text-brand-600">{formatCurrency(stats.total_donated || 0)}</p>
+              <p className="text-center text-xs text-slate-500">Total lifetime giving</p>
+              <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
+                <div
+                  className="h-full rounded-full bg-brand-600"
+                  style={{ width: `${Math.min(100, ((stats.total_donated || 0) / 10000) * 100)}%` }}
+                />
+              </div>
+              <p className="mt-1 text-center text-[11px] text-slate-500">Next milestone: $10,000</p>
+              <div className="mt-4 grid grid-cols-2 gap-2">
+                {[
+                  { label: 'Students', val: Math.floor((stats.total_donated || 0) / 100), bg: 'bg-blue-50 text-blue-700' },
+                  { label: 'Scholarships', val: Math.floor((stats.total_donated || 0) / 500), bg: 'bg-emerald-50 text-emerald-700' },
+                  { label: 'Books', val: Math.floor((stats.total_donated || 0) / 25), bg: 'bg-amber-50 text-amber-700' },
+                  { label: 'Meals', val: Math.floor((stats.total_donated || 0) / 10), bg: 'bg-violet-50 text-violet-700' },
+                ].map((s) => (
+                  <div key={s.label} className={`rounded-lg p-3 text-center ${s.bg}`}>
+                    <p className="text-lg font-bold">{s.val}</p>
+                    <p className="text-[11px]">{s.label}</p>
+                  </div>
                 ))}
-              </Box>
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+              <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">🏆 Recognition journey</h3>
+              <ul className="mt-3 space-y-2">
+                {[
+                  { label: 'Friend', amt: 100 },
+                  { label: 'Supporter', amt: 500 },
+                  { label: 'Bronze', amt: 1000 },
+                  { label: 'Silver', amt: 5000 },
+                  { label: 'Gold', amt: 10000 },
+                  { label: 'Platinum', amt: 25000 },
+                ].map((tier) => {
+                  const achieved = (stats.total_donated || 0) >= tier.amt;
+                  return (
+                    <li key={tier.label} className="flex items-center gap-3">
+                      <span className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold ${achieved ? 'bg-gradient-to-br from-amber-400 to-amber-600 text-white' : 'bg-slate-100 text-slate-400 dark:bg-slate-800'}`}>
+                        {achieved ? <FaCheckCircle /> : <FaAward />}
+                      </span>
+                      <div className="flex-1">
+                        <p className="text-xs font-semibold text-slate-800 dark:text-slate-100">{tier.label}</p>
+                        <p className="text-[11px] text-slate-500">${tier.amt.toLocaleString()}</p>
+                      </div>
+                      {achieved && <Tag color="green">Achieved</Tag>}
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 3 && (
+          <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {upcomingEvents.length === 0 ? (
+              <div className="col-span-full rounded-xl border border-slate-200 bg-white p-10 text-center dark:border-slate-700 dark:bg-slate-900">
+                <FaCalendarAlt className="mx-auto mb-3 h-10 w-10 text-slate-300" />
+                <p className="text-sm text-slate-600 dark:text-slate-300">No upcoming events yet.</p>
+              </div>
+            ) : (
+              upcomingEvents.map((ev) => (
+                <div key={ev.id} className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900">
+                  {ev.image && (
+                    <img src={ev.image} alt={safeText(ev.title)} loading="lazy" referrerPolicy="no-referrer" className="h-40 w-full object-cover" onError={(e) => { e.currentTarget.style.display = 'none'; }} />
+                  )}
+                  <div className="p-4">
+                    <div className="mb-2 flex items-start justify-between gap-2">
+                      <h4 className="text-sm font-semibold text-slate-900 dark:text-slate-100">{safeText(ev.title)}</h4>
+                      {ev.isVirtual && <Tag color="brand">Virtual</Tag>}
+                    </div>
+                    <p className="flex items-center gap-1 text-xs text-slate-500"><FaCalendarAlt /> {formatDate(ev.startDate?.toDate?.() || ev.startDate, 'long')}</p>
+                    <p className="mt-1 flex items-center gap-1 text-xs text-slate-500"><FaMapMarkerAlt /> {safeText(ev.location || 'Virtual')}</p>
+                    <p className="mt-2 text-xs text-slate-600 dark:text-slate-300">{truncateText(safeText(ev.description || ''), 100)}</p>
+                    <div className="mt-3 flex items-center justify-between">
+                      <span className="text-[11px] text-slate-500"><FaUsers className="inline" /> {ev.registrationsCount || 0} registered</span>
+                      <button
+                        disabled={ev.isRegistered}
+                        onClick={async () => {
+                          const r = await alumniService.registerForEvent(ev.id);
+                          if (r?.success) { addSuccessNotification('Event', 'Registered'); await loadDashboardData(); }
+                        }}
+                        className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${ev.isRegistered ? 'bg-slate-100 text-slate-400' : 'bg-brand-600 text-white hover:bg-brand-700'}`}
+                      >
+                        {ev.isRegistered ? 'Registered' : 'Register'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
+          </section>
+        )}
+
+        {activeTab === 4 && (
+          <div className="space-y-4">
+            {insights.length === 0 ? (
+              <div className="rounded-xl border border-slate-200 bg-white p-10 text-center dark:border-slate-700 dark:bg-slate-900">
+                <p className="text-sm text-slate-600 dark:text-slate-300">No AI insights yet.</p>
+              </div>
+            ) : (
+              insights.map((ins, i) => (
+                <div key={i} className={`rounded-xl border p-4 ${ins.priority === 'high' ? 'border-amber-200 bg-amber-50' : 'border-blue-200 bg-blue-50'}`}>
+                  <div className="flex items-center gap-2">
+                    <FaBullhorn className="text-brand-600" />
+                    <h4 className="text-sm font-semibold text-slate-900">{safeText(ins.title)}</h4>
+                    <Tag color={ins.priority === 'high' ? 'red' : 'amber'}>{safeText(ins.priority || 'info')}</Tag>
+                  </div>
+                  <p className="mt-2 text-xs text-slate-700">{safeText(ins.description || '')}</p>
+                  {ins.recommendation && (
+                    <p className="mt-2 rounded-lg bg-white p-2 text-xs text-slate-600">{safeText(ins.recommendation)}</p>
+                  )}
+                </div>
+              ))
             )}
 
-            {/* Location Input */}
-            <TextField
-              fullWidth
-              size="small"
-              placeholder="Add location (optional)"
-              value={postLocation}
-              onChange={(e) => setPostLocation(e.target.value)}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <LocationIcon />
-                  </InputAdornment>
-                ),
-              }}
-              sx={{ mb: 2 }}
-            />
+            {polls.length > 0 && (
+              <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+                <h3 className="mb-3 text-sm font-semibold text-slate-900 dark:text-slate-100">📊 Community polls</h3>
+                {polls.map((p) => {
+                  const totalVotes = (p.options || []).reduce((s, o) => s + (o.votes || 0), 0);
+                  return (
+                    <div key={p.id} className="mb-4 rounded-lg border border-slate-100 p-3 dark:border-slate-800">
+                      <p className="mb-2 text-xs font-semibold text-slate-800 dark:text-slate-100">{safeText(p.question)}</p>
+                      {(p.options || []).map((opt, i) => {
+                        const pct = totalVotes > 0 ? ((opt.votes || 0) / totalVotes) * 100 : 0;
+                        return (
+                          <button
+                            key={i}
+                            disabled={p.userVoted}
+                            onClick={async () => {
+                              const r = await alumniSocialService.votePoll?.(p.id, opt.id);
+                              if (r?.success) {
+                                setPolls((prev) => prev.map((x) => x.id === p.id
+                                  ? { ...x, userVoted: true, options: x.options.map((o) => o.id === opt.id ? { ...o, votes: (o.votes || 0) + 1 } : o) }
+                                  : x));
+                              }
+                            }}
+                            className="mb-2 block w-full rounded-lg border border-slate-200 p-2 text-left text-xs hover:bg-slate-50 disabled:cursor-default dark:border-slate-700"
+                          >
+                            <div className="flex items-center justify-between">
+                              <span>{safeText(opt.text)}</span>
+                              <span className="text-slate-500">{pct.toFixed(1)}%</span>
+                            </div>
+                            <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
+                              <div className="h-full bg-brand-500" style={{ width: `${pct}%` }} />
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  );
+                })}
+              </section>
+            )}
+          </div>
+        )}
 
-            {/* Tags Input */}
-            <TextField
-              fullWidth
-              size="small"
-              placeholder="Add tags (comma separated)"
-              value={postTags.join(', ')}
-              onChange={(e) =>
-                setPostTags(
-                  e.target.value
-                    .split(',')
-                    .map((t) => t.trim())
-                    .filter((t) => t)
-                )
-              }
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <TagIcon />
-                  </InputAdornment>
-                ),
-              }}
-            />
-          </Box>
-        </DialogContent>
-        <DialogActions sx={{ p: 3, pt: 0 }}>
-          <Button onClick={() => setPostDialogOpen(false)}>Cancel</Button>
-          <Button
-            variant="contained"
-            startIcon={<AddIcon />}
-            onClick={handleCreatePost}
-            disabled={(!postContent.trim() && selectedMedia.length === 0) || isPosting}
-          >
-            {isPosting ? <CircularProgress size={24} /> : 'Post'}
-          </Button>
-        </DialogActions>
-      </Dialog>
+        {activeTab === 5 && (
+          <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            {[
+              { name: 'First Post', desc: 'Shared your first post', unlocked: (stats.posts_count || 0) >= 1 },
+              { name: 'Networker', desc: 'Connected with 10 alumni', unlocked: (stats.total_connections || 0) >= 10 },
+              { name: 'Generous', desc: 'Made a donation', unlocked: (stats.total_donated || 0) > 0 },
+              { name: 'Event Goer', desc: 'Attended an event', unlocked: (stats.events_attended || 0) > 0 },
+              { name: 'Mentor', desc: 'Mentored a student', unlocked: (stats.active_mentorships || 0) > 0 },
+              { name: 'Community Pillar', desc: '20+ posts', unlocked: (stats.posts_count || 0) >= 20 },
+            ].map((a) => (
+              <div key={a.name} className={`rounded-xl border p-4 text-center ${a.unlocked ? 'border-amber-200 bg-amber-50' : 'border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900'}`}>
+                <div className={`mx-auto mb-2 flex h-14 w-14 items-center justify-center rounded-full ${a.unlocked ? 'bg-gradient-to-br from-amber-400 to-amber-600 text-white' : 'bg-slate-100 text-slate-400 dark:bg-slate-800'}`}>
+                  <FaTrophy className="h-6 w-6" />
+                </div>
+                <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">{a.name}</p>
+                <p className="mt-1 text-[11px] text-slate-500">{a.desc}</p>
+                {a.unlocked && <Tag color="green">Unlocked</Tag>}
+              </div>
+            ))}
+          </section>
+        )}
 
-      {/* Donation Dialog */}
-      <Dialog
-        open={donationDialogOpen}
-        onClose={() => setDonationDialogOpen(false)}
-        maxWidth="sm"
-        fullWidth
-      >
-        <DialogTitle>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <DonationIcon color="primary" />
-            <Typography variant="h6">Make a Donation</Typography>
-          </Box>
-        </DialogTitle>
-        <DialogContent>
-          <Box sx={{ pt: 2 }}>
-            <Typography variant="body2" color="textSecondary" sx={{ mb: 3 }}>
-              Your generosity helps support students and programs at Career Connect Lesotho.
-            </Typography>
+        {activeTab === 6 && (
+          <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900">
+            <table className="w-full text-left text-xs">
+              <thead className="bg-slate-50 dark:bg-slate-800">
+                <tr>
+                  <th className="px-3 py-2">Rank</th>
+                  <th className="px-3 py-2">Alumni</th>
+                  <th className="px-3 py-2 text-center">Impact</th>
+                  <th className="px-3 py-2 text-center">Donated</th>
+                  <th className="px-3 py-2 text-center">Connections</th>
+                </tr>
+              </thead>
+              <tbody>
+                {leaderboard.length === 0 ? (
+                  <tr><td colSpan={5} className="px-3 py-6 text-center text-slate-500">Leaderboard loading…</td></tr>
+                ) : (
+                  leaderboard.slice(0, 20).map((m, i) => (
+                    <tr key={m.id || i} className="border-t border-slate-100 dark:border-slate-800">
+                      <td className="px-3 py-2 font-bold text-slate-500">#{i + 1}</td>
+                      <td className="px-3 py-2">
+                        <div className="flex items-center gap-2">
+                          <Avatar src={m.photoURL} name={m.name} size="sm" />
+                          <div>
+                            <p className="font-semibold text-slate-800 dark:text-slate-100">{safeText(m.name)}</p>
+                            <p className="text-[11px] text-slate-500">{safeText(m.title || '')}</p>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-3 py-2 text-center"><Tag color="brand">{m.impactScore || 0}%</Tag></td>
+                      <td className="px-3 py-2 text-center">{formatCurrency(m.totalDonated || 0)}</td>
+                      <td className="px-3 py-2 text-center">{m.connectionsCount || 0}</td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </section>
+        )}
 
-            <TextField
-              fullWidth
-              label="Donation Amount"
-              type="number"
-              value={donationAmount}
-              onChange={(e) => setDonationAmount(e.target.value)}
-              placeholder="Enter amount"
-              InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }}
-              sx={{ mb: 3 }}
-            />
+        {/* ===== Create Post Modal ===== */}
+        {showCreatePost && (
+          <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 p-4" role="dialog" aria-modal="true">
+            <div className="w-full max-w-lg rounded-xl bg-white p-5 shadow-xl dark:bg-slate-900">
+              <div className="mb-3 flex items-center justify-between">
+                <h3 className="text-base font-semibold text-slate-900 dark:text-slate-100">Create a post</h3>
+                <button onClick={() => setShowCreatePost(false)} aria-label="Close" className="rounded p-1 text-slate-400 hover:text-red-500"><FaTimes /></button>
+              </div>
+              <select value={postPrivacy} onChange={(e) => setPostPrivacy(e.target.value)} className="mb-2 w-full rounded-lg border border-slate-200 p-2 text-xs dark:border-slate-700 dark:bg-slate-800">
+                <option value="public">🌍 Public</option>
+                <option value="connections">👥 Connections only</option>
+                <option value="only-me">🔒 Only me</option>
+              </select>
+              <textarea
+                value={postContent}
+                onChange={(e) => setPostContent(e.target.value.slice(0, 5000))}
+                rows={5}
+                maxLength={5000}
+                placeholder="Share your thoughts, achievements, or opportunities…"
+                className="w-full resize-none rounded-lg border border-slate-200 p-3 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200 dark:border-slate-700 dark:bg-slate-800"
+              />
+              <p className="mt-1 text-right text-[11px] text-slate-400">{postContent.length}/5000</p>
 
-            <FormControl fullWidth sx={{ mb: 3 }}>
-              <InputLabel>Campaign</InputLabel>
-              <Select
-                value={donationCampaign}
-                onChange={(e) => setDonationCampaign(e.target.value)}
-                label="Campaign"
-              >
-                <MenuItem value="general">🎓 General Scholarship Fund</MenuItem>
-                <MenuItem value="mentorship">🤝 Mentorship Program</MenuItem>
-                <MenuItem value="infrastructure">🏗️ Infrastructure Development</MenuItem>
-                <MenuItem value="innovation">💡 Innovation Lab</MenuItem>
-              </Select>
-            </FormControl>
+              {mediaPreviews.length > 0 && (
+                <div className="mb-2 flex flex-wrap gap-2">
+                  {mediaPreviews.map((url, i) => (
+                    <div key={i} className="relative">
+                      <img src={url} alt={`preview ${i}`} className="h-20 w-20 rounded-lg object-cover" />
+                      <button onClick={() => removeMedia(i)} className="absolute -right-1 -top-1 rounded-full bg-white p-0.5 text-red-500 shadow" aria-label="Remove"><FaTimes className="h-3 w-3" /></button>
+                    </div>
+                  ))}
+                </div>
+              )}
 
-            <TextField
-              fullWidth
-              label="Message (Optional)"
-              multiline
-              rows={3}
-              value={donationMessage}
-              onChange={(e) => setDonationMessage(e.target.value)}
-              placeholder="Leave a message with your donation..."
-              sx={{ mb: 2 }}
-            />
+              <input ref={fileInputRef} type="file" multiple accept={ALLOWED_IMAGE_TYPES.join(',')} onChange={handleMediaSelect} className="hidden" />
 
-            <FormControlLabel
-              control={
-                <Checkbox
-                  checked={donationIsAnonymous}
-                  onChange={(e) => setDonationIsAnonymous(e.target.checked)}
-                />
-              }
-              label="Make this donation anonymous"
-              sx={{ mr: 2 }}
-            />
+              <div className="mb-2 flex flex-wrap gap-2 text-xs">
+                <button type="button" onClick={() => fileInputRef.current?.click()} className="flex items-center gap-1 rounded-lg border border-slate-200 px-3 py-1.5 text-slate-600 hover:bg-slate-50 dark:border-slate-700"><FaImage /> Photo</button>
+                <input value={postLocation} onChange={(e) => setPostLocation(e.target.value.slice(0, 100))} placeholder="Location" className="rounded-lg border border-slate-200 px-3 py-1.5 dark:border-slate-700 dark:bg-slate-800" />
+              </div>
+              <input value={postTags} onChange={(e) => setPostTags(e.target.value.slice(0, 200))} placeholder="Tags (comma-separated)" className="mb-3 w-full rounded-lg border border-slate-200 px-3 py-1.5 text-xs dark:border-slate-700 dark:bg-slate-800" />
 
-            <FormControlLabel
-              control={
-                <Checkbox
-                  checked={donationIsRecurring}
-                  onChange={(e) => setDonationIsRecurring(e.target.checked)}
-                />
-              }
-              label="Make this a recurring donation"
-            />
-          </Box>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setDonationDialogOpen(false)}>Cancel</Button>
-          <Button
-            onClick={handleDonationSubmit}
-            variant="contained"
-            disabled={donationProcessing || !donationAmount}
-            startIcon={donationProcessing ? <CircularProgress size={20} /> : <DonationIcon />}
-          >
-            {donationProcessing ? 'Processing...' : 'Complete Donation'}
-          </Button>
-        </DialogActions>
-      </Dialog>
+              <div className="flex justify-end gap-2">
+                <button onClick={() => setShowCreatePost(false)} className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 dark:border-slate-700">Cancel</button>
+                <button onClick={handleCreatePost} disabled={isPosting || (!postContent.trim() && selectedMedia.length === 0)} className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-50">
+                  {isPosting ? 'Posting…' : 'Post'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
-      {/* Share Post Dialog */}
-      <Dialog
-        open={shareDialogOpen}
-        onClose={() => setShareDialogOpen(false)}
-        maxWidth="sm"
-        fullWidth
-      >
-        <DialogTitle>Share Post</DialogTitle>
-        <DialogContent>
-          <TextField
-            fullWidth
-            multiline
-            rows={3}
-            placeholder="Add a message (optional)..."
-            value={shareMessage}
-            onChange={(e) => setShareMessage(e.target.value)}
-            sx={{ mt: 2 }}
-          />
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setShareDialogOpen(false)}>Cancel</Button>
-          <Button onClick={handleShareSubmit} variant="contained">
-            Share
-          </Button>
-        </DialogActions>
-      </Dialog>
+        {/* ===== Donation Modal ===== */}
+        {showDonation && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" role="dialog" aria-modal="true">
+            <div className="w-full max-w-sm rounded-xl bg-white p-5 shadow-xl dark:bg-slate-900">
+              <div className="mb-3 flex items-center justify-between">
+                <h3 className="flex items-center gap-2 text-base font-semibold text-slate-900 dark:text-slate-100"><FaDonate className="text-brand-600" /> Make a donation</h3>
+                <button onClick={() => setShowDonation(false)} className="text-slate-400 hover:text-red-500" aria-label="Close"><FaTimes /></button>
+              </div>
+              <label className="text-xs font-medium text-slate-600 dark:text-slate-300">Amount (USD)</label>
+              <input
+                type="number" min="1" max="50000" step="1"
+                value={donationAmount}
+                onChange={(e) => setDonationAmount(e.target.value)}
+                className="mt-1 mb-2 w-full rounded-lg border border-slate-200 p-2 text-sm dark:border-slate-700 dark:bg-slate-800"
+              />
+              <label className="text-xs font-medium text-slate-600 dark:text-slate-300">Campaign</label>
+              <select value={donationCampaign} onChange={(e) => setDonationCampaign(e.target.value)} className="mt-1 mb-2 w-full rounded-lg border border-slate-200 p-2 text-sm dark:border-slate-700 dark:bg-slate-800">
+                <option value="general">🎓 General scholarship fund</option>
+                <option value="mentorship">🤝 Mentorship program</option>
+                <option value="infrastructure">🏗️ Infrastructure</option>
+                <option value="innovation">💡 Innovation lab</option>
+              </select>
+              <label className="text-xs font-medium text-slate-600 dark:text-slate-300">Message (optional)</label>
+              <textarea value={donationMessage} onChange={(e) => setDonationMessage(e.target.value.slice(0, 500))} rows={3} className="mt-1 mb-2 w-full rounded-lg border border-slate-200 p-2 text-sm dark:border-slate-700 dark:bg-slate-800" />
+              <label className="mb-1 flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300">
+                <input type="checkbox" checked={donationAnonymous} onChange={(e) => setDonationAnonymous(e.target.checked)} /> Anonymous
+              </label>
+              <label className="mb-3 flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300">
+                <input type="checkbox" checked={donationRecurring} onChange={(e) => setDonationRecurring(e.target.checked)} /> Recurring monthly
+              </label>
+              <div className="flex justify-end gap-2">
+                <button onClick={() => setShowDonation(false)} className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 dark:border-slate-700">Cancel</button>
+                <button onClick={handleDonationSubmit} disabled={donationProcessing || !donationAmount} className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-50">
+                  {donationProcessing ? 'Processing…' : 'Donate'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
-      {/* Report Post Dialog */}
-      <Dialog
-        open={reportDialogOpen}
-        onClose={() => setReportDialogOpen(false)}
-        maxWidth="sm"
-        fullWidth
-      >
-        <DialogTitle>Report Post</DialogTitle>
-        <DialogContent>
-          <Typography variant="body2" color="textSecondary" sx={{ mb: 2 }}>
-            Please select a reason for reporting this post:
-          </Typography>
-          <RadioGroup value={reportReason} onChange={(e) => setReportReason(e.target.value)}>
-            <FormControlLabel value="spam" control={<Radio />} label="Spam or misleading" />
-            <FormControlLabel
-              value="harassment"
-              control={<Radio />}
-              label="Harassment or bullying"
-            />
-            <FormControlLabel value="hate" control={<Radio />} label="Hate speech" />
-            <FormControlLabel
-              value="inappropriate"
-              control={<Radio />}
-              label="Inappropriate content"
-            />
-            <FormControlLabel value="other" control={<Radio />} label="Other" />
-          </RadioGroup>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setReportDialogOpen(false)}>Cancel</Button>
-          <Button onClick={handleReportSubmit} variant="contained" color="error">
-            Submit Report
-          </Button>
-        </DialogActions>
-      </Dialog>
+        {/* ===== Share Modal ===== */}
+        {showShare && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" role="dialog" aria-modal="true">
+            <div className="w-full max-w-sm rounded-xl bg-white p-5 shadow-xl dark:bg-slate-900">
+              <h3 className="mb-3 text-base font-semibold">Share post</h3>
+              <textarea value={shareMessage} onChange={(e) => setShareMessage(e.target.value.slice(0, 500))} rows={3} placeholder="Add a message (optional)…" className="mb-3 w-full rounded-lg border border-slate-200 p-2 text-sm dark:border-slate-700 dark:bg-slate-800" />
+              <div className="flex justify-end gap-2">
+                <button onClick={() => setShowShare(false)} className="rounded-lg border px-4 py-2 text-sm">Cancel</button>
+                <button onClick={handleShareSubmit} className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white">Share</button>
+              </div>
+            </div>
+          </div>
+        )}
 
-      {/* Connection Request Dialog */}
-      <Dialog open={connectionDialogOpen} onClose={() => setConnectionDialogOpen(false)}>
-        <DialogTitle>Send Connection Request</DialogTitle>
-        <DialogContent>
-          <Typography>Would you like to connect with {selectedSuggestion?.name}?</Typography>
-          <Typography variant="body2" color="textSecondary" sx={{ mt: 1 }}>
-            They work as {selectedSuggestion?.position} at {selectedSuggestion?.company}
-          </Typography>
-          <Typography variant="body2" color="textSecondary" sx={{ mt: 1 }}>
-            You have {selectedSuggestion?.mutualConnections || 0} mutual connections.
-          </Typography>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setConnectionDialogOpen(false)}>Cancel</Button>
-          <Button
-            onClick={handleConnectRequest}
-            variant="contained"
-            disabled={connectionProcessing}
-          >
-            {connectionProcessing ? 'Sending...' : 'Send Request'}
-          </Button>
-        </DialogActions>
-      </Dialog>
+        {/* ===== Report Modal ===== */}
+        {showReport && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" role="dialog" aria-modal="true">
+            <div className="w-full max-w-sm rounded-xl bg-white p-5 shadow-xl dark:bg-slate-900">
+              <h3 className="mb-2 flex items-center gap-2 text-base font-semibold"><FaExclamationTriangle className="text-red-500" /> Report post</h3>
+              <p className="mb-3 text-xs text-slate-500">Select a reason. Reports are confidential.</p>
+              {['spam', 'harassment', 'hate', 'inappropriate', 'other'].map((r) => (
+                <label key={r} className="mb-1 flex items-center gap-2 text-xs capitalize">
+                  <input type="radio" name="report" value={r} checked={reportReason === r} onChange={(e) => setReportReason(e.target.value)} /> {r}
+                </label>
+              ))}
+              <div className="mt-4 flex justify-end gap-2">
+                <button onClick={() => setShowReport(false)} className="rounded-lg border px-4 py-2 text-sm">Cancel</button>
+                <button onClick={handleReportSubmit} className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white">Submit</button>
+              </div>
+            </div>
+          </div>
+        )}
 
-      {/* Speed Dial for Mobile */}
-      {isMobile && (
-        <SpeedDial
-          ariaLabel="SpeedDial"
-          sx={{ position: 'fixed', bottom: 16, right: 16 }}
-          icon={<SpeedDialIcon />}
-          onClose={() => setSpeedDialOpen(false)}
-          onOpen={() => setSpeedDialOpen(true)}
-          open={speedDialOpen}
-        >
-          {speedDialActions.map((action) => (
-            <SpeedDialAction
-              key={action.name}
-              icon={action.icon}
-              tooltipTitle={action.name}
-              onClick={() => {
-                action.onClick();
-                setSpeedDialOpen(false);
-              }}
-            />
-          ))}
-        </SpeedDial>
-      )}
-
-      {/* Snackbar */}
-      <Snackbar
-        open={snackbar.open}
-        autoHideDuration={6000}
-        onClose={() => setSnackbar({ ...snackbar, open: false })}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-      >
-        <Alert
-          severity={snackbar.severity}
-          onClose={() => setSnackbar({ ...snackbar, open: false })}
-          variant="filled"
-        >
-          {snackbar.message}
-        </Alert>
-      </Snackbar>
-    </PageContainer>
+        {/* ===== School Link Modal ===== */}
+        {showSchoolLink && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" role="dialog" aria-modal="true">
+            <div className="w-full max-w-sm rounded-xl bg-white p-5 shadow-xl dark:bg-slate-900">
+              <h3 className="mb-2 text-base font-semibold">Link a school</h3>
+              <p className="mb-3 text-xs text-slate-500">We'll verify your enrollment with the institution. Only verified links are shown publicly.</p>
+              <input value={schoolName} onChange={(e) => setSchoolName(e.target.value.slice(0, 200))} placeholder="School name (e.g. National University of Lesotho)" className="mb-2 w-full rounded-lg border border-slate-200 p-2 text-sm dark:border-slate-700 dark:bg-slate-800" />
+              <input value={schoolYear} onChange={(e) => setSchoolYear(e.target.value.replace(/\D/g, '').slice(0, 4))} placeholder="Graduation year (optional)" className="mb-2 w-full rounded-lg border border-slate-200 p-2 text-sm dark:border-slate-700 dark:bg-slate-800" />
+              <select value={schoolRelationship} onChange={(e) => setSchoolRelationship(e.target.value)} className="mb-3 w-full rounded-lg border border-slate-200 p-2 text-sm dark:border-slate-700 dark:bg-slate-800">
+                <option value="alumni">Alumni</option>
+                <option value="staff">Staff</option>
+                <option value="student">Student</option>
+                <option value="parent">Parent</option>
+              </select>
+              <div className="flex justify-end gap-2">
+                <button onClick={() => setShowSchoolLink(false)} className="rounded-lg border px-4 py-2 text-sm">Cancel</button>
+                <button onClick={handleRequestSchoolLink} disabled={schoolLinking} className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">
+                  {schoolLinking ? 'Submitting…' : 'Request verification'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </main>
   );
 };
 

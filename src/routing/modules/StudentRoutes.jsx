@@ -1,14 +1,16 @@
-import { Route } from 'react-router-dom';
+import { Navigate, Route } from 'react-router-dom';
 
 import ProtectedRoute from '../../components/layout/ProtectedRoute';
+import Settings from '../../pages/Settings';
 
 // Import all student components
 import StudentDashboard from '../../pages/student/StudentDashboard';
 import StudentApplications from '../../pages/student/StudentApplications';
-import StudentDocuments from '../../pages/student/Documents';
+import StudentDocuments from '../../pages/student/StudentDocuments';
 import StudentProfile from '../../pages/student/StudentProfile';
+import StudentSettings from '../../pages/student/StudentSettings';
 import ApplyJob from '../../pages/student/ApplyJob';
-import Jobs from '../../pages/student/Jobs';
+import Jobs from '../../pages/student/StudentJobs';
 import StudentNotifications from '../../pages/student/Notifications';
 import ViewApplication from '../../pages/student/ViewApplication';
 import JobMatches from '../../pages/student/JobMatches';
@@ -19,12 +21,10 @@ import Recommendations from '../../pages/student/Recommendations';
 import PerformanceMetrics from '../../pages/student/PerformanceMetrics';
 import QuickActions from '../../pages/student/QuickActions';
 import Calendar from '../../pages/student/Calendar';
-import Mentorship from '../../pages/student/Mentorship';
-import DocumentsUpload from '../../pages/student/DocumentsUpload';
-import SearchJobs from '../../pages/student/SearchJobs';
+import Mentorship from '../../pages/student/StudentMentorship';
 import SearchInternships from '../../pages/student/SearchInternships';
-import SettingsPage from '../../pages/Settings';
-import StudentCourses from '../../pages/student/StudentCourses';
+import StudentCourses from '../../pages/student/StudentCoursesLive';
+import FriendsNetwork from '../../pages/FriendsNetwork';
 
 /**
  * Student Routes Module
@@ -32,6 +32,16 @@ import StudentCourses from '../../pages/student/StudentCourses';
  */
 export const getStudentRoutes = () => {
   return [
+    <Route
+      key="student-root"
+      path="/student"
+      element={
+        <ProtectedRoute allowedUserTypes={['student']}>
+          <Navigate to="/student/dashboard" replace />
+        </ProtectedRoute>
+      }
+    />,
+
     // Student Dashboard - Main Entry Point
     <Route
       key="student-dashboard"
@@ -58,8 +68,8 @@ export const getStudentRoutes = () => {
       key="student-settings"
       path="/settings"
       element={
-        <ProtectedRoute allowedUserTypes={['student', 'company', 'admin']}>
-          <SettingsPage />
+        <ProtectedRoute allowedUserTypes={['student', 'company', 'admin', 'mentor', 'parent', 'alumni', 'entrepreneur', 'youth', 'institute']}>
+          <Settings />
         </ProtectedRoute>
       }
     />,
@@ -116,26 +126,13 @@ export const getStudentRoutes = () => {
         </ProtectedRoute>
       }
     />,
-
-    <Route
-      key="student-documents-upload"
-      path="/student/documents/upload"
-      element={
-        <ProtectedRoute allowedUserTypes={['student']}>
-          <DocumentsUpload />
-        </ProtectedRoute>
-      }
-    />,
+    <Route key="student-document-alias" path="/student/document" element={<Navigate to="/student/documents" replace />} />,
 
     // Student Search Routes
     <Route
       key="student-search-jobs"
       path="/student/search/jobs"
-      element={
-        <ProtectedRoute allowedUserTypes={['student']}>
-          <SearchJobs />
-        </ProtectedRoute>
-      }
+      element={<Navigate to="/student/jobs" replace />}
     />,
 
     <Route
@@ -187,6 +184,12 @@ export const getStudentRoutes = () => {
           <StudentNotifications />
         </ProtectedRoute>
       }
+    />,
+
+    <Route
+      key="student-friends"
+      path="/student/friends"
+      element={<ProtectedRoute allowedUserTypes={['student']}><FriendsNetwork /></ProtectedRoute>}
     />,
 
     <Route

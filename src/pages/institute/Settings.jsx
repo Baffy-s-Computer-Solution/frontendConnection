@@ -14,22 +14,22 @@ import {
   Tab,
   Nav,
   InputGroup,
-} from 'react-bootstrap';
+} from '../../components/ui/tailwindCompat';
 import {
-  Gear,
-  Building,
-  Person,
+  Settings,
+  Building2,
+  UserRound,
   Shield,
   Bell,
-  Key,
+  KeyRound,
   Globe,
   Save,
   Upload,
   Phone,
-  Envelope,
+  Mail,
   Map,
-  InfoCircle,
-} from 'react-bootstrap-icons';
+  Info,
+} from 'lucide-react';
 
 import { useAuth } from '../../context/AuthContext';
 import { institutionService } from '../../services/institutionServices';
@@ -502,3 +502,5 @@ const InstituteSettings = () => {
 };
 
 export default InstituteSettings;
+
+

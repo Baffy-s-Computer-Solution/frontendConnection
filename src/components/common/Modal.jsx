@@ -1,242 +1,50 @@
-/* eslint-disable no-undef */
-import React, { useEffect } from 'react';
-import {
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  IconButton,
-  Typography,
-  Box,
-  Slide,
-  useMediaQuery,
-  useTheme,
-} from '@mui/material';
-import { styled } from '@mui/material/styles';
-import {
-  Close as CloseIcon,
-  Fullscreen as FullscreenIcon,
-  FullscreenExit as FullscreenExitIcon,
-} from '@mui/icons-material';
+import { useEffect, useState } from 'react';
+import { Maximize2, Minimize2, X } from 'lucide-react';
+import Button from '../ui/Button';
 
-import Button from './Button';
+const widths = { sm: 'max-w-md', md: 'max-w-2xl', lg: 'max-w-4xl', xl: 'max-w-6xl' };
 
-const Transition = React.forwardRef(function Transition(props, ref) {
-  return <Slide direction="up" ref={ref} {...props} />;
-});
+export default function Modal({ open, onClose, title, children, actions, fullScreen = false, showCloseIcon = true, closeOnBackdropClick = true, closeOnEscape = true, dividers = false, size = 'md', fullWidth = true, ...props }) {
+  const [isFullScreen, setIsFullScreen] = useState(fullScreen);
 
-const StyledDialog = styled(Dialog)(({ theme, fullscreen }) => ({
-  '& .MuiDialog-paper': {
-    borderRadius: theme.spacing(2),
-    minWidth: fullscreen ? '100%' : 400,
-    maxWidth: fullscreen ? '100%' : 800,
-    height: fullscreen ? '100%' : 'auto',
-    margin: fullscreen ? 0 : theme.spacing(2),
-    [theme.breakpoints.down('sm')]: {
-      minWidth: '90%',
-      margin: theme.spacing(1),
-    },
-  },
-}));
-
-const StyledDialogTitle = styled(DialogTitle)(({ theme }) => ({
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'space-between',
-  padding: theme.spacing(2, 3),
-  borderBottom: `1px solid ${theme.palette.divider}`,
-}));
-
-const StyledDialogContent = styled(DialogContent)(({ theme }) => ({
-  padding: theme.spacing(3),
-  '&:first-of-type': {
-    paddingTop: theme.spacing(3),
-  },
-}));
-
-const StyledDialogActions = styled(DialogActions)(({ theme }) => ({
-  padding: theme.spacing(2, 3),
-  borderTop: `1px solid ${theme.palette.divider}`,
-  gap: theme.spacing(1),
-}));
-
-const Modal = ({
-  open,
-  onClose,
-  title,
-  children,
-  actions,
-  maxWidth = 'md',
-  fullWidth = true,
-  fullScreen = false,
-  showCloseIcon = true,
-  closeOnBackdropClick = true,
-  closeOnEscape = true,
-  disablePortal = false,
-  keepMounted = false,
-  scroll = 'paper',
-  dividers = false,
-  transitionDuration = 300,
-  size, // 'sm', 'md', 'lg', 'xl'
-  ...props
-}) => {
-  const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
-  const [isFullScreen, setIsFullScreen] = React.useState(fullScreen || isMobile);
-
-  const handleClose = (event, reason) => {
-    if (reason === 'backdropClick' && !closeOnBackdropClick) return;
-    if (reason === 'escapeKeyDown' && !closeOnEscape) return;
-    onClose?.(event, reason);
-  };
-
-  const toggleFullScreen = () => {
-    setIsFullScreen(!isFullScreen);
-  };
-
-  // Handle ESC key
   useEffect(() => {
-    const handleEsc = (event) => {
-      if (event.key === 'Escape' && closeOnEscape && open) {
-        onClose?.(event, 'escapeKeyDown');
-      }
-    };
+    setIsFullScreen(fullScreen);
+  }, [fullScreen]);
 
-    window.addEventListener('keydown', handleEsc);
-    return () => window.removeEventListener('keydown', handleEsc);
+  useEffect(() => {
+    if (!open || !closeOnEscape) return undefined;
+    const handleKeyDown = (event) => event.key === 'Escape' && onClose?.(event, 'escapeKeyDown');
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
   }, [closeOnEscape, onClose, open]);
 
-  const getMaxWidth = () => {
-    if (size) {
-      const sizeMap = {
-        sm: 400,
-        md: 600,
-        lg: 900,
-        xl: 1200,
-      };
-      return sizeMap[size] || 600;
-    }
-    return maxWidth;
-  };
+  useEffect(() => {
+    if (!open) return undefined;
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = previous; };
+  }, [open]);
+
+  if (!open) return null;
 
   return (
-    <StyledDialog
-      open={open}
-      onClose={handleClose}
-      TransitionComponent={Transition}
-      transitionDuration={transitionDuration}
-      fullScreen={isFullScreen}
-      fullWidth={fullWidth}
-      maxWidth={isFullScreen ? false : getMaxWidth()}
-      disablePortal={disablePortal}
-      keepMounted={keepMounted}
-      scroll={scroll}
-      aria-labelledby="modal-title"
-      aria-describedby="modal-description"
-      {...props}
-    >
-      <StyledDialogTitle id="modal-title">
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          {typeof title === 'string' ? (
-            <Typography variant="h6" component="span" fontWeight="600">
-              {title}
-            </Typography>
-          ) : (
-            title
-          )}
-        </Box>
-
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          {!fullScreen && !isMobile && (
-            <IconButton
-              size="small"
-              onClick={toggleFullScreen}
-              aria-label={isFullScreen ? 'Exit full screen' : 'Enter full screen'}
-            >
-              {isFullScreen ? <FullscreenExitIcon /> : <FullscreenIcon />}
-            </IconButton>
-          )}
-
-          {showCloseIcon && (
-            <IconButton
-              size="small"
-              onClick={(e) => onClose?.(e, 'closeButtonClick')}
-              aria-label="Close modal"
-            >
-              <CloseIcon />
-            </IconButton>
-          )}
-        </Box>
-      </StyledDialogTitle>
-
-      <StyledDialogContent id="modal-description" dividers={dividers}>
-        {children}
-      </StyledDialogContent>
-
-      {actions && (
-        <StyledDialogActions>
-          {actions.map((action, index) => (
-            <Button
-              key={index}
-              variant={action.variant || 'text'}
-              color={action.color || 'primary'}
-              onClick={action.onClick}
-              loading={action.loading}
-              disabled={action.disabled}
-              startIcon={action.startIcon}
-              endIcon={action.endIcon}
-              size={action.size || 'medium'}
-              fullWidth={action.fullWidth}
-            >
-              {action.label}
-            </Button>
-          ))}
-        </StyledDialogActions>
-      )}
-    </StyledDialog>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="modal-title" {...props}>
+      <button type="button" className="absolute inset-0 bg-slate-950/50 backdrop-blur-sm" aria-label="Close modal" onClick={(event) => closeOnBackdropClick && onClose?.(event, 'backdropClick')} />
+      <div className={`relative z-10 flex w-full flex-col overflow-hidden bg-white shadow-pop dark:bg-slate-900 ${isFullScreen ? 'h-full max-w-none rounded-none' : `max-h-[90vh] rounded-2xl ${fullWidth ? widths[size] || widths.md : 'max-w-fit'}`}`}>
+        <header className="flex items-center justify-between gap-4 border-b px-5 py-4 sm:px-6">
+          <h2 id="modal-title" className="text-lg font-semibold text-slate-900 dark:text-slate-100">{title}</h2>
+          <div className="flex items-center gap-1">
+            {!fullScreen && <button type="button" onClick={() => setIsFullScreen((value) => !value)} className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-900 dark:hover:bg-slate-800 dark:hover:text-slate-100" aria-label={isFullScreen ? 'Exit fullscreen' : 'Enter fullscreen'}>{isFullScreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}</button>}
+            {showCloseIcon && <button type="button" onClick={(event) => onClose?.(event, 'closeButtonClick')} className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-900 dark:hover:bg-slate-800 dark:hover:text-slate-100" aria-label="Close modal"><X className="h-4 w-4" /></button>}
+          </div>
+        </header>
+        <div className={`min-h-0 flex-1 overflow-y-auto px-5 py-5 sm:px-6 ${dividers ? 'border-b' : ''}`}>{children}</div>
+        {actions && <footer className="flex flex-wrap justify-end gap-2 border-t px-5 py-4 sm:px-6">{actions.map((action, index) => <Button key={action.label || index} variant={action.variant === 'outlined' || action.variant === 'text' ? 'outline' : action.variant || 'primary'} onClick={action.onClick} loading={action.loading} disabled={action.disabled} startIcon={action.startIcon} endIcon={action.endIcon} size={action.size === 'small' ? 'sm' : action.size === 'large' ? 'lg' : 'md'} fullWidth={action.fullWidth}>{action.label}</Button>)}</footer>}
+      </div>
+    </div>
   );
-};
+}
 
-// Confirmation Modal
-export const ConfirmModal = ({
-  open,
-  onClose,
-  onConfirm,
-  title = 'Confirm Action',
-  message,
-  confirmText = 'Confirm',
-  cancelText = 'Cancel',
-  confirmColor = 'primary',
-  confirmVariant = 'contained',
-  loading = false,
-  ...props
-}) => {
-  return (
-    <Modal
-      open={open}
-      onClose={onClose}
-      title={title}
-      size="sm"
-      actions={[
-        {
-          label: cancelText,
-          variant: 'outlined',
-          onClick: onClose,
-          disabled: loading,
-        },
-        {
-          label: confirmText,
-          variant: confirmVariant,
-          color: confirmColor,
-          onClick: onConfirm,
-          loading: loading,
-        },
-      ]}
-      {...props}
-    >
-      <Typography>{message}</Typography>
-    </Modal>
-  );
-};
-
-export default Modal;
+export function ConfirmModal({ message, confirmText = 'Confirm', cancelText = 'Cancel', onConfirm, onClose, loading = false, ...props }) {
+  return <Modal {...props} onClose={onClose} title={props.title || 'Confirm Action'} actions={[{ label: cancelText, variant: 'outlined', onClick: onClose, disabled: loading }, { label: confirmText, variant: 'primary', onClick: onConfirm, loading }]}><p className="text-sm text-slate-600 dark:text-slate-300">{message}</p></Modal>;
+}

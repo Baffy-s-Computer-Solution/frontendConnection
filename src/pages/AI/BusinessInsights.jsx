@@ -1,5 +1,5 @@
 /* eslint-disable no-unused-vars */
-import { Container, Card, Button, Row, Col, Badge } from 'react-bootstrap';
+import { Container, Card, Button, Row, Col, Badge } from '../../components/ui/tailwindCompat';
 
 const BusinessInsights = () => {
   return (
@@ -66,3 +66,5 @@ const BusinessInsights = () => {
 };
 
 export default BusinessInsights;
+
+

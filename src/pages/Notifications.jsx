@@ -1,7 +1,7 @@
 /* eslint-disable no-unused-vars */
 /* eslint-disable react/no-unescaped-entities */
 import { useState, useEffect } from 'react';
-import { Container, Card, ListGroup, Badge, Button, Form, Spinner, Alert } from 'react-bootstrap';
+import { Container, Card, ListGroup, Badge, Button, Form, Spinner, Alert } from '../components/ui/tailwindCompat';
 import {
   collection,
   query,
@@ -10,12 +10,10 @@ import {
   onSnapshot,
   updateDoc,
   doc,
-  getDocs,
 } from 'firebase/firestore';
 
 import { useAuth } from '../context/AuthContext';
-import { app } from '../config/firebase';
-import './Notifications.css';
+import { db } from '../config/firebase';
 
 const Notifications = () => {
   const { currentUser, userProfile } = useAuth();
@@ -24,67 +22,52 @@ const Notifications = () => {
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    if (!currentUser) return;
+    if (!currentUser) {
+      setNotifications([]);
+      setLoading(false);
+      return undefined;
+    }
+
+    let unsubscribe = null;
 
     const fetchNotifications = async () => {
       try {
         setLoading(true);
+        setError(null);
 
-        // Determine user type and fetch appropriate notifications
-        const userType = userProfile?.userType || 'student';
-        let notificationsQuery;
-
-        if (userType === 'student') {
-          notificationsQuery = query(
-            collection(app, 'notifications'),
-            where('userId', '==', currentUser.uid),
-            orderBy('createdAt', 'desc')
-          );
-        } else if (userType === 'company') {
-          notificationsQuery = query(
-            collection(app, 'notifications'),
-            where('companyId', '==', userProfile?.companyId || currentUser.uid),
-            orderBy('createdAt', 'desc')
-          );
-        } else {
-          // Admin notifications
-          notificationsQuery = query(
-            collection(app, 'notifications'),
-            orderBy('createdAt', 'desc')
-          );
-        }
-
-        const unsubscribe = onSnapshot(
-          notificationsQuery,
-          (snapshot) => {
-            const notifs = snapshot.docs.map((doc) => ({
-              id: doc.id,
-              ...doc.data(),
-            }));
-            setNotifications(notifs);
-            setLoading(false);
-          },
-          (error) => {
-            console.error('Error fetching notifications:', error);
-            setError('Failed to load notifications');
-            setLoading(false);
-          }
-        );
-
-        return unsubscribe;
+        const userType = String(userProfile?.userType || userProfile?.role || '').toLowerCase();
+        const collectionRef = collection(db, 'notifications');
+        const ownerField = userType === 'company' ? 'companyId' : 'userId';
+        const ownerId = userType === 'company' ? (userProfile?.companyId || currentUser.uid) : currentUser.uid;
+        const queryToUse = query(collectionRef, where(ownerField, '==', ownerId), orderBy('createdAt', 'desc'));
+        unsubscribe = onSnapshot(queryToUse, (snapshot) => {
+          setNotifications(snapshot.docs.map((item) => ({ id: item.id, ...item.data() })));
+          setLoading(false);
+          setError(null);
+        }, (firestoreError) => {
+          console.warn('Unable to subscribe to owned notifications:', firestoreError);
+          setNotifications([]);
+          setError('Notifications are temporarily unavailable.');
+          setLoading(false);
+        });
       } catch (error) {
         console.error('Error setting up notifications:', error);
         setError('Failed to load notifications');
+        setNotifications([]);
         setLoading(false);
       }
     };
 
     fetchNotifications();
+
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
   }, [currentUser, userProfile]);
 
   const markAsRead = async (notificationId) => {
     try {
-      await updateDoc(doc(app, 'notifications', notificationId), {
+      await updateDoc(doc(db, 'notifications', notificationId), {
         read: true,
         readAt: new Date(),
       });
@@ -97,7 +80,7 @@ const Notifications = () => {
     try {
       const unreadNotifications = notifications.filter((n) => !n.read);
       const batchPromises = unreadNotifications.map((notification) =>
-        updateDoc(doc('notifications', notification.id), {
+        updateDoc(doc(db, 'notifications', notification.id), {
           read: true,
           readAt: new Date(),
         })
@@ -113,7 +96,7 @@ const Notifications = () => {
     try {
       // In a real app, you'd have a delete function
       // For now, we'll mark as archived
-      await updateDoc(doc('notifications', notificationId), {
+      await updateDoc(doc(db, 'notifications', notificationId), {
         archived: true,
       });
     } catch (error) {
@@ -237,3 +220,5 @@ const getNotificationIcon = (type) => {
 };
 
 export default Notifications;
+
+

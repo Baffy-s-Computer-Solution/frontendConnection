@@ -19,46 +19,8 @@ import {
   InputGroup,
   Tab,
   Tabs,
-} from 'react-bootstrap';
-import {
-  FaCommentDots,
-  FaPaperPlane,
-  FaSearch,
-  FaFilter,
-  FaUser,
-  FaBuilding,
-  FaEnvelope,
-  FaPhone,
-  FaCalendarAlt,
-  FaFileAlt,
-  FaVideo,
-  FaPaperclip,
-  FaTimes,
-  FaCheck,
-  FaClock,
-  FaRegStar,
-  FaStar,
-  FaTrash,
-  FaReply,
-  FaForward,
-  FaArchive,
-  FaBell,
-  FaRegBell,
-  FaUsers,
-  FaUserPlus,
-  FaCog,
-  FaRegSmile,
-  FaImage,
-  FaFile,
-  FaMicrophone,
-  FaEllipsisV,
-  FaExternalLinkAlt,
-  FaWhatsapp,
-  FaLinkedin,
-  FaTwitter,
-  FaRegCopy,
-  FaRegEnvelope,
-} from 'react-icons/fa';
+} from '../../components/ui/tailwindOnly';
+import { FaCommentDots, FaPaperPlane, FaSearch, FaFilter, FaUser, FaBuilding, FaEnvelope, FaPhone, FaCalendarAlt, FaFileAlt, FaVideo, FaPaperclip, FaTimes, FaCheck, FaClock, FaRegStar, FaStar, FaTrash, FaReply, FaForward, FaArchive, FaBell, FaRegBell, FaUsers, FaUserPlus, FaCog, FaRegSmile, FaImage, FaFile, FaMicrophone, FaEllipsisV, FaExternalLinkAlt, FaWhatsapp, FaLinkedin, FaTwitter, FaRegCopy, FaRegEnvelope } from "react-icons/fa";
 
 import { companyFirebaseService } from '../../services/companyServices';
 
@@ -910,3 +872,5 @@ const Communication = () => {
 };
 
 export default Communication;
+
+

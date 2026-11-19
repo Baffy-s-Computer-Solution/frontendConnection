@@ -1,4 +1,4 @@
-import { Container } from 'react-bootstrap';
+import { Container } from '../../components/ui/tailwindCompat';
 
 import SocialDashboardSection from '../../components/social/SocialDashboardSection';
 
@@ -21,3 +21,5 @@ export const Dashboard = () => (
 );
 
 export default Dashboard;
+
+

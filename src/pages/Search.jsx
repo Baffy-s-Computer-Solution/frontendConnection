@@ -21,48 +21,13 @@ import {
   DropdownButton,
   ProgressBar,
   ListGroup,
-} from 'react-bootstrap';
+} from '../components/ui/tailwindCompat';
 import { Link, useNavigate } from 'react-router-dom';
-import {
-  FaSearch,
-  FaBriefcase,
-  FaGraduationCap,
-  FaMoneyBillWave,
-  FaLightbulb,
-  FaUsers,
-  FaRocket,
-  FaBook,
-  FaFilter,
-  FaCalendar,
-  FaMapMarkerAlt,
-  FaClock,
-  FaStar,
-  FaEye,
-  FaHeart,
-  FaShareAlt,
-  FaBuilding,
-  FaUserTie,
-  FaBookOpen,
-  FaChartLine,
-  FaHandshake,
-  FaShieldAlt,
-  FaRegSave,
-  FaExternalLinkAlt,
-  FaSort,
-  FaTimes,
-  FaArrowRight,
-  FaDownload,
-  FaEnvelope,
-  FaPhone,
-  FaGlobe,
-  FaCog,
-  FaBell,
-} from 'react-icons/fa';
+import { FaSearch, FaBriefcase, FaGraduationCap, FaMoneyBillWave, FaLightbulb, FaUsers, FaRocket, FaBook, FaFilter, FaCalendar, FaMapMarkerAlt, FaClock, FaStar, FaEye, FaHeart, FaShareAlt, FaBuilding, FaUserTie, FaBookOpen, FaChartLine, FaHandshake, FaShieldAlt, FaRegSave, FaExternalLinkAlt, FaSort, FaTimes, FaArrowRight, FaDownload, FaEnvelope, FaPhone, FaGlobe, FaCog, FaBell } from "react-icons/fa";
 import { toast } from 'react-toastify';
 
 import { useAuth } from '../context/AuthContext';
 
-import './Search.css';
 
 const Search = () => {
   const { currentUser, userProfile } = useAuth();
@@ -1399,3 +1364,5 @@ const Search = () => {
 };
 
 export default Search;
+
+

@@ -1,6 +1,5 @@
 // utils/alertUtils.js
 import { ToastContainer, toast } from 'react-toastify';
-import 'react-toastify/dist/ReactToastify.css';
 
 export const showAlert = (message, type = 'success') => {
   const options = {

@@ -1,263 +1,919 @@
-﻿import React from 'react';
-import './Home.css';
+import { useEffect, useMemo, useState } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import {
+  ArrowRight,
+  ArrowUp,
+  BadgeCheck,
+  BarChart3,
+  BriefcaseBusiness,
+  Building2,
+  ChevronRight,
+  ExternalLink,
+  GraduationCap,
+  Handshake,
+  Landmark,
+  LogIn,
+  Menu,
+  MessageSquareText,
+  Network,
+  Rocket,
+  ShieldCheck,
+  Sparkles,
+  Star,
+  UsersRound,
+  UserRoundPlus,
+  X,
+} from 'lucide-react';
+import { collection, db } from '../config/firebase';
+import { onSnapshot } from 'firebase/firestore';
+import { supabase } from '../config/supabase';
+import { useAuth } from '../context/AuthContext';
+import { getUserDashboardPath } from '../utils/dashboardConstants';
 
-const stats = [
-  { value: '5,400+', label: 'Youth engaged' },
-  { value: '1,200+', label: 'Employer partners' },
-  { value: '95%', label: 'Success rate' },
-  { value: '18,000+', label: 'Skills validated' },
+const NAV_LINKS = [
+  { label: 'Platform', href: '#platform' },
+  { label: 'Pathways', href: '#pathways' },
+  { label: 'Stories', href: '#stories' },
+  { label: 'Impact', href: '#impact' },
+  { label: 'FAQ', href: '#faq' },
+  { label: 'Contact', href: '/contact' },
 ];
 
-const features = [
+export const getLegacyPublicPath = (hash) => (hash === '#contact' ? '/contact' : null);
+
+const CONTACT = {
+  email: 'khoalibafokeng@gmail.com',
+  phone: '+266 632 10786',
+  phoneLink: '+26663210786',
+  whatsapp:
+    'https://wa.me/26663210786?text=Hello%2C%20I%20would%20like%20to%20know%20more%20about%20Career%20Connect%20Lesotho.',
+  developerSite: 'https://baffy.vercel.app/',
+};
+
+const AUDIENCES = [
   {
-    icon: '📈',
-    title: 'Career matching intelligence',
-    description: 'Advanced guidance and opportunity matching for students, powered by real skills and employer demand.',
+    role: 'student',
+    title: 'Students',
+    description:
+      'Build your profile, explore learning and career paths, and apply for jobs and internships.',
+    icon: GraduationCap,
+    bullets: ['Career and job discovery', 'Profile and skills', 'Application tracking'],
   },
   {
-    icon: '🤝',
-    title: 'Mentorship & employer network',
-    description: 'Connect with local mentors, companies, and training programs designed for Lesotho youth success.',
+    role: 'youth',
+    title: 'Youth',
+    description:
+      'Find guidance, learning resources, and opportunities to build your future.',
+    icon: UsersRound,
+    bullets: ['Skills and career development', 'Mentorship', 'Opportunities and resources'],
   },
   {
-    icon: '🧭',
-    title: 'Guided pathways',
-    description: 'Clear learning pathways, interview preparation, and job-readiness tools that move students forward.',
+    role: 'company',
+    title: 'Companies & employers',
+    description:
+      'Connect with candidates, publish roles, and manage applications in one workspace.',
+    icon: Building2,
+    bullets: ['Job posting', 'Candidate discovery', 'Application management'],
   },
   {
-    icon: '🔒',
-    title: 'Secure student profiles',
-    description: 'Privacy-first account controls, verified credentials, and carefully managed career data access.',
+    role: 'mentor',
+    title: 'Mentors',
+    description:
+      'Share your experience and support learners as they work toward their goals.',
+    icon: Handshake,
+    bullets: ['Mentorship requests', 'Sessions and guidance', 'Mentee progress'],
+  },
+  {
+    role: 'institute',
+    title: 'Educational institutions',
+    description:
+      'Connect students with learning, career readiness, and employment pathways.',
+    icon: GraduationCap,
+    bullets: ['Courses and student connections', 'Readiness support', 'Progress insights'],
+  },
+  {
+    role: 'government',
+    title: 'Government & agencies',
+    description:
+      'Use employment and program insights to support youth opportunity initiatives.',
+    icon: Landmark,
+    bullets: ['Employment insights', 'Program monitoring', 'Regional perspectives'],
+  },
+  {
+    role: 'parent',
+    title: 'Parents & guardians',
+    description:
+      'Stay informed and encourage the student in your care as they explore next steps.',
+    icon: UsersRound,
+    bullets: ['Student progress', 'Career guidance', 'Supportive communication'],
+  },
+  {
+    role: 'alumni',
+    title: 'Alumni',
+    description:
+      'Stay connected to the community and share experience with the next generation.',
+    icon: GraduationCap,
+    bullets: ['Professional connections', 'Mentorship opportunities', 'Community events'],
+  },
+  {
+    role: 'entrepreneur',
+    title: 'Entrepreneurs',
+    description:
+      'Find business resources, mentorship, and support as you build your venture.',
+    icon: Rocket,
+    bullets: ['Business development', 'Funding opportunities', 'Mentor connections'],
   },
 ];
 
-const workflowSteps = [
+const PLATFORM_HIGHLIGHTS = [
   {
-    title: 'Discover meaningful roles',
-    description: 'Students explore jobs and internships curated for their interests, skills, and local economy.',
+    icon: UserRoundPlus,
+    title: 'Profiles for your goals',
+    text: 'Keep your career information, skills, interests, and next steps in one place.',
   },
   {
-    title: 'Build personal readiness',
-    description: 'Structured learning pathways and coaching tools drive confidence for interviews and professional growth.',
+    icon: BriefcaseBusiness,
+    title: 'Opportunity discovery',
+    text: 'Explore published jobs and other opportunities as you plan your next move.',
   },
   {
-    title: 'Connect with employers',
-    description: 'Local companies can review profiles, provide feedback, and invite candidates to relevant opportunities.',
+    icon: ShieldCheck,
+    title: 'Role-based access',
+    text: 'Use a workspace designed for your role, with review for account types that require it.',
   },
   {
-    title: 'Measure success at scale',
-    description: 'Institutions track engagement, placement progress, and outcomes through clear analytics dashboards.',
-  },
-];
-
-const testimonials = [
-  {
-    quote: 'Career Connect Lesotho streamlined our student placement process and helped learners find work faster.',
-    author: 'Mpho',
-    role: 'Program Director',
+    icon: Handshake,
+    title: 'Mentor connections',
+    text: 'Mentors can share guidance, and learners can explore mentorship opportunities.',
   },
   {
-    quote: 'The platform makes it easy to connect with local employers and track real progress for each learner.',
-    author: 'Anele',
-    role: 'Employer Relations Lead',
+    icon: Landmark,
+    title: 'Learning and career support',
+    text: 'Institutions and public teams can connect their work to career readiness.',
   },
   {
-    quote: 'Our training programs now have a polished digital experience that feels both modern and trustworthy.',
-    author: 'Thabo',
-    role: 'Education Coordinator',
+    icon: Building2,
+    title: 'Employer engagement',
+    text: 'Employers can share roles and manage candidate applications through the platform.',
   },
 ];
 
-const partners = ['Lesotho Careers', 'Basotho Employers', 'SkillUp Lesotho', 'Pathway Labs'];
+const COMMUNITY_JOURNEYS = [
+  {
+    step: 'Student journey',
+    title: 'From profile to application',
+    text: 'A student builds a profile, discovers a suitable role, submits an application, and follows its status.',
+  },
+  {
+    step: 'Employer journey',
+    title: 'From vacancy to candidates',
+    text: 'An employer publishes a vacancy, reviews applications, and keeps candidate communication organized.',
+  },
+  {
+    step: 'Mentor journey',
+    title: 'From experience to guidance',
+    text: 'A mentor shares expertise, responds to requests, and helps a learner make progress toward a career goal.',
+  },
+];
+
+const FAQ_ITEMS = [
+  {
+    question: 'Who can use Career Connect Lesotho?',
+    answer:
+      'Students, youth, companies, mentors, educational institutions, government teams, parents, alumni, and entrepreneurs can create role-specific accounts. Administrator accounts are provisioned by the platform team.',
+  },
+  {
+    question: 'How do I get started?',
+    answer:
+      'Choose Create account and select your role. Some account types require verification before all role features become available.',
+  },
+  {
+    question: 'Does the platform guarantee a job or mentorship placement?',
+    answer:
+      'No. Career Connect helps people discover opportunities and connect with others, but jobs, mentorship, and other outcomes depend on availability and the decisions of participating organizations.',
+  },
+  {
+    question: 'How do I ask a question or get help?',
+    answer:
+      `Email ${CONTACT.email}, call ${CONTACT.phone}, or start a WhatsApp chat. You can also use the Contact page to prepare an email message.`,
+  },
+];
+
+const COMMUNITY_IMAGES = [
+  {
+    src: 'https://images.unsplash.com/photo-1529156069898-49953e39b3ac?auto=format&fit=crop&w=900&q=85',
+    alt: 'A diverse group of young professionals collaborating outdoors',
+  },
+  {
+    src: 'https://images.unsplash.com/photo-1531482615713-2afd69097998?auto=format&fit=crop&w=900&q=85',
+    alt: 'Professionals sharing ideas during a working session',
+  },
+];
+
+const EMPTY_LANDING_STATS = {
+  students: 0,
+  employers: 0,
+  mentors: 0,
+  institutions: 0,
+  activeJobs: 0,
+  activeOpportunities: 0,
+};
+
+const normalizeUserType = (value) => String(value ?? '').trim().toLowerCase();
+
+const fetchActiveUserCounts = async () => {
+  if (!supabase) {
+    throw new Error('Supabase is not configured for landing page statistics');
+  }
+
+  const countUsers = async (userTypes) => {
+    const { count, error } = await supabase
+      .from('app_users')
+      .select('id', { count: 'exact', head: true })
+      .eq('status', 'active')
+      .in('user_type', userTypes);
+
+    if (error) throw error;
+    return count ?? 0;
+  };
+
+  const [students, employers, mentors, institutions] = await Promise.all([
+    countUsers(['student', 'youth']),
+    countUsers(['company', 'employer']),
+    countUsers(['mentor', 'advisor', 'instructor']),
+    countUsers(['institute', 'institution', 'school', 'admin']),
+  ]);
+
+  return { students, employers, mentors, institutions };
+};
+
+const formatMetricValue = (value) => `+${Number(value || 0)}`;
+
+const trackCta = (name, location = 'unknown') => {
+  const event = {
+    event: 'cta_click',
+    cta: name,
+    location,
+    path: typeof window !== 'undefined' ? window.location.pathname : '',
+    timestamp: new Date().toISOString(),
+  };
+
+  if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') {
+    window.dispatchEvent(new CustomEvent('cc:analytics', { detail: event }));
+  }
+};
 
 const Home = () => {
+  const { currentUser, userProfile } = useAuth();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const [navOpen, setNavOpen] = useState(false);
+  const [platformStats, setPlatformStats] = useState(EMPTY_LANDING_STATS);
+  const [statsLoading, setStatsLoading] = useState(true);
+  const [statsError, setStatsError] = useState(false);
+
+  useEffect(() => {
+    const legacyPath = getLegacyPublicPath(location.hash);
+    if (legacyPath) navigate(legacyPath, { replace: true });
+  }, [location.hash, navigate]);
+
+  useEffect(() => {
+    let isMounted = true;
+    let userStats = null;
+    let userStatsRequestInFlight = false;
+    const failedSources = new Set();
+    const firestoreData = {
+      companies: null,
+      jobs: null,
+      opportunities: null,
+    };
+
+    const publishStats = () => {
+      if (!userStats || Object.values(firestoreData).some((snapshot) => !snapshot)) return;
+
+      const activeJobs = firestoreData.jobs.docs.filter((item) => {
+        const status = normalizeUserType(item.data()?.status);
+        return status && !['closed', 'draft', 'archived'].includes(status);
+      }).length;
+
+      const activeOpportunities = firestoreData.opportunities.docs.filter((item) => {
+        const data = item.data() || {};
+        const status = normalizeUserType(data.status || (data.published === true ? 'published' : ''));
+        return status === 'active' || status === 'published' || data.published === true;
+      }).length;
+
+      setPlatformStats({
+        ...userStats,
+        employers: userStats.employers + firestoreData.companies.size,
+        activeJobs,
+        activeOpportunities,
+      });
+      setStatsLoading(false);
+    };
+
+    const markSourceSuccess = (source) => {
+      failedSources.delete(source);
+      setStatsError(failedSources.size > 0);
+      publishStats();
+    };
+
+    const markSourceFailure = (source, error) => {
+      console.error(`Could not load landing page ${source} data:`, error);
+      failedSources.add(source);
+      setStatsError(true);
+      setStatsLoading(false);
+    };
+
+    const refreshUserStats = async () => {
+      if (userStatsRequestInFlight) return;
+      userStatsRequestInFlight = true;
+
+      try {
+        userStats = await fetchActiveUserCounts();
+        if (isMounted) markSourceSuccess('Supabase');
+      } catch (error) {
+        if (isMounted) markSourceFailure('Supabase', error);
+      } finally {
+        userStatsRequestInFlight = false;
+      }
+    };
+
+    const subscriptions = [
+      ['companies', 'companies'],
+      ['jobs', 'jobs'],
+      ['opportunities', 'opportunities'],
+    ].map(([source, collectionName]) =>
+      onSnapshot(
+        collection(db, collectionName),
+        (snapshot) => {
+          if (!isMounted) return;
+          firestoreData[source] = snapshot;
+          markSourceSuccess(source);
+        },
+        (error) => {
+          if (isMounted) markSourceFailure(source, error);
+        }
+      )
+    );
+
+    const refreshInterval = window.setInterval(refreshUserStats, 60_000);
+    window.addEventListener('focus', refreshUserStats);
+    void refreshUserStats();
+
+    return () => {
+      isMounted = false;
+      subscriptions.forEach((unsubscribe) => unsubscribe());
+      window.clearInterval(refreshInterval);
+      window.removeEventListener('focus', refreshUserStats);
+    };
+  }, []);
+
+  const dashboardPath = useMemo(
+    () => (currentUser ? getUserDashboardPath(userProfile?.userType) : '/login'),
+    [currentUser, userProfile]
+  );
+
+  const heroMetrics = useMemo(
+    () => [
+      { value: platformStats.students, label: 'students ready' },
+      { value: platformStats.employers, label: 'employers connected' },
+      { value: platformStats.activeJobs, label: 'active jobs' },
+      { value: platformStats.activeOpportunities, label: 'active opportunities' },
+    ],
+    [platformStats]
+  );
+
+  const trustItems = useMemo(
+    () => [
+      { label: 'Students', value: platformStats.students },
+      { label: 'Employers', value: platformStats.employers },
+      { label: 'Mentors', value: platformStats.mentors },
+      { label: 'Institutions', value: platformStats.institutions },
+    ],
+    [platformStats]
+  );
+
+  const impactStats = useMemo(
+    () => [
+      { value: platformStats.students || 0, label: 'Registered students' },
+      { value: platformStats.employers || 0, label: 'Connected employers' },
+      { value: platformStats.activeJobs || 0, label: 'Active jobs' },
+      { value: platformStats.activeOpportunities || 0, label: 'Active opportunities' },
+    ],
+    [platformStats]
+  );
+
+  const handleAction = (id, location) => {
+    trackCta(id, location);
+    setNavOpen(false);
+  };
+
   return (
-    <div className="home-page home-landing">
-      <section className="hero-banner">
-        <div className="hero-glow hero-glow-left" />
-        <div className="hero-glow hero-glow-right" />
-        <div className="home-hero home-hero-landing">
-          <div className="home-hero-row hero-grid">
-            <div className="home-copy hero-copy">
-              <span className="home-badge hero-eyebrow">Career Connect Lesotho</span>
-              <h1 className="home-title hero-title">
-                Empowering young talent with modern career pathways, local opportunity networks, and employer-ready skills.
-              </h1>
-              <p className="home-subtitle hero-subtitle">
-                A premium, polished landing experience for students, employers, and career builders — thoughtfully crafted for trust, clarity,
-                and fast action.
+    <div id="top" className="landing-page">
+      <a href="#main" className="skip-link">
+        Skip to main content
+      </a>
+
+      <header className="landing-header">
+        <div className="landing-shell landing-header-inner">
+          <Link to="/" className="brand-mark" aria-label="Career Connect Lesotho home">
+            <img
+              src="/career connect lesotho logo.jpeg"
+              alt="Career Connect Lesotho logo"
+              className="brand-logo"
+            />
+            <span className="brand-name">Career Connect Lesotho</span>
+          </Link>
+
+          <button
+            type="button"
+            className="nav-toggle"
+            aria-expanded={navOpen}
+            aria-label={navOpen ? 'Close navigation' : 'Open navigation'}
+            aria-controls="landing-navigation"
+            onClick={() => setNavOpen((value) => !value)}
+          >
+            {navOpen ? <X aria-hidden="true" /> : <Menu aria-hidden="true" />}
+          </button>
+
+          <nav
+            id="landing-navigation"
+            className={`landing-nav ${navOpen ? 'is-open' : ''}`}
+            aria-label="Primary navigation"
+          >
+            {NAV_LINKS.map((link) => link.href.startsWith('/') ? (
+              <Link key={link.label} to={link.href} onClick={() => setNavOpen(false)}>
+                {link.label}
+              </Link>
+            ) : (
+              <a key={link.label} href={link.href} onClick={() => setNavOpen(false)}>
+                {link.label}
+              </a>
+            ))}
+          </nav>
+
+          <div className="landing-actions">
+            {currentUser ? (
+              <Link
+                to={dashboardPath}
+                className="button button-primary"
+                onClick={() => handleAction('header_dashboard', 'desktop')}
+              >
+                Dashboard <ArrowRight aria-hidden="true" />
+              </Link>
+            ) : (
+              <>
+                <Link
+                  to="/login"
+                  className="button button-ghost"
+                  onClick={() => handleAction('header_signin', 'desktop')}
+                >
+                  <LogIn aria-hidden="true" /> Sign in
+                </Link>
+                <Link
+                  to="/register"
+                  className="button button-primary"
+                  onClick={() => handleAction('header_signup', 'desktop')}
+                >
+                  <UserRoundPlus aria-hidden="true" /> Sign up
+                </Link>
+              </>
+            )}
+          </div>
+        </div>
+      </header>
+
+      <main id="main" tabIndex={-1}>
+        <section className="hero-section" aria-labelledby="hero-heading">
+          <div className="landing-shell hero-layout">
+            <div className="hero-copy">
+              <span className="section-kicker">
+                <Sparkles aria-hidden="true" /> Career readiness, beautifully connected
+              </span>
+              <h1 id="hero-heading">Where ambition meets opportunity.</h1>
+              <p className="hero-lede">
+                Career Connect Lesotho brings students, youth, employers, mentors, institutions,
+                government, parents, alumni, and entrepreneurs together around meaningful
+                opportunities.
               </p>
-              <div className="home-actions hero-actions">
-                <a href="/register" className="home-primary-button btn-primary">
-                  Start your journey
-                </a>
-                <a href="/about" className="home-secondary-button btn-secondary">
-                  Learn how it works
-                </a>
+
+              <div className="hero-actions">
+                {currentUser ? (
+                  <Link
+                    to={dashboardPath}
+                    className="button button-primary button-large"
+                    onClick={() => handleAction('hero_dashboard', 'hero')}
+                  >
+                    Open your dashboard <ArrowRight aria-hidden="true" />
+                  </Link>
+                ) : (
+                  <>
+                    <Link
+                      to="/register"
+                      className="button button-primary button-large"
+                      onClick={() => handleAction('hero_signup', 'hero')}
+                    >
+                      Create account <ArrowRight aria-hidden="true" />
+                    </Link>
+                    <Link
+                      to="/login"
+                      className="button button-glass button-large"
+                      onClick={() => handleAction('hero_signin', 'hero')}
+                    >
+                      Log in
+                    </Link>
+                  </>
+                )}
               </div>
-              <div className="home-stat-grid hero-stat-grid">
-                {stats.map((stat) => (
-                  <div key={stat.label} className="home-stat-card hero-stat-card">
-                    <span className="home-stat-value hero-stat-value">{stat.value}</span>
-                    <span className="home-stat-label hero-stat-label">{stat.label}</span>
+
+              <ul className="hero-trust" aria-label="Trust signals">
+                <li>
+                  <ShieldCheck aria-hidden="true" />
+                  <span>Role-based access</span>
+                </li>
+                <li>
+                  <Star aria-hidden="true" />
+                  <span>Live platform data</span>
+                </li>
+                <li>
+                  <Sparkles aria-hidden="true" />
+                  <span>Built for Lesotho</span>
+                </li>
+              </ul>
+
+              <dl className="hero-metrics" aria-label="Platform metrics">
+                {heroMetrics.map((metric) => (
+                  <div key={metric.label} className="metric-card">
+                    <strong>
+                      {statsLoading ? '...' : statsError ? '—' : formatMetricValue(metric.value)}
+                    </strong>
+                    <span>{metric.label}</span>
                   </div>
                 ))}
-              </div>
+              </dl>
             </div>
 
-            <div className="home-hero-panel hero-visual">
-              <div className="home-panel-shell visual-shell">
-                <div className="home-panel-top visual-top">
-                  <span className="home-dot home-dot-red" />
-                  <span className="home-dot home-dot-yellow" />
-                  <span className="home-dot home-dot-green" />
+            <div className="hero-showcase" aria-label="Product preview">
+              <div className="showcase-frame">
+                <div className="frame-bar" aria-hidden="true">
+                  <span />
+                  <span />
+                  <span />
+                  <em>careerconnect.co.ls/dashboard</em>
                 </div>
-                <div className="home-panel-content visual-content">
-                  <div className="visual-badge">Live growth metrics</div>
-                  <h2>Track student pathways, engagement and opportunity connections in one view.</h2>
-                  <ul className="home-panel-list visual-list">
-                    <li>Professional mentorship and hiring readiness.</li>
-                    <li>Automated pathway recommendations.</li>
-                    <li>Localized employer match intelligence.</li>
+                <div className="frame-content">
+                  <div className="frame-hero">
+                    <div className="frame-score">
+                      <span className="tiny-label">Readiness overview</span>
+                      <strong>Live workspace</strong>
+                      <span className="status-pill">Data connected</span>
+                    </div>
+                    <div className="frame-ring" aria-hidden="true">
+                      <svg viewBox="0 0 120 120">
+                        <circle cx="60" cy="60" r="52" className="ring-track" />
+                        <circle
+                          cx="60"
+                          cy="60"
+                          r="52"
+                          className="ring-progress"
+                          strokeDasharray="326"
+                          strokeDashoffset="46"
+                        />
+                      </svg>
+                      <span>Live</span>
+                    </div>
+                  </div>
+                  <div className="frame-row">
+                    <div className="frame-cell">
+                      <span className="tiny-label">Career match</span>
+                      <strong>Personalized pathways</strong>
+                      <em>Matched from your profile</em>
+                    </div>
+                    <div className="frame-cell">
+                      <span className="tiny-label">Support check-in</span>
+                      <strong>Support when you need it</strong>
+                      <em>Mentors and institutions connected</em>
+                    </div>
+                  </div>
+                  <div className="frame-bars" aria-hidden="true">
+                    <span style={{ '--w': '92%' }} />
+                    <span style={{ '--w': '74%' }} />
+                    <span style={{ '--w': '84%' }} />
+                    <span style={{ '--w': '68%' }} />
+                  </div>
+                </div>
+              </div>
+              <div className="hero-photo">
+                <img
+                  src="https://images.unsplash.com/photo-1522202176988-66273c2fd55f?auto=format&fit=crop&w=1200&q=80"
+                  alt="A group of young professionals collaborating"
+                />
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section className="landing-section" aria-label="Connected across the career ecosystem" role="region">
+          <div className="landing-shell">
+            <div className="section-heading">
+              <span className="section-kicker">
+                <BadgeCheck aria-hidden="true" /> Connected across the career ecosystem
+              </span>
+            </div>
+            <div className="trust-strip">
+              {trustItems.map(({ label, value }) => (
+                <div key={label} className="trust-item">
+                  <strong>{label}</strong>
+                  <span>
+                    {statsLoading
+                      ? 'Loading live count...'
+                      : statsError
+                        ? 'Live count unavailable'
+                        : `${value} registered`}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section id="platform" className="landing-section product-section" aria-label="One platform. Every role. Real outcomes.">
+          <div className="landing-shell">
+            <div className="section-heading">
+              <span className="section-kicker">
+                <Rocket aria-hidden="true" /> Built for the whole career ecosystem
+              </span>
+              <h2>One platform. Every role. Real outcomes.</h2>
+            </div>
+
+            <div className="audience-grid">
+              {AUDIENCES.map(({ role, title, description, icon: Icon, bullets }) => (
+                <article key={role} className="audience-card">
+                  <div className="icon-tile">
+                    <Icon aria-hidden="true" />
+                  </div>
+                  <h3>{title}</h3>
+                  <p>{description}</p>
+                  <ul>
+                    {bullets.map((bullet) => (
+                      <li key={bullet}>{bullet}</li>
+                    ))}
                   </ul>
-                </div>
-                <div className="visual-image-frame">
-                  <img
-                    className="visual-image"
-                    src="https://images.unsplash.com/photo-1552664730-d307ca884978?auto=format&fit=crop&w=900&q=80"
-                    alt="Career development and growth dashboard"
-                    loading="lazy"
-                    decoding="async"
-                    sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 420px"
-                  />
-                  <div className="visual-overlay" />
-                </div>
-              </div>
+                  <Link
+                    to={currentUser ? dashboardPath : `/register?role=${role}`}
+                    className="card-link"
+                    onClick={() => handleAction(`audience_${role}`, 'platform')}
+                  >
+                    Get started <ChevronRight aria-hidden="true" />
+                  </Link>
+                </article>
+              ))}
             </div>
-          </div>
-        </div>
-      </section>
-
-      <section className="home-section features-section">
-        <div className="home-section-heading">
-          <span className="home-eyebrow">What sets us apart</span>
-          <h2>Designed for modern learners, trusted by institutions, built for impact.</h2>
-          <p>
-            Move from exploration to employment with rich resources, measurable outcomes, and a refined experience for every stakeholder.
-          </p>
-        </div>
-        <div className="feature-grid">
-          {features.map((feature) => (
-            <article key={feature.title} className="home-card feature-card">
-              <div className="feature-icon" aria-hidden="true">
-                {feature.icon}
-              </div>
-              <h3>{feature.title}</h3>
-              <p>{feature.description}</p>
-            </article>
-          ))}
-        </div>
-      </section>
-
-      <section className="home-section workflow-section">
-        <div className="home-section-heading">
-          <span className="home-eyebrow">How it works</span>
-          <h2>A clear step-by-step experience for students, employers, and administrators.</h2>
-          <p>
-            Deploy a platform that simplifies career navigation, creates meaningful connections, and equips learners for confident decisions.
-          </p>
-        </div>
-
-        <div className="workflow-grid">
-          {workflowSteps.map((step, index) => (
-            <div key={step.title} className="workflow-card home-card">
-              <span className="workflow-step">{`0${index + 1}`}</span>
-              <h3>{step.title}</h3>
-              <p>{step.description}</p>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      <section className="home-section home-section-muted impact-section">
-        <div className="impact-content">
-          <div>
-            <span className="home-eyebrow">Built for measurable results</span>
-            <h2>Instant clarity, stronger outcomes, and a more confident next step.</h2>
-            <p>
-              Empower institutions to support youth with guided skill development, trackable progress, and fast feedback on every career milestone.
+            <p className="admin-access-note">
+              <ShieldCheck aria-hidden="true" />
+              Administrator accounts are provisioned by the platform team and aren&apos;t available
+              through public sign-up.{' '}
+              <a href={`mailto:${CONTACT.email}`}>Contact us about admin access</a>.
             </p>
           </div>
-          <div className="impact-cards">
-            <div className="impact-card">
-              <strong>24/7 Opportunity matching</strong>
-              <p>Automated match discovery keeps every learner engaged with relevant roles, internships, and training.</p>
+        </section>
+
+        <section id="pathways" className="landing-section" aria-label="Opportunity discovery, readiness tracking, and guided support — in one place.">
+          <div className="landing-shell">
+            <div className="section-heading">
+              <span className="section-kicker">
+                <BarChart3 aria-hidden="true" /> Explore the platform
+              </span>
+              <h2>Opportunity discovery, readiness tracking, and guided support.</h2>
             </div>
-            <div className="impact-card">
-              <strong>Local employer collaboration</strong>
-              <p>Create deeper connections with businesses, mentorship programs, and hiring initiatives across Lesotho.</p>
+
+            <div className="workflow-grid">
+              {PLATFORM_HIGHLIGHTS.map(({ icon: Icon, title, text }) => (
+                <div key={title} className="workflow-card">
+                  <span>
+                    <Icon aria-hidden="true" />
+                  </span>
+                  <h3>{title}</h3>
+                  <p>{text}</p>
+                </div>
+              ))}
             </div>
-            <div className="impact-card">
-              <strong>Progress visibility</strong>
-              <p>Track learner readiness with dashboard analytics, milestone badges, and easy-to-share progress summaries.</p>
+
+            <div className="community-gallery" aria-label="Career Connect community">
+              {COMMUNITY_IMAGES.map((image) => (
+                <img key={image.src} src={image.src} alt={image.alt} loading="lazy" />
+              ))}
             </div>
           </div>
-        </div>
-      </section>
+        </section>
 
-      <section className="home-section testimonial-section">
-        <div className="home-section-heading">
-          <span className="home-eyebrow">Trusted by partners</span>
-          <h2>Stories from institutions and employers who choose a stronger local career platform.</h2>
-        </div>
+        <section id="stories" className="landing-section" aria-label="From profile to opportunity — without confusion.">
+          <div className="landing-shell">
+            <div className="section-heading">
+              <span className="section-kicker">
+                <Network aria-hidden="true" /> Example journeys
+              </span>
+              <h2>See how different roles move forward.</h2>
+              <p>
+                These are illustrative platform journeys, not individual testimonials. Each role
+                can use Career Connect in a way that fits its goals.
+              </p>
+            </div>
 
-        <div className="testimonial-grid">
-          {testimonials.map((testimonial) => (
-            <article key={testimonial.author} className="testimonial-card home-card">
-              <p className="testimonial-quote">“{testimonial.quote}”</p>
-              <div className="testimonial-author">
-                <strong>{testimonial.author}</strong>
-                <span>{testimonial.role}</span>
+            <div className="workflow-grid">
+              {COMMUNITY_JOURNEYS.map(({ step, title, text }) => (
+                <div key={step} className="workflow-card">
+                  <span aria-label={step}>{step}</span>
+                  <h3>{title}</h3>
+                  <p>{text}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section id="impact" className="landing-section" aria-label="Current platform activity.">
+          <div className="landing-shell">
+            <div className="section-heading">
+              <span className="section-kicker">
+                <Star aria-hidden="true" /> Progress you can see
+              </span>
+              <h2>Current platform activity.</h2>
+            </div>
+
+            <div className="stats-grid">
+              {impactStats.map(({ value, label }) => (
+                <article key={label} className="stat-card">
+                  <strong>
+                    {statsLoading ? '...' : statsError ? '—' : formatMetricValue(value)}
+                  </strong>
+                  <span>{label}</span>
+                </article>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section id="faq" className="landing-section" aria-label="Everything you need to know.">
+          <div className="landing-shell">
+            <div className="section-heading">
+              <span className="section-kicker">
+                <MessageSquareText aria-hidden="true" /> Questions, answered
+              </span>
+              <h2>Everything you need to know.</h2>
+            </div>
+
+            <div className="faq-list">
+              {FAQ_ITEMS.map(({ question, answer }, index) => (
+                <details key={question} open={index === 0}>
+                  <summary>{question}</summary>
+                  <p>{answer}</p>
+                </details>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section id="contact" className="landing-section final-cta-section" aria-label="Ready to get started?">
+          <div className="landing-shell final-cta">
+            <div>
+              <span className="section-kicker">
+                <Rocket aria-hidden="true" /> Ready to grow?
+              </span>
+              <h2>From profile to progress — without the guesswork.</h2>
+              <p>
+                Build a practical career path with structured guidance, verified opportunities, and
+                consistent momentum.
+              </p>
+            </div>
+            <div className="final-cta-actions">
+              <div className="final-actions">
+                {currentUser ? (
+                  <Link
+                    to={dashboardPath}
+                    className="button button-primary button-large"
+                    onClick={() => handleAction('final_dashboard', 'final_cta')}
+                  >
+                    Go to dashboard <ArrowRight aria-hidden="true" />
+                  </Link>
+                ) : (
+                  <>
+                    <Link
+                      to="/register"
+                      className="button button-primary button-large"
+                      onClick={() => handleAction('final_signup', 'final_cta')}
+                    >
+                      <UserRoundPlus aria-hidden="true" /> Sign up now
+                    </Link>
+                    <Link
+                      to="/login"
+                      className="button button-glass button-large"
+                      onClick={() => handleAction('final_signin', 'final_cta')}
+                    >
+                      <LogIn aria-hidden="true" /> Sign in
+                    </Link>
+                  </>
+                )}
               </div>
-            </article>
-          ))}
-        </div>
-      </section>
-
-      <section className="home-section partner-section">
-        <div className="home-section-heading">
-          <span className="home-eyebrow">Local collaboration</span>
-          <h2>Partnering with employers and training leaders across Lesotho.</h2>
-        </div>
-
-        <div className="partner-grid">
-          {partners.map((partner) => (
-            <div key={partner} className="partner-pill">
-              {partner}
+              <Link to="/contact" className="button button-glass button-large">
+                Contact our team <ChevronRight aria-hidden="true" />
+              </Link>
             </div>
-          ))}
-        </div>
-      </section>
+          </div>
+        </section>
+      </main>
 
-      <section className="home-section cta-section">
-        <div className="home-cta-box">
+      <footer className="landing-footer" role="contentinfo">
+        <div className="landing-shell footer-grid footer-grid-three">
           <div>
-            <span className="home-eyebrow">Launch faster</span>
-            <h2>Let your career community thrive with a premium launch-ready platform.</h2>
-            <p>
-              Engage students, mentors, and employers with a seamless experience that looks exceptional on every screen.
-            </p>
+            <h3>Resources</h3>
+            <ul>
+              <li>
+                <Link to="/faq">FAQ</Link>
+              </li>
+              <li>
+                <a href="#stories">Stories</a>
+              </li>
+              <li>
+                <Link to="/contact">Contact</Link>
+              </li>
+            </ul>
           </div>
-          <div className="home-actions cta-actions">
-            <a href="/register" className="home-primary-button btn-primary">
-              Get started now
-            </a>
-            <a href="/contact" className="home-secondary-button btn-secondary">
-              Contact sales
-            </a>
+          <div>
+            <h3>Company</h3>
+            <ul>
+              <li>
+                <Link to="/about">About</Link>
+              </li>
+              <li>
+                <Link to="/contact">Contact</Link>
+              </li>
+              <li>
+                <Link to="/terms">Terms</Link>
+              </li>
+            </ul>
+          </div>
+          <div>
+            <h3>Legal</h3>
+            <ul>
+              <li>
+                <Link to="/privacy">Privacy</Link>
+              </li>
+              <li>
+                <Link to="/terms">Terms</Link>
+              </li>
+              <li>
+                <Link to="/faq">Help</Link>
+              </li>
+            </ul>
           </div>
         </div>
-      </section>
+        <div className="landing-shell footer-attribution">
+          <div className="footer-powered-by">
+            <img src="/bcs.jpg" alt="Baffy's Computer Solutions logo" loading="lazy" />
+            <div>
+              <span>Powered by</span>
+              <a href={CONTACT.developerSite} target="_blank" rel="noreferrer">
+                Baffy&apos;s Computer Solutions <ExternalLink aria-hidden="true" />
+              </a>
+              <p>Transforming ideas into digital reality.</p>
+            </div>
+          </div>
+        </div>
+      </footer>
+
+      <a href="#top" className="back-to-top" aria-label="Back to top" title="Back to top">
+        <ArrowUp aria-hidden="true" />
+      </a>
+
+      <div className="sticky-mobile-cta" aria-label="Quick actions">
+        {currentUser ? (
+          <Link
+            to={dashboardPath}
+            className="button button-primary button-large"
+            onClick={() => handleAction('sticky_dashboard', 'sticky_mobile')}
+          >
+            Open dashboard <ArrowRight aria-hidden="true" />
+          </Link>
+        ) : (
+          <>
+            <Link
+              to="/register"
+              className="button button-primary button-large"
+              onClick={() => handleAction('sticky_signup', 'sticky_mobile')}
+            >
+              <UserRoundPlus aria-hidden="true" />               Sign up
+            </Link>
+            <Link
+              to="/login"
+              className="button button-ghost button-large"
+              onClick={() => handleAction('sticky_signin', 'sticky_mobile')}
+            >
+              <LogIn aria-hidden="true" /> Sign in
+            </Link>
+          </>
+        )}
+      </div>
     </div>
   );
 };

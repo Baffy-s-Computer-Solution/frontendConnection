@@ -1,6 +1,7 @@
-import { Container, Row, Col, Card, Button, Badge, ProgressBar } from 'react-bootstrap';
+import { Container, Row, Col, Card, Button, Badge, ProgressBar } from '../../components/ui/tailwindCompat';
+import StudentMentorship from './StudentMentorship';
 
-const Mentorship = () => {
+const LegacyMentorship = () => {
   const mentors = [
     {
       id: 1,
@@ -268,4 +269,8 @@ const Mentorship = () => {
   );
 };
 
-export default Mentorship;
+export { LegacyMentorship };
+export default StudentMentorship;
+
+
+

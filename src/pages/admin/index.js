@@ -5,8 +5,8 @@
 
 export { default as AdminAudit } from './AdminAudit';
 export { default as AdminDashboard } from './AdminDashboard';
+export { default as AdminManagement } from './AdminManagement';
 export { default as AdminProfile } from './AdminProfile';
-export { default as AdminSettings } from './AdminSettings';
 export { default as AdmissionsManagement } from './AdmissionsManagement';
 export { default as CompanyManagement } from './CompanyManagement';
 export { default as JobManagement } from './JobManagement';
@@ -17,7 +17,3 @@ export { default as SearchUsers } from './SearchUsers';
 export { default as SystemReports } from './SystemReports';
 export { default as SystemSettings } from './SystemSettings';
 export { default as UserManagement } from './UserManagement';
-
-// Re-export types and utilities
-export * from './types';
-export * from './constants';

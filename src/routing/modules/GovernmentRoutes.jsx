@@ -14,6 +14,7 @@ const EconomicImpact = lazy(() => import('../../pages/government/EconomicImpact'
 const ProgramEffectiveness = lazy(() => import('../../pages/government/ProgramEffectiveness'));
 
 export const getGovernmentRoutes = () => [
+  <Route key="government-root" path="/government" element={<ProtectedRoute allowedUserTypes={['government', 'admin']}><GovernmentDashboard /></ProtectedRoute>} />,
   <Route
     key="government-government-dashboard"
     path="/government/dashboard"

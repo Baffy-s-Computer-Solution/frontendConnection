@@ -17,32 +17,8 @@ import {
   Tabs,
   Tab,
   ListGroup,
-} from 'react-bootstrap';
-import {
-  FaChartBar,
-  FaChartLine,
-  FaChartPie,
-  FaUsers,
-  FaBriefcase,
-  FaCalendarAlt,
-  FaArrowUp,
-  FaArrowDown,
-  FaFilter,
-  FaDownload,
-  FaEye,
-  FaClock,
-  FaCheckCircle,
-  FaMoneyBillWave,
-  FaPercentage,
-  FaCalendar,
-  FaRegChartBar,
-  FaUserCheck,
-  FaHistory,
-  FaDollarSign,
-  FaRegClock,
-  FaIndustry,
-  FaMapMarkerAlt,
-} from 'react-icons/fa';
+} from '../../components/ui/tailwindOnly';
+import { FaChartBar, FaChartLine, FaChartPie, FaUsers, FaBriefcase, FaCalendarAlt, FaArrowUp, FaArrowDown, FaFilter, FaDownload, FaEye, FaClock, FaCheckCircle, FaMoneyBillWave, FaPercentage, FaCalendar, FaRegChartBar, FaUserCheck, FaHistory, FaDollarSign, FaRegClock, FaIndustry, FaMapMarkerAlt } from "react-icons/fa";
 
 import { companyFirebaseService } from '../../services/companyServices';
 
@@ -393,9 +369,11 @@ const SimpleBarChart = ({ data, height = 300 }) => {
 const ViewAnalytics = () => {
   const [loading, setLoading] = useState(true);
   const [analyticsData, setAnalyticsData] = useState(null);
+  const [exportMessage, setExportMessage] = useState('');
   const [timeRange, setTimeRange] = useState('month');
   const [activeTab, setActiveTab] = useState('overview');
   const [exportLoading, setExportLoading] = useState(false);
+  const [loadError, setLoadError] = useState('');
 
   // Chart colors
   const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8'];
@@ -416,8 +394,10 @@ const ViewAnalytics = () => {
       setLoading(true);
       const data = await companyFirebaseService.getCompanyAnalytics(timeRange);
       setAnalyticsData(data);
+      setLoadError('');
     } catch (error) {
       console.error('Error loading analytics:', error);
+      setLoadError('Analytics could not be loaded. Check your connection and try again.');
     } finally {
       setLoading(false);
     }
@@ -426,30 +406,27 @@ const ViewAnalytics = () => {
   const handleExportData = async (format) => {
     try {
       setExportLoading(true);
-      // In a real app, this would generate and download the file
-      console.log(`Exporting data in ${format} format...`);
-
-      // Simulate export
-      setTimeout(() => {
-        setExportLoading(false);
-        // Create a success alert
-        const successAlert = document.createElement('div');
-        successAlert.className =
-          'alert alert-success alert-dismissible fade show position-fixed top-0 end-0 m-3';
-        successAlert.style.zIndex = '9999';
-        successAlert.innerHTML = `
-          <strong>Success!</strong> Data exported successfully as ${format.toUpperCase()} file.
-          <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-        `;
-        document.body.appendChild(successAlert);
-
-        // Auto remove after 3 seconds
-        setTimeout(() => {
-          successAlert.remove();
-        }, 3000);
-      }, 1500);
+      if (!analyticsData) throw new Error('Analytics data is not available yet.');
+      if (format !== 'csv') throw new Error('Only CSV export is currently supported.');
+      const rows = [
+        ['Metric', 'Value'],
+        ['Applications', analyticsData.stats?.totalApplications ?? 0],
+        ['Active jobs', analyticsData.stats?.activeJobs ?? 0],
+        ['Hire rate (%)', analyticsData.stats?.conversionRates?.overallConversion ?? 'N/A'],
+        ['Average time to hire', analyticsData.stats?.timeMetrics?.avgTimeToHire ?? 'N/A'],
+        ...Object.entries(analyticsData.applicationStatus || {}).map(([status, count]) => [`Applications: ${status}`, count]),
+      ];
+      const csv = rows.map((row) => row.map((value) => `"${String(value).replaceAll('"', '""')}"`).join(',')).join('\r\n');
+      const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `company-analytics-${new Date().toISOString().slice(0, 10)}.csv`;
+      link.click();
+      URL.revokeObjectURL(url);
+      setExportMessage('CSV downloaded.');
     } catch (error) {
       console.error('Error exporting data:', error);
+      setLoadError(error.message || 'Export failed.');
       setExportLoading(false);
     }
   };
@@ -459,17 +436,7 @@ const ViewAnalytics = () => {
   };
 
   const getStatusDistributionData = () => {
-    if (!analyticsData?.stats?.applicationStatus) {
-      // Return sample data
-      return [
-        { name: 'Applied', value: 45, color: '#3498db' },
-        { name: 'Reviewed', value: 30, color: '#f39c12' },
-        { name: 'Interview', value: 15, color: '#9b59b6' },
-        { name: 'Hired', value: 10, color: '#27ae60' },
-      ];
-    }
-
-    const { applicationStatus } = analyticsData.stats;
+    const applicationStatus = analyticsData?.applicationStatus || {};
     return Object.entries(applicationStatus).map(([status, count]) => ({
       name: status.charAt(0).toUpperCase() + status.slice(1),
       value: count,
@@ -478,16 +445,7 @@ const ViewAnalytics = () => {
   };
 
   const getConversionFunnelData = () => {
-    if (!analyticsData?.stats?.applicationStatus) {
-      return [
-        { stage: 'Applied', count: 100, color: '#3498db' },
-        { stage: 'Reviewed', count: 60, color: '#f39c12' },
-        { stage: 'Interview', count: 25, color: '#9b59b6' },
-        { stage: 'Hired', count: 10, color: '#27ae60' },
-      ];
-    }
-
-    const { applicationStatus } = analyticsData.stats;
+    const applicationStatus = analyticsData?.applicationStatus || {};
     return [
       { stage: 'Applied', count: applicationStatus.applied || 0, color: '#3498db' },
       { stage: 'Reviewed', count: applicationStatus.reviewed || 0, color: '#f39c12' },
@@ -497,22 +455,12 @@ const ViewAnalytics = () => {
   };
 
   const getTopJobsData = () => {
-    if (!analyticsData?.jobs) {
-      return [
-        { name: 'Senior Software Engineer', applications: 45, views: 320, conversion: 14 },
-        { name: 'Product Manager', applications: 32, views: 280, conversion: 11 },
-        { name: 'UX Designer', applications: 28, views: 210, conversion: 13 },
-        { name: 'Marketing Intern', applications: 25, views: 180, conversion: 14 },
-        { name: 'DevOps Engineer', applications: 18, views: 150, conversion: 12 },
-      ];
-    }
-
-    return analyticsData.jobs
+    return (analyticsData?.topJobs || [])
       .sort((a, b) => (b.applicantsCount || 0) - (a.applicantsCount || 0))
       .slice(0, 5)
       .map((job) => ({
         name: job.title.length > 20 ? job.title.substring(0, 20) + '...' : job.title,
-        applications: job.applicantsCount || 0,
+        applications: job.applicantsCount ?? job.applicationCount ?? 0,
         views: job.views || 0,
         conversion:
           job.applicantsCount > 0
@@ -521,25 +469,20 @@ const ViewAnalytics = () => {
       }));
   };
 
-  // Sample data for charts
-  const getSampleLineData = () => {
-    return [
-      { name: 'Week 1', applications: 45, interviews: 12, hires: 3 },
-      { name: 'Week 2', applications: 52, interviews: 15, hires: 4 },
-      { name: 'Week 3', applications: 38, interviews: 10, hires: 2 },
-      { name: 'Week 4', applications: 61, interviews: 18, hires: 5 },
-    ];
+  const getLineData = () => {
+    const labels = analyticsData?.timeSeriesData?.labels || [];
+    const applications = analyticsData?.timeSeriesData?.datasets?.[0]?.data || [];
+    return labels.map((name, index) => ({ name, applications: applications[index] ?? 0, interviews: 0, hires: 0 }));
   };
+  const stats = analyticsData?.stats || {};
+  const hasCandidateDemographics = Boolean(analyticsData?.candidateDemographics);
 
-  const getSampleBarData = () => {
-    return [
-      { source: 'CareerConnect', applications: 45, hires: 8 },
-      { source: 'LinkedIn', applications: 32, hires: 5 },
-      { source: 'Company Website', applications: 28, hires: 4 },
-      { source: 'Referrals', applications: 18, hires: 6 },
-      { source: 'Other', applications: 12, hires: 1 },
-    ];
-  };
+  const getBarData = () =>
+    (analyticsData?.sourceAnalytics || []).map((source) => ({
+      source: source.name,
+      applications: source.count || 0,
+      hires: 0,
+    }));
 
   if (loading && !analyticsData) {
     return (
@@ -554,6 +497,7 @@ const ViewAnalytics = () => {
 
   return (
     <Container fluid className="py-4">
+      {loadError && <Alert variant="danger" className="mb-4" role="alert">{loadError}<Button variant="link" onClick={loadAnalyticsData}>Retry</Button></Alert>}
       <Row className="mb-4">
         <Col>
           <div className="d-flex justify-content-between align-items-center">
@@ -624,6 +568,7 @@ const ViewAnalytics = () => {
           </div>
         </Col>
       </Row>
+      {exportMessage && <Alert variant="success" role="status">{exportMessage}</Alert>}
 
       {/* Key Metrics */}
       <Row className="mb-4">
@@ -634,11 +579,10 @@ const ViewAnalytics = () => {
                 <div>
                   <h6 className="text-muted mb-2">Total Applications</h6>
                   <h2 className="mb-0">
-                    {formatNumber(analyticsData?.stats?.totalApplications || 120)}
+                    {formatNumber(analyticsData?.stats?.totalApplications ?? 0)}
                   </h2>
                   <div className="d-flex align-items-center mt-2">
-                    <FaArrowUp className="text-success me-1" />
-                    <span className="text-success small">12% increase</span>
+                    <span className="text-muted small">Selected period</span>
                   </div>
                 </div>
                 <div className="bg-primary-light rounded-circle p-3">
@@ -655,10 +599,9 @@ const ViewAnalytics = () => {
               <div className="d-flex justify-content-between align-items-start">
                 <div>
                   <h6 className="text-muted mb-2">Active Jobs</h6>
-                  <h2 className="mb-0">{formatNumber(analyticsData?.stats?.activeJobs || 8)}</h2>
+                  <h2 className="mb-0">{formatNumber(analyticsData?.stats?.activeJobs ?? 0)}</h2>
                   <div className="d-flex align-items-center mt-2">
-                    <FaArrowUp className="text-success me-1" />
-                    <span className="text-success small">5% increase</span>
+                    <span className="text-muted small">Selected period</span>
                   </div>
                 </div>
                 <div className="bg-success-light rounded-circle p-3">
@@ -676,11 +619,10 @@ const ViewAnalytics = () => {
                 <div>
                   <h6 className="text-muted mb-2">Hire Rate</h6>
                   <h2 className="mb-0">
-                    {analyticsData?.stats?.conversionRates?.overallConversion || 15}%
+                    {analyticsData?.stats?.conversionRates?.overallConversion ?? 0}%
                   </h2>
                   <div className="d-flex align-items-center mt-2">
-                    <FaArrowUp className="text-success me-1" />
-                    <span className="text-success small">8% increase</span>
+                    <span className="text-muted small">From recorded applications</span>
                   </div>
                 </div>
                 <div className="bg-warning-light rounded-circle p-3">
@@ -697,10 +639,9 @@ const ViewAnalytics = () => {
               <div className="d-flex justify-content-between align-items-start">
                 <div>
                   <h6 className="text-muted mb-2">Avg. Time to Hire</h6>
-                  <h2 className="mb-0">{analyticsData?.stats?.timeMetrics?.avgTimeToHire || 28}</h2>
+                  <h2 className="mb-0">{analyticsData?.stats?.timeMetrics?.avgTimeToHire ?? 'N/A'}</h2>
                   <div className="d-flex align-items-center mt-2">
-                    <FaArrowDown className="text-success me-1" />
-                    <span className="text-success small">2 days less</span>
+                    <span className="text-muted small">From recorded hires</span>
                   </div>
                 </div>
                 <div className="bg-info-light rounded-circle p-3">
@@ -726,7 +667,7 @@ const ViewAnalytics = () => {
                 </Card.Header>
                 <Card.Body>
                   <SimpleLineChart
-                    data={analyticsData?.timeSeriesData?.datasets?.[0]?.data || getSampleLineData()}
+                    data={getLineData()}
                     height={300}
                   />
                 </Card.Body>
@@ -878,7 +819,7 @@ const ViewAnalytics = () => {
                         <span>Interview to Hire Rate</span>
                       </div>
                       <Badge bg="primary" className="px-3 py-2 fs-6">
-                        {analyticsData?.stats?.conversionRates?.interviewToHire || 25}%
+                        {analyticsData?.stats?.conversionRates?.interviewToHire ?? 0}%
                       </Badge>
                     </ListGroup.Item>
                     <ListGroup.Item className="d-flex justify-content-between align-items-center border-0 py-3">
@@ -887,7 +828,7 @@ const ViewAnalytics = () => {
                         <span>Average Response Time</span>
                       </div>
                       <Badge bg="warning" className="px-3 py-2 fs-6">
-                        {analyticsData?.stats?.timeMetrics?.avgResponseTime || 2.5} days
+                        {analyticsData?.stats?.timeMetrics?.avgResponseTime ?? 'N/A'}{analyticsData?.stats?.timeMetrics?.avgResponseTime != null ? ' days' : ''}
                       </Badge>
                     </ListGroup.Item>
                     <ListGroup.Item className="d-flex justify-content-between align-items-center border-0 py-3">
@@ -896,7 +837,7 @@ const ViewAnalytics = () => {
                         <span>Quality of Hire</span>
                       </div>
                       <Badge bg="success" className="px-3 py-2 fs-6">
-                        4.5/5.0
+                        {analyticsData?.stats?.qualityOfHire ?? 'N/A'}
                       </Badge>
                     </ListGroup.Item>
                     <ListGroup.Item className="d-flex justify-content-between align-items-center border-0 py-3">
@@ -905,7 +846,7 @@ const ViewAnalytics = () => {
                         <span>Cost per Hire</span>
                       </div>
                       <Badge bg="info" className="px-3 py-2 fs-6">
-                        M1,250
+                        {analyticsData?.stats?.costPerHire != null ? `M${formatNumber(analyticsData.stats.costPerHire)}` : 'N/A'}
                       </Badge>
                     </ListGroup.Item>
                   </ListGroup>
@@ -919,7 +860,7 @@ const ViewAnalytics = () => {
                   <h5 className="mb-0">Source Performance</h5>
                 </Card.Header>
                 <Card.Body>
-                  <SimpleBarChart data={getSampleBarData()} height={300} />
+                  <SimpleBarChart data={getBarData()} height={300} />
                 </Card.Body>
               </Card>
             </Col>
@@ -941,22 +882,8 @@ const ViewAnalytics = () => {
                           <FaMapMarkerAlt className="text-primary mb-3" size={32} />
                           <h4>Location Distribution</h4>
                           <ListGroup variant="flush">
-                            <ListGroup.Item className="d-flex justify-content-between border-0">
-                              <span>Maseru</span>
-                              <Badge bg="primary">42%</Badge>
-                            </ListGroup.Item>
-                            <ListGroup.Item className="d-flex justify-content-between border-0">
-                              <span>Leribe</span>
-                              <Badge bg="primary">18%</Badge>
-                            </ListGroup.Item>
-                            <ListGroup.Item className="d-flex justify-content-between border-0">
-                              <span>Berea</span>
-                              <Badge bg="primary">15%</Badge>
-                            </ListGroup.Item>
-                            <ListGroup.Item className="d-flex justify-content-between border-0">
-                              <span>Other</span>
-                              <Badge bg="primary">25%</Badge>
-                            </ListGroup.Item>
+                            {(analyticsData?.candidateDemographics?.locations || []).map(({ label, value }) => <ListGroup.Item key={label} className="d-flex justify-content-between border-0"><span>{label}</span><Badge bg="primary">{value}%</Badge></ListGroup.Item>)}
+                            {!analyticsData?.candidateDemographics?.locations?.length && <p className="text-muted">No location data was provided by applicants.</p>}
                           </ListGroup>
                         </Card.Body>
                       </Card>
@@ -968,12 +895,7 @@ const ViewAnalytics = () => {
                           <FaIndustry className="text-success mb-3" size={32} />
                           <h4>Education Level</h4>
                           <SimplePieChart
-                            data={[
-                              { name: 'Bachelors', value: 45, color: '#0088FE' },
-                              { name: 'Masters', value: 25, color: '#00C49F' },
-                              { name: 'Diploma', value: 20, color: '#FFBB28' },
-                              { name: 'Other', value: 10, color: '#FF8042' },
-                            ]}
+                            data={analyticsData?.candidateDemographics?.education || []}
                             height={200}
                           />
                         </Card.Body>
@@ -986,12 +908,7 @@ const ViewAnalytics = () => {
                           <FaHistory className="text-warning mb-3" size={32} />
                           <h4>Experience Level</h4>
                           <div className="experience-bars mt-4">
-                            {[
-                              { level: 'Entry Level', percentage: 35 },
-                              { level: 'Junior', percentage: 40 },
-                              { level: 'Mid Level', percentage: 18 },
-                              { level: 'Senior', percentage: 7 },
-                            ].map((item) => (
+                            {(analyticsData?.candidateDemographics?.experience || []).map((item) => (
                               <div key={item.level} className="mb-3">
                                 <div className="d-flex justify-content-between mb-1">
                                   <span>{item.level}</span>
@@ -1030,7 +947,7 @@ const ViewAnalytics = () => {
             <Card.Header className="bg-white border-0">
               <h5 className="mb-0 d-flex align-items-center">
                 <FaChartBar className="me-2 text-primary" />
-                AI-Powered Recommendations
+                Reporting Notes
               </h5>
             </Card.Header>
             <Card.Body>
@@ -1042,7 +959,7 @@ const ViewAnalytics = () => {
                       Improve Response Time
                     </h6>
                     <p className="mb-0 small">
-                      Average response time is 2.5 days. Aim for 1 day to improve candidate
+                      Average response time is {analyticsData?.stats?.timeMetrics?.avgResponseTime ?? 'not available'}. Review recorded response times to improve candidate
                       experience.
                     </p>
                   </Alert>
@@ -1054,7 +971,7 @@ const ViewAnalytics = () => {
                       Reduce Cost per Hire
                     </h6>
                     <p className="mb-0 small">
-                      Consider focusing on CareerConnect platform which has higher conversion rates.
+                      Cost-per-hire data is {analyticsData?.stats?.costPerHire != null ? 'available for this reporting period.' : 'not recorded for this reporting period.'}
                     </p>
                   </Alert>
                 </Col>
@@ -1065,7 +982,7 @@ const ViewAnalytics = () => {
                       Optimize Interview Process
                     </h6>
                     <p className="mb-0 small">
-                      Interview to hire rate is 25%. Consider improving interview assessment
+                      Interview to hire rate is {analyticsData?.stats?.conversionRates?.interviewToHire ?? 0}%. Consider improving interview assessment
                       methods.
                     </p>
                   </Alert>
@@ -1080,3 +997,5 @@ const ViewAnalytics = () => {
 };
 
 export default ViewAnalytics;
+
+

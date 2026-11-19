@@ -13,7 +13,23 @@ export const ThemeProvider = ({ children, defaultTheme = 'light' }) => {
 
   // Detect system theme preference
   useEffect(() => {
-    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
+      setSystemTheme('light');
+      return undefined;
+    }
+
+    let mediaQuery;
+    try {
+      mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    } catch (error) {
+      setSystemTheme('light');
+      return undefined;
+    }
+
+    if (!mediaQuery || typeof mediaQuery.matches !== 'boolean') {
+      setSystemTheme('light');
+      return undefined;
+    }
 
     const handleChange = (e) => {
       setSystemTheme(e.matches ? 'dark' : 'light');
@@ -23,9 +39,13 @@ export const ThemeProvider = ({ children, defaultTheme = 'light' }) => {
     };
 
     setSystemTheme(mediaQuery.matches ? 'dark' : 'light');
-    mediaQuery.addEventListener('change', handleChange);
+    if (typeof mediaQuery.addEventListener === 'function') {
+      mediaQuery.addEventListener('change', handleChange);
+      return () => mediaQuery.removeEventListener('change', handleChange);
+    }
 
-    return () => mediaQuery.removeEventListener('change', handleChange);
+    mediaQuery.addListener(handleChange);
+    return () => mediaQuery.removeListener(handleChange);
   }, [isSystemPreference, setTheme]);
 
   // Apply theme to document
@@ -132,15 +152,37 @@ export const useReducedMotion = () => {
   const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
 
   useEffect(() => {
-    const mediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
+      setPrefersReducedMotion(false);
+      return undefined;
+    }
+
+    let mediaQuery;
+    try {
+      mediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+    } catch (error) {
+      setPrefersReducedMotion(false);
+      return undefined;
+    }
+
+    if (!mediaQuery || typeof mediaQuery.matches !== 'boolean') {
+      setPrefersReducedMotion(false);
+      return undefined;
+    }
+
     setPrefersReducedMotion(mediaQuery.matches);
 
     const handleChange = (e) => {
       setPrefersReducedMotion(e.matches);
     };
 
-    mediaQuery.addEventListener('change', handleChange);
-    return () => mediaQuery.removeEventListener('change', handleChange);
+    if (typeof mediaQuery.addEventListener === 'function') {
+      mediaQuery.addEventListener('change', handleChange);
+      return () => mediaQuery.removeEventListener('change', handleChange);
+    }
+
+    mediaQuery.addListener(handleChange);
+    return () => mediaQuery.removeListener(handleChange);
   }, []);
 
   return prefersReducedMotion;
@@ -151,15 +193,37 @@ export const useHighContrast = () => {
   const [prefersHighContrast, setPrefersHighContrast] = useState(false);
 
   useEffect(() => {
-    const mediaQuery = window.matchMedia('(prefers-contrast: high)');
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
+      setPrefersHighContrast(false);
+      return undefined;
+    }
+
+    let mediaQuery;
+    try {
+      mediaQuery = window.matchMedia('(prefers-contrast: high)');
+    } catch (error) {
+      setPrefersHighContrast(false);
+      return undefined;
+    }
+
+    if (!mediaQuery || typeof mediaQuery.matches !== 'boolean') {
+      setPrefersHighContrast(false);
+      return undefined;
+    }
+
     setPrefersHighContrast(mediaQuery.matches);
 
     const handleChange = (e) => {
       setPrefersHighContrast(e.matches);
     };
 
-    mediaQuery.addEventListener('change', handleChange);
-    return () => mediaQuery.removeEventListener('change', handleChange);
+    if (typeof mediaQuery.addEventListener === 'function') {
+      mediaQuery.addEventListener('change', handleChange);
+      return () => mediaQuery.removeEventListener('change', handleChange);
+    }
+
+    mediaQuery.addListener(handleChange);
+    return () => mediaQuery.removeListener(handleChange);
   }, []);
 
   return prefersHighContrast;

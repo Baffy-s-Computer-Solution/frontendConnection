@@ -1,58 +1,63 @@
-/* eslint-disable no-empty-pattern */
-import { useState } from 'react';
-import { Container, Row, Col, Card, Button, Badge, ListGroup, Modal, Form } from 'react-bootstrap';
+import { useEffect, useMemo, useState } from 'react';
+import { CalendarDays, Clock3, BriefcaseBusiness, GraduationCap } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
+import { subscribeToStudentApplications, subscribeToActiveJobs } from '../../services/studentServices';
+import { subscribeToStudentMentorshipData } from '../../services/studentMentorshipService';
+import { Container, Row, Col, Card, Button, Badge, ListGroup } from '../../components/ui/tailwindCompat';
 
 const Calendar = () => {
-  const [showModal, setShowModal] = useState(false);
-  const [] = useState(new Date());
-
-  const events = [
-    {
-      id: 1,
-      title: 'Job Interview - Tech Solutions',
-      date: '2024-01-15',
-      time: '10:00 AM',
-      type: 'interview',
-      status: 'scheduled',
-    },
-    {
-      id: 2,
-      title: 'Course Assignment Due',
-      date: '2024-01-16',
-      time: '11:59 PM',
-      type: 'academic',
-      status: 'pending',
-    },
-    {
-      id: 3,
-      title: 'Mentor Session',
-      date: '2024-01-18',
-      time: '2:00 PM',
-      type: 'mentorship',
-      status: 'confirmed',
-    },
-    {
-      id: 4,
-      title: 'Application Deadline - Basotho Bank',
-      date: '2024-01-20',
-      time: '11:59 PM',
-      type: 'deadline',
-      status: 'urgent',
-    },
-    {
-      id: 5,
-      title: 'Career Workshop',
-      date: '2024-01-22',
-      time: '9:00 AM',
-      type: 'workshop',
-      status: 'registered',
-    },
-  ];
+  const { currentUser } = useAuth();
+  const uid = currentUser?.uid;
+  const [jobs, setJobs] = useState([]);
+  const [applications, setApplications] = useState([]);
+  const [sessions, setSessions] = useState([]);
+  const [error, setError] = useState('');
+  useEffect(() => {
+    const stopJobs = subscribeToActiveJobs(setJobs, (loadError) => setError(loadError.message || 'Could not load live deadlines.'));
+    const stopApplications = uid ? subscribeToStudentApplications(uid, setApplications, (loadError) => setError(loadError.message || 'Could not load applications.')) : () => {};
+    const stopSessions = uid ? subscribeToStudentMentorshipData(uid, ({ sessions: records }) => setSessions(records), (loadError) => setError(loadError.message || 'Could not load mentorship sessions.')) : () => {};
+    return () => { stopJobs(); stopApplications(); stopSessions(); };
+  }, [uid]);
+  const events = useMemo(() => {
+    const records = [];
+    jobs.filter((job) => job.deadline).forEach((job) => records.push({ id: `deadline-${job.id}`, title: job.title || 'Opportunity deadline', detail: job.companyName || job.company || '', date: job.deadline?.toDate ? job.deadline.toDate() : new Date(job.deadline), type: 'deadline', Icon: BriefcaseBusiness }));
+    sessions.filter((item) => item.scheduledAt || item.sessionDate).forEach((item) => records.push({ id: `session-${item.id}`, title: item.topic || item.title || 'Mentorship session', detail: item.mentorName || '', date: item.scheduledAt?.toDate ? item.scheduledAt.toDate() : new Date(item.scheduledAt || item.sessionDate), type: 'mentorship', Icon: GraduationCap }));
+    applications.filter((item) => item.interviewAt || item.interviewDate).forEach((item) => {
+      const value = item.interviewAt || item.interviewDate;
+      records.push({ id: `interview-${item.id}`, title: `Interview: ${item.jobTitle || item.jobName || 'Application'}`, detail: item.companyName || '', date: value?.toDate ? value.toDate() : new Date(value), type: 'interview', Icon: BriefcaseBusiness });
+    });
+    return records.filter((item) => item.date && !Number.isNaN(item.date.getTime())).sort((a, b) => a.date - b.date);
+  }, [jobs, sessions, applications]);
 
   const daysOfWeek = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
   const currentDate = new Date();
   const currentMonth = currentDate.toLocaleString('default', { month: 'long' });
   const currentYear = currentDate.getFullYear();
+  const firstDayOfMonth = new Date(currentYear, currentDate.getMonth(), 1).getDay();
+  const daysInMonth = new Date(currentYear, currentDate.getMonth() + 1, 0).getDate();
+  const upcomingEvents = events.filter((event) => event.date >= new Date(new Date().setHours(0, 0, 0, 0))).slice(0, 5);
+
+  if (Array.isArray(events)) return (
+    <main className="mx-auto w-full max-w-7xl space-y-6 px-4 py-6 sm:px-6 lg:px-8">
+      <header><p className="text-sm font-medium text-brand-700">Your schedule</p><h1 className="mt-1 text-2xl font-semibold text-slate-900 dark:text-white">Calendar</h1><p className="mt-1 text-sm text-slate-500">Live opportunity deadlines, interviews, and mentorship sessions.</p></header>
+      {error && <p role="alert" className="rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">{error}</p>}
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1.5fr)_minmax(18rem,1fr)]">
+        <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-card dark:border-slate-700 dark:bg-slate-900">
+          <div className="mb-5 flex items-center gap-3"><CalendarDays className="h-5 w-5 text-brand-600"/><h2 className="text-lg font-semibold text-slate-900 dark:text-white">{currentMonth} {currentYear}</h2></div>
+          <div className="grid grid-cols-7 gap-1 text-center">{daysOfWeek.map((day) => <div key={day} className="py-2 text-xs font-semibold text-slate-500">{day}</div>)}{Array.from({ length: Math.ceil((firstDayOfMonth + daysInMonth) / 7) * 7 }).map((_, index) => {
+            const day = index - firstDayOfMonth + 1;
+            const matching = day > 0 && day <= daysInMonth ? events.filter((event) => event.date.getFullYear() === currentYear && event.date.getMonth() === currentDate.getMonth() && event.date.getDate() === day) : [];
+            const isToday = day === currentDate.getDate();
+            return <div key={`${day || 'blank'}-${index}`} className={`min-h-16 rounded-lg border p-2 text-left ${isToday ? 'border-brand-500 bg-brand-50 dark:bg-brand-950' : 'border-slate-100 dark:border-slate-800'}`}>{day > 0 && day <= daysInMonth && <><span className={`text-sm ${isToday ? 'font-bold text-brand-700' : 'text-slate-700 dark:text-slate-200'}`}>{day}</span>{matching.length > 0 && <span className="mt-2 block h-1.5 w-1.5 rounded-full bg-brand-600" aria-label={`${matching.length} events`} />}</>}</div>;
+          })}</div>
+          {events.length === 0 && <p className="mt-4 text-sm text-slate-500">Scheduled items will appear here when they are added to your opportunities or mentorship.</p>}
+        </section>
+        <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-card dark:border-slate-700 dark:bg-slate-900"><h2 className="mb-4 text-lg font-semibold text-slate-900 dark:text-white">Upcoming</h2>
+          {upcomingEvents.length === 0 ? <p className="text-sm text-slate-500">No upcoming items found.</p> : <ul className="space-y-3">{upcomingEvents.map(({ id, title, detail, date, type, Icon }) => <li key={id} className="flex gap-3 rounded-lg border border-slate-100 p-3 dark:border-slate-800"><Icon className="mt-0.5 h-4 w-4 shrink-0 text-brand-600"/><div className="min-w-0"><p className="font-medium text-slate-800 dark:text-slate-100">{title}</p><p className="text-sm text-slate-500">{detail || type}</p><p className="mt-1 flex items-center gap-1 text-xs text-slate-500"><Clock3 className="h-3 w-3"/>{date.toLocaleString()}</p></div></li>)}</ul>}
+        </section>
+      </div>
+    </main>
+  );
 
   const getEventBadge = (type) => {
     switch (type) {
@@ -131,10 +136,10 @@ const Calendar = () => {
                 </Row>
 
                 <Row className="text-center">
-                  {Array.from({ length: 35 }).map((_, index) => {
-                    const day = index - 2 + 1; // Start from 1st
+                  {Array.from({ length: Math.ceil((firstDayOfMonth + daysInMonth) / 7) * 7 }).map((_, index) => {
+                    const day = index - firstDayOfMonth + 1;
                     const isToday = day === currentDate.getDate();
-                    const hasEvent = events.some((event) => new Date(event.date).getDate() === day);
+                    const hasEvent = day > 0 && day <= daysInMonth && events.some((event) => event.date.getFullYear() === currentYear && event.date.getMonth() === currentDate.getMonth() && event.date.getDate() === day);
 
                     return (
                       <Col key={index} className="p-2 border">
@@ -142,7 +147,7 @@ const Calendar = () => {
                           className={`d-flex flex-column ${isToday ? 'bg-primary text-white rounded p-1' : ''}`}
                         >
                           <div className={hasEvent ? 'fw-bold' : ''}>
-                            {day > 0 && day <= 31 ? day : ''}
+                            {day > 0 && day <= daysInMonth ? day : ''}
                           </div>
                           {hasEvent && (
                             <div className="mt-1">
@@ -160,10 +165,7 @@ const Calendar = () => {
               </div>
 
               <div className="text-center">
-                <Button variant="primary" onClick={() => setShowModal(true)}>
-                  <i className="bi bi-plus-circle me-2"></i>
-                  Add New Event
-                </Button>
+                <p className="text-muted mb-0">Events from applications and mentorship sessions will appear here as they are scheduled.</p>
               </div>
             </Card.Body>
           </Card>
@@ -174,9 +176,7 @@ const Calendar = () => {
             <Card.Body>
               <Card.Title>📅 Upcoming Events</Card.Title>
               <ListGroup variant="flush">
-                {events
-                  .sort((a, b) => new Date(a.date) - new Date(b.date))
-                  .slice(0, 5)
+                {upcomingEvents
                   .map((event) => (
                     <ListGroup.Item key={event.id}>
                       <div className="d-flex justify-content-between align-items-start mb-2">
@@ -203,107 +203,17 @@ const Calendar = () => {
           <Card className="shadow-sm">
             <Card.Body>
               <Card.Title>📊 This Month Overview</Card.Title>
-              <div className="mb-3">
-                <div className="d-flex justify-content-between mb-1">
-                  <span>Interviews</span>
-                  <span className="fw-bold">2</span>
-                </div>
-                <div className="progress" style={{ height: '6px' }}>
-                  <div className="progress-bar bg-primary" style={{ width: '40%' }}></div>
-                </div>
-              </div>
-
-              <div className="mb-3">
-                <div className="d-flex justify-content-between mb-1">
-                  <span>Deadlines</span>
-                  <span className="fw-bold">3</span>
-                </div>
-                <div className="progress" style={{ height: '6px' }}>
-                  <div className="progress-bar bg-danger" style={{ width: '60%' }}></div>
-                </div>
-              </div>
-
-              <div className="mb-3">
-                <div className="d-flex justify-content-between mb-1">
-                  <span>Workshops</span>
-                  <span className="fw-bold">1</span>
-                </div>
-                <div className="progress" style={{ height: '6px' }}>
-                  <div className="progress-bar bg-warning" style={{ width: '20%' }}></div>
-                </div>
-              </div>
-
-              <div className="mt-4">
-                <h6>Quick Actions:</h6>
-                <Button variant="outline-success" size="sm" className="w-100 mb-2">
-                  <i className="bi bi-download me-2"></i>
-                  Export Calendar
-                </Button>
-                <Button variant="outline-info" size="sm" className="w-100">
-                  <i className="bi bi-share me-2"></i>
-                  Share Schedule
-                </Button>
-              </div>
+              <p className="text-muted mb-0">No scheduled events are available yet.</p>
             </Card.Body>
           </Card>
         </Col>
       </Row>
 
-      {/* Add Event Modal */}
-      <Modal show={showModal} onHide={() => setShowModal(false)}>
-        <Modal.Header closeButton>
-          <Modal.Title>Add New Event</Modal.Title>
-        </Modal.Header>
-        <Modal.Body>
-          <Form>
-            <Form.Group className="mb-3">
-              <Form.Label>Event Title</Form.Label>
-              <Form.Control type="text" placeholder="Enter event title" />
-            </Form.Group>
-
-            <Row>
-              <Col md={6}>
-                <Form.Group className="mb-3">
-                  <Form.Label>Date</Form.Label>
-                  <Form.Control type="date" />
-                </Form.Group>
-              </Col>
-              <Col md={6}>
-                <Form.Group className="mb-3">
-                  <Form.Label>Time</Form.Label>
-                  <Form.Control type="time" />
-                </Form.Group>
-              </Col>
-            </Row>
-
-            <Form.Group className="mb-3">
-              <Form.Label>Event Type</Form.Label>
-              <Form.Select>
-                <option value="interview">Interview</option>
-                <option value="deadline">Deadline</option>
-                <option value="academic">Academic</option>
-                <option value="workshop">Workshop</option>
-                <option value="mentorship">Mentorship</option>
-              </Form.Select>
-            </Form.Group>
-
-            <Form.Group className="mb-3">
-              <Form.Label>Description</Form.Label>
-              <Form.Control as="textarea" rows={3} />
-            </Form.Group>
-          </Form>
-        </Modal.Body>
-        <Modal.Footer>
-          <Button variant="secondary" onClick={() => setShowModal(false)}>
-            Cancel
-          </Button>
-          <Button variant="primary" onClick={() => setShowModal(false)}>
-            Save Event
-          </Button>
-        </Modal.Footer>
-      </Modal>
     </Container>
   );
 };
 
 export default Calendar;
+
+
+

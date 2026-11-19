@@ -16,7 +16,7 @@ import {
   Alert,
   Spinner,
   Dropdown,
-} from 'react-bootstrap';
+} from '../../components/ui/tailwindCompat';
 import { useNavigate } from 'react-router-dom';
 import {
   collection,
@@ -685,7 +685,7 @@ const Jobs = () => {
         ? "You haven't saved any jobs yet. Start browsing to find opportunities!"
         : "You haven't applied to any jobs yet. Start applying today!"}
       <div className="mt-2">
-        <Button variant="outline-info" size="sm" onClick={() => navigate('/student/search/jobs')}>
+        <Button variant="outline-info" size="sm" onClick={() => navigate('/student/jobs')}>
           <i className="bi bi-search me-1"></i>
           Browse Jobs
         </Button>
@@ -888,7 +888,7 @@ const Jobs = () => {
           <Button
             variant="outline-success"
             size="lg"
-            onClick={() => navigate('/student/search/jobs')}
+            onClick={() => navigate('/student/jobs')}
           >
             <i className="bi bi-search me-2"></i>
             Find Jobs
@@ -970,7 +970,7 @@ const Jobs = () => {
               <Button
                 variant="outline-primary"
                 className="w-100 mt-3"
-                onClick={() => navigate('/student/search/jobs')}
+                onClick={() => navigate('/student/jobs')}
               >
                 <i className="bi bi-search me-2"></i>
                 Browse More Jobs
@@ -1343,3 +1343,6 @@ const Jobs = () => {
 };
 
 export default Jobs;
+
+
+

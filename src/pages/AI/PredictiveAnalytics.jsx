@@ -10,7 +10,7 @@ import {
   Form,
   Badge,
   ProgressBar,
-} from 'react-bootstrap';
+} from '../../components/ui/tailwindCompat';
 import {
   BarChart,
   Bar,
@@ -393,3 +393,5 @@ const PredictiveAnalytics = () => {
 };
 
 export default PredictiveAnalytics;
+
+

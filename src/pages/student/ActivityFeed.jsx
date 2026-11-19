@@ -13,26 +13,22 @@ import {
   Row,
   Col,
   ProgressBar,
-} from 'react-bootstrap';
+} from '../../components/ui/tailwindCompat';
 import {
   collection,
   query,
   where,
-  orderBy,
   limit,
   onSnapshot,
-  Timestamp,
-  getDocs,
+  doc,
+  serverTimestamp,
+  updateDoc,
 } from 'firebase/firestore';
-import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 
 import { useAuth } from '../../context/AuthContext';
 import { getStudentApplications, getApplicationStats } from '../../services/applicationService';
-import { getStudentDocuments } from '../../services/studentServices';
-import { uploadToCloudinary, getCloudinaryUrl } from '../../services/cloudinaryService';
+import { getStudentDocuments, subscribeToStudentApplications, subscribeToStudentDocuments } from '../../services/studentServices';
 import { db } from '../../config/firebase';
-import { storage } from '../../config/firebase';
-import './ActivityFeed.css';
 
 const ActivityFeed = () => {
   const { currentUser } = useAuth();
@@ -47,11 +43,6 @@ const ActivityFeed = () => {
     pendingApplications: 0,
     successRate: 0,
   });
-  const [uploading, setUploading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
-  const [showUploadModal, setShowUploadModal] = useState(false);
-  const [selectedFile, setSelectedFile] = useState(null);
-  const [fileType, setFileType] = useState('resume');
   const [realtimeActivities, setRealtimeActivities] = useState([]);
 
   // Activity types configuration
@@ -105,9 +96,7 @@ const ActivityFeed = () => {
     if (!timestamp) return 'Recently';
 
     let date;
-    if (timestamp instanceof Timestamp) {
-      date = timestamp.toDate();
-    } else if (timestamp?.toDate) {
+    if (timestamp?.toDate) {
       date = timestamp.toDate();
     } else if (typeof timestamp === 'string') {
       date = new Date(timestamp);
@@ -165,13 +154,13 @@ const ActivityFeed = () => {
           allActivities.push({
             id: `app_${app.id}`,
             type: 'application',
-            title: `Applied for ${app.job?.title || 'Job'}`,
-            details: app.company?.name || app.job?.companyName || 'Unknown Company',
-            time: app.appliedDate,
+            title: `Application: ${app.jobTitle || app.jobName || app.job?.title || 'Job'}`,
+            details: app.companyName || app.company?.name || app.job?.companyName || app.status || 'Application submitted',
+            time: app.appliedAt || app.appliedDate || app.createdAt,
             icon: ACTIVITY_TYPES.application.icon,
             color: ACTIVITY_TYPES.application.color,
             metadata: app,
-            timestamp: app.appliedDate,
+            timestamp: app.appliedAt || app.appliedDate || app.createdAt,
           });
         });
       }
@@ -182,20 +171,15 @@ const ActivityFeed = () => {
           allActivities.push({
             id: `doc_${doc.id}`,
             type: 'document',
-            title: `Uploaded ${doc.type || 'Document'}`,
-            details: doc.name || doc.filename || 'Document',
-            time: doc.uploadDate || doc.createdAt,
+            title: `Uploaded ${doc.documentType || doc.type || 'Document'}`,
+            details: doc.fileName || doc.name || doc.filename || 'Document',
+            time: doc.uploadedAt || doc.uploadDate || doc.createdAt,
             icon: ACTIVITY_TYPES.document.icon,
             color: ACTIVITY_TYPES.document.color,
             metadata: doc,
-            timestamp: doc.uploadDate || doc.createdAt,
+            timestamp: doc.uploadedAt || doc.uploadDate || doc.createdAt,
           });
         });
-      }
-
-      // Add sample activities if none found
-      if (allActivities.length === 0) {
-        allActivities.push(...getSampleActivities());
       }
 
       // Sort by timestamp (newest first)
@@ -213,7 +197,7 @@ const ActivityFeed = () => {
           ...prev,
           applications: statsResult.data.total || 0,
           pendingApplications: statsResult.data.pending || 0,
-          successRate: parseFloat(statsResult.data.successRate) || 0,
+          successRate: Number.isFinite(Number(statsResult.data.successRate)) ? Number(statsResult.data.successRate) : 0,
         }));
       }
 
@@ -226,63 +210,12 @@ const ActivityFeed = () => {
       }
     } catch (err) {
       console.error('Error fetching activities:', err);
-      setError('Failed to load activities. Using sample data.');
-      setActivities(getSampleActivities());
+      setError('Failed to load activities from your profile.');
+      setActivities([]);
     } finally {
       setLoading(false);
     }
   }, [currentUser]);
-
-  // Get sample activities (fallback)
-  const getSampleActivities = () => {
-    return [
-      {
-        id: 1,
-        type: 'application',
-        title: 'Applied for Software Developer Position',
-        details: 'Tech Solutions Lesotho',
-        time: '2 hours ago',
-        icon: 'bi-briefcase',
-        color: 'primary',
-      },
-      {
-        id: 2,
-        type: 'course',
-        title: 'Completed React Fundamentals Course',
-        details: 'Scored 95% on final assessment',
-        time: '1 day ago',
-        icon: 'bi-book',
-        color: 'success',
-      },
-      {
-        id: 3,
-        type: 'document',
-        title: 'Uploaded Updated Resume',
-        details: 'Added new project experience',
-        time: '2 days ago',
-        icon: 'bi-file-earmark',
-        color: 'info',
-      },
-      {
-        id: 4,
-        type: 'recommendation',
-        title: 'Received Course Recommendation',
-        details: 'Advanced JavaScript based on your profile',
-        time: '3 days ago',
-        icon: 'bi-star',
-        color: 'warning',
-      },
-      {
-        id: 5,
-        type: 'deadline',
-        title: 'Application Deadline Approaching',
-        details: 'Data Analyst at Basotho Bank - Due in 3 days',
-        time: '4 days ago',
-        icon: 'bi-calendar-check',
-        color: 'danger',
-      },
-    ];
-  };
 
   // Setup realtime listener for new activities
   useEffect(() => {
@@ -292,7 +225,6 @@ const ActivityFeed = () => {
     const q = query(
       activitiesRef,
       where('userId', '==', currentUser.uid),
-      orderBy('createdAt', 'desc'),
       limit(10)
     );
 
@@ -300,12 +232,15 @@ const ActivityFeed = () => {
       q,
       (snapshot) => {
         const newActivities = snapshot.docs.map((doc) => ({
-          id: doc.id,
+          id: `act_${doc.id}`,
           ...doc.data(),
           type: doc.data().activityType || 'notification',
           icon: ACTIVITY_TYPES[doc.data().activityType]?.icon || 'bi-bell',
           color: ACTIVITY_TYPES[doc.data().activityType]?.color || 'secondary',
-        }));
+        })).sort((left, right) => {
+          const dateValue = (value) => value?.toDate ? value.toDate().getTime() : new Date(value || 0).getTime();
+          return dateValue(right.createdAt) - dateValue(left.createdAt);
+        });
         setRealtimeActivities(newActivities);
       },
       (error) => {
@@ -316,132 +251,47 @@ const ActivityFeed = () => {
     return () => unsubscribe();
   }, [currentUser]);
 
-  // File upload handler
-  const handleFileUpload = async (e) => {
-    const file = e.target.files[0];
-    if (!file || !currentUser?.uid) return;
-
-    setSelectedFile(file);
-    setUploading(true);
-    setUploadProgress(0);
-
-    try {
-      // Option 1: Upload to Cloudinary (for images/documents)
-      if (fileType === 'image' || fileType === 'document') {
-        const uploadResult = await uploadToCloudinary(file, `students/${currentUser.uid}`);
-
-        if (uploadResult.success) {
-          // Save document reference to Firestore
-          await saveDocumentToFirestore(uploadResult.data, file);
-
-          // Add activity
-          addActivity('document', `Uploaded ${file.name}`, 'Document uploaded successfully');
-
-          setUploadProgress(100);
-          setTimeout(() => {
-            setUploading(false);
-            setSelectedFile(null);
-            fetchActivities(); // Refresh activities
-          }, 1000);
-        } else {
-          throw new Error(uploadResult.error || 'Upload failed');
-        }
-      }
-      // Option 2: Upload to Firebase Storage (for any file)
-      else {
-        const storageRef = ref(storage, `students/${currentUser.uid}/${Date.now()}_${file.name}`);
-        const uploadTask = uploadBytesResumable(storageRef, file);
-
-        uploadTask.on(
-          'state_changed',
-          (snapshot) => {
-            const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-            setUploadProgress(progress);
-          },
-          (error) => {
-            console.error('Upload error:', error);
-            setError('Upload failed: ' + error.message);
-            setUploading(false);
-          },
-          async () => {
-            const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
-
-            // Save to Firestore
-            await saveDocumentToFirestore(
-              {
-                url: downloadURL,
-                name: file.name,
-                size: file.size,
-                type: file.type,
-              },
-              file
-            );
-
-            // Add activity
-            addActivity(
-              'document',
-              `Uploaded ${file.name}`,
-              'Document uploaded to Firebase Storage'
-            );
-
-            setUploading(false);
-            setSelectedFile(null);
-            fetchActivities(); // Refresh activities
-          }
-        );
-      }
-    } catch (error) {
-      console.error('Upload error:', error);
-      setError('Upload failed: ' + error.message);
-      setUploading(false);
-    }
-  };
-
-  // Save document reference to Firestore
-  const saveDocumentToFirestore = async (fileData, originalFile) => {
-    try {
-      const docRef = collection(db, 'student_documents');
-      await addDoc(docRef, {
-        userId: currentUser.uid,
-        name: originalFile.name,
-        type: fileType,
-        url: fileData.secure_url || fileData.url,
-        publicId: fileData.public_id,
-        size: originalFile.size,
-        mimeType: originalFile.type,
-        uploadDate: Timestamp.now(),
-        lastAccessed: Timestamp.now(),
-        metadata: fileData,
+  useEffect(() => {
+    if (!currentUser?.uid) return undefined;
+    const stopApplications = subscribeToStudentApplications(currentUser.uid, (records) => {
+      setActivities((previous) => {
+        const documents = previous.filter((item) => item.type === 'document');
+        const applications = records.slice(0, 10).map((app) => ({
+          id: `app_${app.id}`, type: 'application', title: `Application: ${app.jobTitle || app.jobName || app.job?.title || 'Job'}`,
+          details: app.companyName || app.company?.name || app.status || 'Application submitted', time: app.appliedAt || app.createdAt,
+          timestamp: app.appliedAt || app.createdAt, icon: ACTIVITY_TYPES.application.icon, color: ACTIVITY_TYPES.application.color, metadata: app,
+        }));
+        setStats((statsBefore) => ({ ...statsBefore, applications: records.length, interviews: records.filter((item) => item.interviewAt || item.interviewDate).length, pendingApplications: records.filter((item) => ['pending', 'submitted', 'reviewing'].includes(String(item.status || '').toLowerCase())).length }));
+        return [...applications, ...documents];
       });
-    } catch (error) {
-      console.error('Error saving to Firestore:', error);
-    }
-  };
-
-  // Add new activity to Firestore
-  const addActivity = async (activityType, title, details) => {
-    try {
-      const activitiesRef = collection(db, 'activities');
-      await addDoc(activitiesRef, {
-        userId: currentUser.uid,
-        activityType,
-        title,
-        details,
-        createdAt: Timestamp.now(),
-        read: false,
+      setLoading(false);
+    }, (loadError) => setError(loadError.message || 'Could not load application activity.'));
+    const stopDocuments = subscribeToStudentDocuments(currentUser.uid, (records) => {
+      setActivities((previous) => {
+        const applications = previous.filter((item) => item.type === 'application');
+        const documents = records.slice(0, 10).map((record) => ({
+          id: `doc_${record.id}`, type: 'document', title: `Uploaded ${record.documentType || record.type || 'Document'}`,
+          details: record.fileName || record.name || 'Document', time: record.uploadedAt || record.createdAt,
+          timestamp: record.uploadedAt || record.createdAt, icon: ACTIVITY_TYPES.document.icon, color: ACTIVITY_TYPES.document.color, metadata: record,
+        }));
+        setStats((statsBefore) => ({ ...statsBefore, documents: records.length }));
+        return [...applications, ...documents];
       });
-    } catch (error) {
-      console.error('Error adding activity:', error);
-    }
-  };
+      setLoading(false);
+    }, (loadError) => setError(loadError.message || 'Could not load document activity.'));
+    const stopEnrollments = onSnapshot(collection(db, 'students', currentUser.uid, 'enrollments'), (snapshot) => {
+      setStats((statsBefore) => ({ ...statsBefore, courses: snapshot.docs.filter((item) => item.data().status === 'completed' || Number(item.data().progress) >= 100).length }));
+    }, (loadError) => setError(loadError.message || 'Could not load course activity.'));
+    return () => { stopApplications(); stopDocuments(); stopEnrollments(); };
+  }, [currentUser?.uid]);
 
   // Mark activity as read
   const markAsRead = async (activityId) => {
     try {
-      const activityRef = doc(db, 'activities', activityId);
+      const activityRef = doc(db, 'activities', activityId.replace(/^act_/, ''));
       await updateDoc(activityRef, {
         read: true,
-        readAt: Timestamp.now(),
+        readAt: serverTimestamp(),
       });
     } catch (error) {
       console.error('Error marking as read:', error);
@@ -481,7 +331,7 @@ const ActivityFeed = () => {
   }, [fetchActivities]);
 
   // Combine realtime and fetched activities
-  const allActivities = [...realtimeActivities, ...activities]
+  const allActivities = [...new Map([...realtimeActivities, ...activities].map((activity) => [activity.id, activity])).values()]
     .sort((a, b) => {
       const timeA = a.createdAt || a.timestamp || a.time;
       const timeB = b.createdAt || b.timestamp || b.time;
@@ -512,45 +362,7 @@ const ActivityFeed = () => {
       )}
 
       {/* Upload Section */}
-      <Card className="shadow-sm mb-4">
-        <Card.Body>
-          <h5 className="mb-3">Upload Documents</h5>
-          <div className="d-flex align-items-center gap-3">
-            <select
-              className="form-select w-auto"
-              value={fileType}
-              onChange={(e) => setFileType(e.target.value)}
-            >
-              <option value="resume">Resume/CV</option>
-              <option value="transcript">Transcript</option>
-              <option value="certificate">Certificate</option>
-              <option value="portfolio">Portfolio</option>
-              <option value="other">Other</option>
-            </select>
-
-            <label className="btn btn-primary mb-0">
-              <i className="bi bi-cloud-upload me-2"></i>
-              Choose File
-              <input
-                type="file"
-                className="d-none"
-                onChange={handleFileUpload}
-                disabled={uploading}
-              />
-            </label>
-
-            {uploading && (
-              <div className="flex-grow-1">
-                <div className="d-flex justify-content-between mb-1">
-                  <small>Uploading {selectedFile?.name}</small>
-                  <small>{Math.round(uploadProgress)}%</small>
-                </div>
-                <ProgressBar now={uploadProgress} animated />
-              </div>
-            )}
-          </div>
-        </Card.Body>
-      </Card>
+      <Card className="shadow-sm mb-4"><Card.Body><h5 className="mb-2">Document library</h5><p className="mb-0 text-muted">Upload and manage your files on the <a href="/student/documents">Documents page</a>.</p></Card.Body></Card>
 
       {/* Activity Feed */}
       <Card className="shadow-sm">
@@ -565,7 +377,7 @@ const ActivityFeed = () => {
           {allActivities.length === 0 ? (
             <Alert variant="info">
               <i className="bi bi-info-circle me-2"></i>
-              No activities yet. Start by applying for jobs or uploading documents!
+              No activities yet. Your applications and documents will appear here.
             </Alert>
           ) : (
             <>
@@ -699,10 +511,7 @@ const ActivityFeed = () => {
             <i className="bi bi-cloud me-2"></i>
             Cloudinary Integration
           </h5>
-          <p className="mb-0">
-            Your documents are securely stored in Cloudinary with automatic optimization. Images are
-            compressed, PDFs are stored as raw files, and all uploads are encrypted in transit.
-          </p>
+          <p className="mb-0">Documents you upload are stored through the configured media service and reflected here as the library syncs.</p>
         </Card.Body>
       </Card>
     </Container>
@@ -710,3 +519,6 @@ const ActivityFeed = () => {
 };
 
 export default ActivityFeed;
+
+
+

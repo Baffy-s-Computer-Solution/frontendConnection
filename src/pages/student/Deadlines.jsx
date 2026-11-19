@@ -1,238 +1,133 @@
-import { Container, Card, Table, Badge, Button } from 'react-bootstrap';
+import { useEffect, useMemo, useState } from 'react';
+import Button from '../../components/ui/Button';
+import { Link } from 'react-router-dom';
+import { subscribeToActiveJobs, subscribeToStudentApplications, subscribeToStudentDocuments } from '../../services/studentServices';
+import { useAuth } from '../../context/AuthContext';
 
 const Deadlines = () => {
-  const deadlines = [
-    {
-      id: 1,
-      title: 'Software Engineer Application',
-      institution: 'Tech Solutions Lesotho',
-      type: 'job',
-      deadline: '2024-01-15',
-      priority: 'high',
-      status: 'pending',
-    },
-    {
-      id: 2,
-      title: 'Computer Science Admission',
-      institution: 'National University of Lesotho',
-      type: 'course',
-      deadline: '2024-01-20',
-      priority: 'high',
-      status: 'draft',
-    },
-    {
-      id: 3,
-      title: 'Data Analyst Internship',
-      institution: 'Basotho Bank',
-      type: 'internship',
-      deadline: '2024-01-25',
-      priority: 'medium',
-      status: 'applied',
-    },
-    {
-      id: 4,
-      title: 'Business Management Certificate',
-      institution: 'Lesotho College of Education',
-      type: 'course',
-      deadline: '2024-02-01',
-      priority: 'medium',
-      status: 'pending',
-    },
-    {
-      id: 5,
-      title: 'Marketing Coordinator',
-      institution: 'Maseru City Council',
-      type: 'job',
-      deadline: '2024-02-10',
-      priority: 'low',
-      status: 'not_started',
-    },
-  ];
+  const { currentUser } = useAuth();
+  const [jobs, setJobs] = useState([]);
+  const [applications, setApplications] = useState([]);
+  const [documents, setDocuments] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
-  const getPriorityBadge = (priority) => {
-    switch (priority) {
-      case 'high':
-        return <Badge bg="danger">High</Badge>;
-      case 'medium':
-        return (
-          <Badge bg="warning" text="dark">
-            Medium
-          </Badge>
-        );
-      case 'low':
-        return <Badge bg="secondary">Low</Badge>;
-      default:
-        return <Badge bg="secondary">Low</Badge>;
-    }
-  };
+  useEffect(() => {
+    let ready = 0;
+    const markReady = () => { ready += 1; if (ready >= (currentUser?.uid ? 3 : 1)) setLoading(false); };
+    const onError = (loadError) => { setError(loadError.message || 'Unable to load live deadline data.'); markReady(); };
+    const stopJobs = subscribeToActiveJobs((records) => { setJobs(records); markReady(); }, onError);
+    const stopApplications = currentUser?.uid ? subscribeToStudentApplications(currentUser.uid, (records) => { setApplications(records); markReady(); }, onError) : () => {};
+    const stopDocuments = currentUser?.uid ? subscribeToStudentDocuments(currentUser.uid, (records) => { setDocuments(records); markReady(); }, onError) : () => {};
+    return () => { stopJobs(); stopApplications(); stopDocuments(); };
+  }, [currentUser?.uid]);
+
+  const deadlines = useMemo(() => jobs.filter((job) => job.deadline).map((job) => ({
+    id: job.id,
+    title: job.title || job.jobDetails?.title || 'Opportunity deadline',
+    institution: job.company || job.companyName || job.jobDetails?.company || 'Employer details available',
+    type: job.jobType || job.jobDetails?.jobType || 'job',
+    deadline: job.deadline?.toDate ? job.deadline.toDate() : new Date(job.deadline),
+    status: applications.some((application) => application.jobId === job.id) ? 'applied' : 'pending',
+  })), [applications, jobs]);
+  const applicationProgress = jobs.length ? Math.round((applications.length / jobs.length) * 100) : 0;
+  const documentProgress = Math.min(100, Math.round((documents.length / 5) * 100));
 
   const getStatusBadge = (status) => {
-    switch (status) {
-      case 'applied':
-        return <Badge bg="success">Applied</Badge>;
-      case 'pending':
-        return (
-          <Badge bg="warning" text="dark">
-            Pending
-          </Badge>
-        );
-      case 'draft':
-        return <Badge bg="info">Draft</Badge>;
-      case 'not_started':
-        return <Badge bg="secondary">Not Started</Badge>;
-      default:
-        return <Badge bg="secondary">Not Started</Badge>;
-    }
+    const map = {
+      applied: 'bg-emerald-100 text-emerald-700',
+      pending: 'bg-amber-100 text-amber-700',
+      draft: 'bg-sky-100 text-sky-700',
+      not_started: 'bg-slate-200 text-slate-700',
+    };
+    return <span className={`inline-flex rounded-full px-2 py-1 text-[10px] font-semibold uppercase tracking-wide ${map[status] || map.not_started}`}>{status.replace('_', ' ')}</span>;
   };
 
   const getDaysRemaining = (deadline) => {
     const today = new Date();
     const deadlineDate = new Date(deadline);
-    const diffTime = deadlineDate - today;
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    return diffDays;
+    return Math.ceil((deadlineDate - today) / (1000 * 60 * 60 * 24));
   };
 
   return (
-    <Container className="py-4">
-      <h2 className="mb-4">Deadlines & Important Dates</h2>
+    <main className="w-full px-4 py-6 sm:px-6 lg:px-8">
+      <h1 className="mb-6 text-2xl font-semibold text-slate-900 dark:text-slate-100">Deadlines & Important Dates</h1>
 
-      <Card className="shadow-sm mb-4">
-        <Card.Body>
-          <div className="d-flex justify-content-between align-items-center mb-3">
-            <h5 className="mb-0">Upcoming Deadlines</h5>
-            <Button variant="outline-primary" size="sm">
-              <i className="bi bi-plus-circle me-1"></i>
-              Add Deadline
-            </Button>
-          </div>
+      <section className="mb-6 rounded-xl border bg-white p-5 shadow-card dark:bg-slate-900">
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Upcoming Deadlines</h2>
+          <span className="text-xs text-slate-500">Deadlines are derived from live opportunities.</span>
+        </div>
 
-          <Table hover responsive>
-            <thead>
+        {loading && <p className="text-sm text-slate-500">Loading live deadlines...</p>}
+        {error && <p role="alert" className="mb-3 rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">{error}</p>}
+        {!loading && deadlines.length === 0 && <div className="dashboard-empty">No upcoming deadlines found in your current opportunities.</div>}
+        {!loading && deadlines.length > 0 && <div className="overflow-x-auto">
+          <table className="min-w-full text-left text-sm">
+            <thead className="border-b border-slate-200 text-slate-600 dark:border-slate-700 dark:text-slate-300">
               <tr>
-                <th>Opportunity</th>
-                <th>Institution/Company</th>
-                <th>Type</th>
-                <th>Deadline</th>
-                <th>Days Left</th>
-                <th>Priority</th>
-                <th>Status</th>
-                <th>Action</th>
+                <th className="pb-3 pr-4 font-medium">Opportunity</th>
+                <th className="pb-3 pr-4 font-medium">Institution/Company</th>
+                <th className="pb-3 pr-4 font-medium">Type</th>
+                <th className="pb-3 pr-4 font-medium">Deadline</th>
+                <th className="pb-3 pr-4 font-medium">Days Left</th>
+                <th className="pb-3 pr-4 font-medium">Status</th>
+                <th className="pb-3 font-medium">Action</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
               {deadlines.map((item) => {
                 const daysLeft = getDaysRemaining(item.deadline);
                 return (
-                  <tr key={item.id}>
-                    <td>{item.title}</td>
-                    <td>{item.institution}</td>
-                    <td>
-                      <Badge bg={item.type === 'job' ? 'primary' : 'success'}>{item.type}</Badge>
-                    </td>
-                    <td>{new Date(item.deadline).toLocaleDateString()}</td>
-                    <td>
-                      <span
-                        className={
-                          daysLeft <= 3
-                            ? 'text-danger fw-bold'
-                            : daysLeft <= 7
-                              ? 'text-warning'
-                              : ''
-                        }
-                      >
-                        {daysLeft} days
-                      </span>
-                    </td>
-                    <td>{getPriorityBadge(item.priority)}</td>
-                    <td>{getStatusBadge(item.status)}</td>
-                    <td>
-                      <Button variant="outline-primary" size="sm">
-                        {item.status === 'not_started' ? 'Start' : 'View'}
-                      </Button>
-                    </td>
+                  <tr key={item.id} className="align-middle">
+                    <td className="py-3 pr-4 text-slate-800 dark:text-slate-200">{item.title}</td>
+                    <td className="py-3 pr-4 text-slate-600 dark:text-slate-300">{item.institution}</td>
+                    <td className="py-3 pr-4"><span className={`inline-flex rounded-full px-2 py-1 text-[10px] font-semibold uppercase tracking-wide ${item.type === 'job' ? 'bg-brand-100 text-brand-700' : 'bg-emerald-100 text-emerald-700'}`}>{item.type}</span></td>
+                    <td className="py-3 pr-4 text-slate-600 dark:text-slate-300">{new Date(item.deadline).toLocaleDateString()}</td>
+                    <td className={`py-3 pr-4 font-medium ${daysLeft <= 3 ? 'text-danger' : daysLeft <= 7 ? 'text-amber-600' : 'text-slate-600 dark:text-slate-300'}`}>{daysLeft} days</td>
+                    <td className="py-3 pr-4">{getStatusBadge(item.status)}</td>
+                    <td className="py-3"><Button variant="outline" size="sm">{item.status === 'not_started' ? 'Start' : 'View'}</Button></td>
                   </tr>
                 );
               })}
             </tbody>
-          </Table>
-        </Card.Body>
-      </Card>
+          </table>
+        </div>}
+      </section>
 
-      <div className="row">
-        <div className="col-md-6">
-          <Card className="shadow-sm">
-            <Card.Body>
-              <h5 className="mb-3">Urgent Deadlines (≤ 3 days)</h5>
-              <div className="alert alert-danger">
-                <i className="bi bi-exclamation-triangle me-2"></i>
-                <strong>2 urgent deadlines</strong> require immediate attention
-              </div>
-              <ul className="list-group">
-                {deadlines
-                  .filter((item) => getDaysRemaining(item.deadline) <= 3)
-                  .map((item) => (
-                    <li key={item.id} className="list-group-item">
-                      <div className="d-flex justify-content-between align-items-center">
-                        <div>
-                          <strong>{item.title}</strong>
-                          <br />
-                          <small className="text-muted">{item.institution}</small>
-                        </div>
-                        <Badge bg="danger">{getDaysRemaining(item.deadline)} days</Badge>
-                      </div>
-                    </li>
-                  ))}
-              </ul>
-            </Card.Body>
-          </Card>
-        </div>
+      <div className="grid gap-4 md:grid-cols-2">
+        <section className="rounded-xl border bg-white p-5 shadow-card dark:bg-slate-900">
+          <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Urgent Deadlines (≤ 3 days)</h2>
+          <div className="mt-4 rounded-lg border border-danger/20 bg-danger-light p-3 text-sm text-danger-dark">{deadlines.filter((item) => getDaysRemaining(item.deadline) <= 3).length} urgent deadlines require attention</div>
+          <ul className="mt-4 space-y-3">
+            {deadlines.filter((item) => getDaysRemaining(item.deadline) <= 3).map((item) => (
+              <li key={item.id} className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 p-3 dark:border-slate-700">
+                <div>
+                  <p className="font-medium text-slate-800 dark:text-slate-100">{item.title}</p>
+                  <p className="text-xs text-slate-500">{item.institution}</p>
+                </div>
+                <span className="rounded-full bg-danger px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-white">{getDaysRemaining(item.deadline)} days</span>
+              </li>
+            ))}
+          </ul>
+        </section>
 
-        <div className="col-md-6">
-          <Card className="shadow-sm">
-            <Card.Body>
-              <h5 className="mb-3">Completion Progress</h5>
-              <div className="mb-3">
-                <div className="d-flex justify-content-between mb-1">
-                  <span>Applications</span>
-                  <span>60%</span>
-                </div>
-                <div className="progress" style={{ height: '8px' }}>
-                  <div className="progress-bar bg-success" style={{ width: '60%' }}></div>
-                </div>
-              </div>
-
-              <div className="mb-3">
-                <div className="d-flex justify-content-between mb-1">
-                  <span>Course Registrations</span>
-                  <span>80%</span>
-                </div>
-                <div className="progress" style={{ height: '8px' }}>
-                  <div className="progress-bar bg-info" style={{ width: '80%' }}></div>
-                </div>
-              </div>
-
-              <div className="mb-3">
-                <div className="d-flex justify-content-between mb-1">
-                  <span>Document Uploads</span>
-                  <span>40%</span>
-                </div>
-                <div className="progress" style={{ height: '8px' }}>
-                  <div className="progress-bar bg-warning" style={{ width: '40%' }}></div>
-                </div>
-              </div>
-
-              <div className="text-center mt-4">
-                <Button variant="primary">
-                  <i className="bi bi-calendar-check me-2"></i>
-                  View Calendar
-                </Button>
-              </div>
-            </Card.Body>
-          </Card>
-        </div>
+        <section className="rounded-xl border bg-white p-5 shadow-card dark:bg-slate-900">
+          <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Completion Progress</h2>
+          <div className="mt-4 space-y-4">
+            <div>
+              <div className="mb-1 flex justify-between text-sm text-slate-600 dark:text-slate-300"><span>Applications</span><span>{applicationProgress}%</span></div>
+              <div className="h-2.5 overflow-hidden rounded-full bg-slate-200"><div className="h-full rounded-full bg-emerald-500" style={{ width: `${applicationProgress}%` }} /></div>
+            </div>
+            <div>
+              <div className="mb-1 flex justify-between text-sm text-slate-600 dark:text-slate-300"><span>Document uploads</span><span>{documentProgress}%</span></div>
+              <div className="h-2.5 overflow-hidden rounded-full bg-slate-200"><div className="h-full rounded-full bg-amber-500" style={{ width: `${documentProgress}%` }} /></div>
+            </div>
+          </div>
+          <div className="mt-6 text-center"><Link to="/student/calendar" className="inline-flex rounded-xl bg-brand-600 px-4 py-2 text-sm font-semibold text-white">View Calendar</Link></div>
+        </section>
       </div>
-    </Container>
+    </main>
   );
 };
 

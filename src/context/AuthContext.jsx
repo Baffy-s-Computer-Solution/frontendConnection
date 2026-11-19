@@ -9,7 +9,7 @@ import {
   signInWithEmailAndPassword,
   signInWithPopup,
   signOut,
-  updateProfile
+  updateProfile,
 } from 'firebase/auth';
 import {
   disableNetwork,
@@ -18,7 +18,7 @@ import {
   getDoc,
   serverTimestamp,
   setDoc,
-  updateDoc
+  updateDoc,
 } from 'firebase/firestore';
 import {
   createContext,
@@ -32,6 +32,7 @@ import {
 
 import { auth, db, googleProvider } from '../config/firebase';
 import { authAPI } from '../services/api';
+import supabaseService from '../services/supabaseService';
 
 // ==================== CONSTANTS ====================
 export const USER_TYPES = {
@@ -39,6 +40,7 @@ export const USER_TYPES = {
   STUDENT: 'student',
   COMPANY: 'company',
   INSTITUTE: 'institute',
+  GOVERNMENT: 'government',
   MENTOR: 'mentor',
   YOUTH: 'youth',
   ENTREPRENEUR: 'entrepreneur',
@@ -52,6 +54,7 @@ const FIRESTORE_SUPPORTED_USER_TYPES = new Set([
   USER_TYPES.STUDENT,
   USER_TYPES.COMPANY,
   USER_TYPES.INSTITUTE,
+  USER_TYPES.GOVERNMENT,
   USER_TYPES.MENTOR,
   USER_TYPES.YOUTH,
   USER_TYPES.ENTREPRENEUR,
@@ -60,6 +63,7 @@ const FIRESTORE_SUPPORTED_USER_TYPES = new Set([
 ]);
 
 const inFlightProfileCreations = new Map();
+const ENABLE_BACKEND_AUTH = import.meta.env.VITE_ENABLE_BACKEND_AUTH === 'true';
 
 const isPermissionDeniedError = (error) => {
   return (
@@ -108,6 +112,8 @@ const getProfileCollectionForUserType = (userType) => {
       return 'companies';
     case USER_TYPES.INSTITUTE:
       return 'institutes';
+    case USER_TYPES.GOVERNMENT:
+      return 'government';
     case USER_TYPES.MENTOR:
       return 'mentors';
     case USER_TYPES.YOUTH:
@@ -128,6 +134,7 @@ export const USER_TYPE_LABELS = {
   [USER_TYPES.STUDENT]: 'Student / Graduate',
   [USER_TYPES.COMPANY]: 'Company / Employer',
   [USER_TYPES.INSTITUTE]: 'Educational Institute',
+  [USER_TYPES.GOVERNMENT]: 'Government',
   [USER_TYPES.MENTOR]: 'Mentor / Advisor',
   [USER_TYPES.YOUTH]: 'Youth Entrepreneur',
   [USER_TYPES.ENTREPRENEUR]: 'Entrepreneur',
@@ -180,7 +187,56 @@ export const AuthContext = createContext();
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
+    console.warn('useAuth was called outside AuthProvider; returning fallback auth state.');
+    return {
+      currentUser: null,
+      userProfile: null,
+      userData: null,
+      loading: false,
+      isAuthenticated: false,
+      isAdmin: false,
+      isStudent: false,
+      isCompany: false,
+      isInstitute: false,
+      isMentor: false,
+      isYouth: false,
+      isEntrepreneur: false,
+      isParent: false,
+      isAlumni: false,
+      isOffline: !navigator.onLine,
+      sessionExpiryWarning: false,
+      error: null,
+      clearError: () => {},
+      login: async () => ({ success: false, error: 'Authentication unavailable' }),
+      loginWithGoogle: async () => ({ success: false, error: 'Authentication unavailable' }),
+      register: async () => ({ success: false, error: 'Authentication unavailable' }),
+      logout: async () => ({ success: true }),
+      resetPassword: async () => ({ success: false, error: 'Authentication unavailable' }),
+      isEmailVerified: () => false,
+      needsEmailVerification: () => false,
+      resendVerificationEmail: async () => ({ success: false, error: 'Authentication unavailable' }),
+      verifyEmail: async () => ({ success: false, error: 'Authentication unavailable' }),
+      resendVerification: async () => ({ success: false, error: 'Authentication unavailable' }),
+      verifyRegistrationEmailOtp: async () => ({ success: false, error: 'Authentication unavailable' }),
+      resendRegistrationEmailOtp: async () => ({ success: false, error: 'Authentication unavailable' }),
+      requestRegistrationPhoneOtp: async () => ({ success: false, error: 'Authentication unavailable' }),
+      verifyRegistrationPhoneOtp: async () => ({ success: false, error: 'Authentication unavailable' }),
+      emailVerificationSent: false,
+      sendVerificationEmail: async () => ({ success: false, error: 'Authentication unavailable' }),
+      refreshUserProfile: async () => ({ success: false, error: 'Authentication unavailable' }),
+      updateUserPhoto: () => {},
+      updateUserProfile: () => {},
+      getUserProfile: async () => ({ success: false, error: 'Authentication unavailable' }),
+      getDashboardPath: () => '/login',
+      getUserTypeDisplay: () => 'User',
+      getUserTypeLabel: () => 'User',
+      validatePassword: () => true,
+      validateEmail: () => false,
+      checkEmailExists: async () => ({ success: false, exists: false }),
+      USER_TYPES,
+      USER_TYPE_LABELS,
+      ACCOUNT_STATUS,
+    };
   }
   return context;
 };
@@ -209,14 +265,30 @@ export const AuthProvider = ({ children }) => {
   const ADMIN_EMAILS = useMemo(
     () =>
       [
-        import.meta.env.VITE_ADMIN_EMAIL || 'admin@careerconnect.com',
-        import.meta.env.VITE_SUPER_ADMIN_EMAIL,
-      ].filter(Boolean),
+        import.meta.env.VITE_ADMIN_EMAIL || 'baffkay20@gmail.com',
+      ],
     []
   );
 
   // ==================== UTILITY FUNCTIONS ====================
   const clearError = useCallback(() => setError(null), []);
+
+  const syncCurrentUserToSupabase = useCallback(async () => {
+    if (!auth.currentUser) {
+      return { success: false, skipped: true, message: 'No authenticated user' };
+    }
+
+    try {
+      const result = await supabaseService.syncCurrentUser();
+      if (!result?.success && !result?.skipped) {
+        console.warn('Supabase user sync failed:', result?.error || result?.message);
+      }
+      return result;
+    } catch (error) {
+      console.warn('Supabase user sync failed:', error);
+      return { success: false, skipped: true, error: error.message };
+    }
+  }, []);
 
   const isAdminEmail = useCallback(
     (email) => {
@@ -230,7 +302,7 @@ export const AuthProvider = ({ children }) => {
   );
 
   const validateEmail = useCallback((email) => {
-    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+.[a-zA-Z]{2,}$/;
+    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
     return emailRegex.test(email);
   }, []);
 
@@ -444,7 +516,7 @@ export const AuthProvider = ({ children }) => {
         updatedAt: serverTimestamp(),
         lastLogin: serverTimestamp(),
         isActive: true,
-        emailVerified: userData.emailVerified || true,
+        emailVerified: userData.emailVerified === true,
         photoURL: userData.photoURL || '',
         status: ACCOUNT_STATUS.ACTIVE,
       };
@@ -535,6 +607,10 @@ export const AuthProvider = ({ children }) => {
 
   const createCompanyProfile = useCallback(async (userId, userData) => {
     try {
+      const isGoogleVerified = Boolean(
+        userData.isGoogleAuth || userData.emailVerified || userData.verified
+      );
+
       const companyProfile = {
         uid: userId,
         email: userData.email.toLowerCase(),
@@ -553,9 +629,10 @@ export const AuthProvider = ({ children }) => {
         values: [],
         logo: '',
         coverImage: '',
-        verified: false,
-        verificationStatus: ACCOUNT_STATUS.PENDING_APPROVAL,
-        status: ACCOUNT_STATUS.PENDING_APPROVAL,
+        verified: isGoogleVerified,
+        isVerified: isGoogleVerified,
+        verificationStatus: isGoogleVerified ? 'verified' : ACCOUNT_STATUS.PENDING_APPROVAL,
+        status: isGoogleVerified ? ACCOUNT_STATUS.ACTIVE : ACCOUNT_STATUS.PENDING_APPROVAL,
         isActive: true,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
@@ -643,8 +720,10 @@ export const AuthProvider = ({ children }) => {
     try {
       const mentorProfile = {
         uid: userId,
+        userId,
         email: userData.email.toLowerCase(),
-        fullName: userData.fullName || '',
+        fullName: userData.fullName || userData.displayName || '',
+        displayName: userData.displayName || userData.fullName || '',
         firstName: userData.firstName || userData.fullName?.split(' ')[0] || '',
         lastName: userData.lastName || userData.fullName?.split(' ').slice(1).join(' ') || '',
         title: userData.title || '',
@@ -671,6 +750,7 @@ export const AuthProvider = ({ children }) => {
         certifications: userData.certifications || [],
         achievements: [],
         profilePhoto: userData.photoURL || '',
+        photoURL: userData.photoURL || '',
         verified: false,
         verificationStatus: ACCOUNT_STATUS.PENDING_APPROVAL,
         status: ACCOUNT_STATUS.PENDING_APPROVAL,
@@ -815,7 +895,17 @@ export const AuthProvider = ({ children }) => {
         firstName: userData.firstName || userData.fullName?.split(' ')[0] || '',
         lastName: userData.lastName || userData.fullName?.split(' ').slice(1).join(' ') || '',
         phone: userData.phone || '',
-        children: [],
+        children:
+          userData.childName || userData.childEmail
+            ? [
+                {
+                  name: userData.childName || '',
+                  email: userData.childEmail || '',
+                  relationship: userData.relationshipToStudent || '',
+                },
+              ]
+            : [],
+        relationshipToStudent: userData.relationshipToStudent || '',
         notifications: {
           email: true,
           push: true,
@@ -919,7 +1009,7 @@ export const AuthProvider = ({ children }) => {
               lastLogin: serverTimestamp(),
               isActive: true,
               profileCompletion: 100,
-              emailVerified: user.emailVerified || true,
+              emailVerified: user.emailVerified,
               photoURL: user.photoURL || '',
               status: ACCOUNT_STATUS.ACTIVE,
             };
@@ -967,8 +1057,9 @@ export const AuthProvider = ({ children }) => {
             isGoogleAuth: additionalData.isGoogleAuth || false,
             status:
               userType === USER_TYPES.COMPANY ||
-                userType === USER_TYPES.INSTITUTE ||
-                userType === USER_TYPES.MENTOR
+              userType === USER_TYPES.INSTITUTE ||
+              userType === USER_TYPES.MENTOR ||
+              userType === USER_TYPES.GOVERNMENT
                 ? ACCOUNT_STATUS.PENDING_APPROVAL
                 : ACCOUNT_STATUS.ACTIVE,
             preferences: {
@@ -999,6 +1090,11 @@ export const AuthProvider = ({ children }) => {
               userProfileData.website = additionalData.website || '';
               userProfileData.phone = additionalData.phone || '';
               break;
+            case USER_TYPES.GOVERNMENT:
+              userProfileData.department = additionalData.department || '';
+              userProfileData.agencyName = additionalData.agencyName || '';
+              userProfileData.status = ACCOUNT_STATUS.PENDING_APPROVAL;
+              break;
             case USER_TYPES.MENTOR:
               userProfileData.title = additionalData.title || '';
               userProfileData.expertise = additionalData.expertise || [];
@@ -1018,7 +1114,17 @@ export const AuthProvider = ({ children }) => {
               userProfileData.lookingForFunding = additionalData.lookingForFunding || false;
               break;
             case USER_TYPES.PARENT:
-              userProfileData.children = [];
+              userProfileData.children =
+                additionalData.childName || additionalData.childEmail
+                  ? [
+                      {
+                        name: additionalData.childName || '',
+                        email: additionalData.childEmail || '',
+                        relationship: additionalData.relationshipToStudent || '',
+                      },
+                    ]
+                  : [];
+              userProfileData.relationshipToStudent = additionalData.relationshipToStudent || '';
               break;
             case USER_TYPES.ALUMNI:
               userProfileData.graduationYear = additionalData.graduationYear || null;
@@ -1076,6 +1182,18 @@ export const AuthProvider = ({ children }) => {
                 ...additionalData,
                 email: user.email,
               });
+              break;
+            case USER_TYPES.GOVERNMENT:
+              typeProfileResult = await writeRoleProfileDocument('government', user.uid, {
+                uid: user.uid,
+                email: user.email,
+                agencyName: additionalData.agencyName || additionalData.organization || '',
+                department: additionalData.department || '',
+                verified: false,
+                status: ACCOUNT_STATUS.PENDING_APPROVAL,
+                createdAt: serverTimestamp(),
+                updatedAt: serverTimestamp(),
+              }, 'Government');
               break;
             case USER_TYPES.MENTOR:
               typeProfileResult = await createMentorProfile(user.uid, {
@@ -1187,6 +1305,11 @@ export const AuthProvider = ({ children }) => {
               }
               break;
             }
+            case USER_TYPES.GOVERNMENT: {
+              const governmentSnap = await getDoc(doc(db, 'government', userId));
+              if (governmentSnap.exists()) typeProfile = governmentSnap.data();
+              break;
+            }
             case USER_TYPES.MENTOR: {
               const mentorRef = doc(db, 'mentors', userId);
               const mentorSnap = await getDoc(mentorRef);
@@ -1246,6 +1369,8 @@ export const AuthProvider = ({ children }) => {
             userData.studentProfile = typeProfile;
           } else if (userData.userType === USER_TYPES.INSTITUTE) {
             userData.instituteProfile = typeProfile;
+          } else if (userData.userType === USER_TYPES.GOVERNMENT) {
+            userData.governmentProfile = typeProfile;
           } else if (userData.userType === USER_TYPES.MENTOR) {
             userData.mentorProfile = typeProfile;
           } else if (userData.userType === USER_TYPES.YOUTH) {
@@ -1259,7 +1384,27 @@ export const AuthProvider = ({ children }) => {
           }
         }
 
-        return { success: true, data: userData };
+        const normalizedRole = String(userData.role || userData.userType || '').toLowerCase();
+        return {
+          success: true,
+          data: {
+            id: userId,
+            ...userData,
+          ...(userData.userType === USER_TYPES.ALUMNI && typeProfile
+            ? {
+                photoURL: userData.photoURL || typeProfile.photoURL || typeProfile.profilePhoto || '',
+                profilePhoto: userData.profilePhoto || typeProfile.profilePhoto || typeProfile.photoURL || '',
+              }
+            : {}),
+            role: userData.role || userData.userType,
+            isAdmin:
+              userData.isAdmin === true ||
+              userData.userType === USER_TYPES.ADMIN ||
+              normalizedRole === 'admin' ||
+              normalizedRole === 'super_admin',
+            isSuperAdmin: userData.isSuperAdmin === true || normalizedRole === 'super_admin',
+          },
+        };
       }
       return { success: false, error: 'Profile not found' };
     } catch (error) {
@@ -1284,11 +1429,19 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   const isEmailVerified = useCallback(() => {
-    return currentUser?.emailVerified || false;
+    if (!currentUser) return false;
+    const isGoogleUser = currentUser.providerData?.some(
+      (provider) => provider.providerId === 'google.com'
+    );
+    return currentUser.emailVerified || isGoogleUser || false;
   }, [currentUser]);
 
   const needsEmailVerification = useCallback(() => {
-    return currentUser && !currentUser.emailVerified && !isAdminEmail(currentUser?.email);
+    if (!currentUser) return false;
+    const isGoogleUser = currentUser.providerData?.some(
+      (provider) => provider.providerId === 'google.com'
+    );
+    return !currentUser.emailVerified && !isGoogleUser && !isAdminEmail(currentUser?.email);
   }, [currentUser, isAdminEmail]);
 
   const resendVerificationEmail = useCallback(async () => {
@@ -1413,6 +1566,13 @@ export const AuthProvider = ({ children }) => {
   );
 
   const verifyRegistrationEmailOtp = useCallback(async (email, otp) => {
+    if (!ENABLE_BACKEND_AUTH) {
+      return {
+        success: true,
+        message: 'Firebase email verification is active. OTP verification is disabled.',
+      };
+    }
+
     try {
       const result = await authAPI.verifyEmailOtp({
         email: email?.trim().toLowerCase(),
@@ -1430,6 +1590,14 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   const resendRegistrationEmailOtp = useCallback(async (email) => {
+    if (!ENABLE_BACKEND_AUTH) {
+      return {
+        success: true,
+        message:
+          'Firebase email verification is active. Use Firebase resend verification from an authenticated session.',
+      };
+    }
+
     try {
       const result = await authAPI.resendEmailOtp({
         email: email?.trim().toLowerCase(),
@@ -1446,6 +1614,10 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   const requestRegistrationPhoneOtp = useCallback(async (email) => {
+    if (!ENABLE_BACKEND_AUTH) {
+      return { success: true, message: 'Phone OTP is disabled until backend auth is enabled.' };
+    }
+
     try {
       const result = await authAPI.requestPhoneOtp({
         email: email?.trim().toLowerCase(),
@@ -1462,6 +1634,10 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   const verifyRegistrationPhoneOtp = useCallback(async (email, otp) => {
+    if (!ENABLE_BACKEND_AUTH) {
+      return { success: true, message: 'Phone OTP is disabled until backend auth is enabled.' };
+    }
+
     try {
       const result = await authAPI.verifyPhoneOtp({
         email: email?.trim().toLowerCase(),
@@ -1515,21 +1691,23 @@ export const AuthProvider = ({ children }) => {
           );
         }
 
-        const verificationStatus = await authAPI.getVerificationStatus({
-          email: credentials.email,
-        });
+        if (ENABLE_BACKEND_AUTH) {
+          const verificationStatus = await authAPI.getVerificationStatus({
+            email: credentials.email,
+          });
 
-        if (
-          verificationStatus?.success &&
-          verificationStatus.exists &&
-          (!verificationStatus.emailVerified || !verificationStatus.phoneVerified)
-        ) {
-          await signOut(auth);
-          throw new Error(
-            verificationStatus.phoneVerified
-              ? 'Please complete your email OTP verification before logging in.'
-              : 'Please complete your email and phone OTP verification before logging in.'
-          );
+          if (
+            verificationStatus?.success &&
+            verificationStatus.exists &&
+            (!verificationStatus.emailVerified || !verificationStatus.phoneVerified)
+          ) {
+            await signOut(auth);
+            throw new Error(
+              verificationStatus.phoneVerified
+                ? 'Please complete your email OTP verification before logging in.'
+                : 'Please complete your email and phone OTP verification before logging in.'
+            );
+          }
         }
 
         const userRef = doc(db, 'users', user.uid);
@@ -1552,6 +1730,7 @@ export const AuthProvider = ({ children }) => {
 
         if (profileResult.success) {
           setUserProfile(profileResult.data);
+          await syncCurrentUserToSupabase();
 
           // Store session data
           sessionStorage.setItem(
@@ -1586,6 +1765,7 @@ export const AuthProvider = ({ children }) => {
           }
 
           setUserProfile(createResult.data);
+          await syncCurrentUserToSupabase();
 
           sessionStorage.setItem(
             STORAGE_KEYS.SESSION_DATA,
@@ -1656,6 +1836,7 @@ export const AuthProvider = ({ children }) => {
       sendVerificationEmail,
       getUserProfile,
       createUserProfile,
+      syncCurrentUserToSupabase,
       recordFailedAttempt,
       clearError,
     ]
@@ -1734,6 +1915,7 @@ export const AuthProvider = ({ children }) => {
           }
 
           setUserProfile(profileResult.data);
+          await syncCurrentUserToSupabase();
 
           sessionStorage.setItem(
             STORAGE_KEYS.SESSION_DATA,
@@ -1777,6 +1959,7 @@ export const AuthProvider = ({ children }) => {
           }
 
           setUserProfile(createResult.data);
+          await syncCurrentUserToSupabase();
 
           sessionStorage.setItem(
             STORAGE_KEYS.SESSION_DATA,
@@ -1846,7 +2029,7 @@ export const AuthProvider = ({ children }) => {
         setLoading(false);
       }
     },
-    [getUserProfile, isAdminEmail, createUserProfile, clearError]
+    [getUserProfile, isAdminEmail, createUserProfile, syncCurrentUserToSupabase, clearError]
   );
 
   const register = useCallback(
@@ -1874,8 +2057,13 @@ export const AuthProvider = ({ children }) => {
           throw new Error(`Password must contain: ${passwordValidation.errors.join(', ')}`);
         }
 
-        if (isAdminEmail(userData.email)) {
-          throw new Error('Admin accounts cannot be created through registration.');
+        const requestedAdmin = ['admin', 'super_admin'].includes(
+          String(userData.userType || '').toLowerCase()
+        );
+        const adminRegistration = requestedAdmin && isAdminEmail(userData.email);
+
+        if (requestedAdmin && !adminRegistration) {
+          throw new Error('Administrator accounts must be provisioned by an existing administrator.');
         }
 
         console.log('👤 Registering user:', userData.email, 'as', userData.userType);
@@ -1890,14 +2078,16 @@ export const AuthProvider = ({ children }) => {
           await updateProfile(user, { displayName: userData.fullName });
         }
 
-        await sendVerificationEmail(user);
+        if (!adminRegistration) {
+          await sendVerificationEmail(user);
+        }
 
         const profileData = {
           fullName: userData.fullName,
           firstName: userData.fullName?.split(' ')[0] || '',
           lastName: userData.fullName?.split(' ').slice(1).join(' ') || '',
           userType: userData.userType,
-          emailVerified: false,
+          emailVerified: adminRegistration || user.emailVerified,
           isGoogleAuth: false,
           photoURL: user.photoURL,
         };
@@ -1937,7 +2127,19 @@ export const AuthProvider = ({ children }) => {
             profileData.lookingForFunding = userData.lookingForFunding || false;
             break;
           case USER_TYPES.PARENT:
-            profileData.children = [];
+            profileData.childName = userData.childName;
+            profileData.childEmail = userData.childEmail;
+            profileData.relationshipToStudent = userData.relationshipToStudent;
+            profileData.children =
+              userData.childName || userData.childEmail
+                ? [
+                    {
+                      name: userData.childName || '',
+                      email: userData.childEmail || '',
+                      relationship: userData.relationshipToStudent || '',
+                    },
+                  ]
+                : [];
             break;
           case USER_TYPES.ALUMNI:
             profileData.graduationYear = userData.graduationYear;
@@ -1960,28 +2162,43 @@ export const AuthProvider = ({ children }) => {
           throw new Error('Failed to create user profile');
         }
 
-        const backendRegisterResult = await authAPI.register({
-          email: userData.email,
-          password: userData.password,
-          fullName: userData.fullName,
-          phone: userData.phone,
-          role: userData.userType,
-          userType: userData.userType,
-          companyName: userData.companyName || userData.entrepreneurCompanyName,
-        });
+        await syncCurrentUserToSupabase();
 
-        if (!backendRegisterResult.success) {
-          throw new Error(backendRegisterResult.message || 'Failed to initialize verification flow');
+        let backendRegisterResult = {
+          success: true,
+          verificationRequired: false,
+          emailOtp: '',
+          phoneOtp: '',
+        };
+
+        if (ENABLE_BACKEND_AUTH) {
+          backendRegisterResult = await authAPI.register({
+            email: userData.email,
+            password: userData.password,
+            fullName: userData.fullName,
+            phone: userData.phone,
+            role: userData.userType,
+            userType: userData.userType,
+            companyName: userData.companyName || userData.entrepreneurCompanyName,
+          });
+
+          if (!backendRegisterResult.success) {
+            throw new Error(
+              backendRegisterResult.message || 'Failed to initialize verification flow'
+            );
+          }
         }
 
         await signOut(auth);
 
         return {
           success: true,
-          message: `Registration successful! Please check your email to verify your ${USER_TYPE_LABELS[userData.userType]} account.`,
-          emailVerificationSent: true,
+          message: adminRegistration
+            ? 'Administrator registration successful. You can log in now.'
+            : `Registration successful! Please check your email to verify your ${USER_TYPE_LABELS[userData.userType]} account.`,
+          emailVerificationSent: !adminRegistration,
           userType: userData.userType,
-          backendVerification: backendRegisterResult.verificationRequired,
+          backendVerification: Boolean(backendRegisterResult.verificationRequired),
           emailOtp: backendRegisterResult.emailOtp,
           phoneOtp: backendRegisterResult.phoneOtp,
         };
@@ -2019,6 +2236,7 @@ export const AuthProvider = ({ children }) => {
       isAdminEmail,
       sendVerificationEmail,
       createUserProfile,
+      syncCurrentUserToSupabase,
       clearError,
     ]
   );
@@ -2110,6 +2328,8 @@ export const AuthProvider = ({ children }) => {
         return '/company/dashboard';
       case USER_TYPES.INSTITUTE:
         return '/institute/dashboard';
+      case USER_TYPES.GOVERNMENT:
+        return '/government/dashboard';
       case USER_TYPES.MENTOR:
         return '/mentor/dashboard';
       case USER_TYPES.YOUTH:
@@ -2132,6 +2352,8 @@ export const AuthProvider = ({ children }) => {
       return userProfile.companyName || 'Company';
     } else if (userProfile.userType === USER_TYPES.INSTITUTE) {
       return userProfile.instituteName || 'Institute';
+    } else if (userProfile.userType === USER_TYPES.GOVERNMENT) {
+      return userProfile.agencyName || userProfile.governmentProfile?.agencyName || 'Government';
     } else if (userProfile.userType === USER_TYPES.ENTREPRENEUR) {
       return userProfile.companyName || 'Entrepreneur';
     } else if (userProfile.userType === USER_TYPES.YOUTH) {
@@ -2160,6 +2382,16 @@ export const AuthProvider = ({ children }) => {
     }
   }, [currentUser, getUserProfile]);
 
+  const updateUserProfile = useCallback((updates) => {
+    setUserProfile((profile) => (profile ? { ...profile, ...updates } : profile));
+  }, []);
+
+  const updateUserPhoto = useCallback(async (photoURL) => {
+    updateUserProfile({ photoURL, profilePhoto: photoURL });
+    if (auth.currentUser) await updateProfile(auth.currentUser, { photoURL });
+    return { success: true };
+  }, [updateUserProfile]);
+
   // ==================== INITIALIZATION ====================
   useEffect(() => {
     console.log('🚀 Initializing AuthProvider...');
@@ -2175,6 +2407,7 @@ export const AuthProvider = ({ children }) => {
 
           if (profileResult.success) {
             setUserProfile(profileResult.data);
+            void syncCurrentUserToSupabase();
           } else {
             if (
               managedAuthFlowRef.current.suppressAutoProfileCreation ||
@@ -2195,6 +2428,7 @@ export const AuthProvider = ({ children }) => {
 
             if (createResult.success) {
               setUserProfile(createResult.data);
+              void syncCurrentUserToSupabase();
             }
           }
 
@@ -2227,7 +2461,7 @@ export const AuthProvider = ({ children }) => {
     });
 
     return unsubscribe;
-  }, [getUserProfile, isAdminEmail, createUserProfile]);
+  }, [getUserProfile, isAdminEmail, createUserProfile, syncCurrentUserToSupabase]);
 
   // ==================== CONTEXT VALUE ====================
   const value = {
@@ -2276,6 +2510,8 @@ export const AuthProvider = ({ children }) => {
 
     // Profile management
     refreshUserProfile,
+    updateUserPhoto,
+    updateUserProfile,
     getUserProfile,
 
     // Helper functions

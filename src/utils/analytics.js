@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Analytics utility for tracking events
  */
 

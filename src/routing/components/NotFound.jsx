@@ -1,63 +1,47 @@
 /* eslint-disable react/no-unescaped-entities */
 import { Link } from 'react-router-dom';
-import { Button, Container, Row, Col, Card } from 'react-bootstrap';
 import { FiHome, FiSearch, FiAlertTriangle } from 'react-icons/fi';
+import Button from '../../components/ui/Button';
 
 const NotFound = () => {
   return (
-    <Container className="py-5">
-      <Row className="justify-content-center">
-        <Col md={8} lg={6}>
-          <Card className="border-0 shadow-sm">
-            <Card.Body className="text-center p-5">
-              <div className="mb-4">
-                <FiAlertTriangle size={64} className="text-warning mb-3" />
-                <h1 className="display-4 fw-bold">404</h1>
-                <h2 className="h4 mb-3">Page Not Found</h2>
-                <p className="text-muted mb-4">
+    <main className="flex min-h-screen items-center justify-center bg-slate-50 px-4 py-12 dark:bg-slate-950">
+      <div className="w-full max-w-2xl rounded-xl border bg-white p-8 text-center shadow-card dark:bg-slate-900 sm:p-12">
+              <div className="mb-8">
+                <FiAlertTriangle size={64} className="mx-auto mb-3 text-warning" />
+                <h1 className="text-6xl font-bold tracking-tight text-slate-900 dark:text-slate-100">404</h1>
+                <h2 className="mb-3 text-xl font-semibold text-slate-900 dark:text-slate-100">Page Not Found</h2>
+                <p className="mb-4 text-slate-500">
                   The page you're looking for doesn't exist or has been moved.
                 </p>
               </div>
 
-              <div className="d-flex flex-column flex-md-row justify-content-center gap-3">
-                <Button
-                  as={Link}
-                  to="/"
-                  variant="primary"
-                  className="d-flex align-items-center justify-content-center gap-2"
-                >
+              <div className="flex flex-col justify-center gap-3 sm:flex-row">
+                <Link to="/" className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-brand-600 px-4 text-sm font-medium text-white transition hover:bg-brand-700">
                   <FiHome />
                   Go Home
-                </Button>
+                </Link>
 
-                <Button
-                  as={Link}
-                  to="/search"
-                  variant="outline-primary"
-                  className="d-flex align-items-center justify-content-center gap-2"
-                >
+                <Link to="/search" className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-brand-300 px-4 text-sm font-medium text-brand-700 transition hover:bg-brand-50 dark:border-brand-700 dark:text-brand-200 dark:hover:bg-brand-950">
                   <FiSearch />
                   Search
-                </Button>
+                </Link>
 
-                <Button variant="outline-secondary" onClick={() => window.history.back()}>
+                <Button variant="outline" onClick={() => window.history.back()}>
                   Go Back
                 </Button>
               </div>
 
-              <div className="mt-5 pt-4 border-top">
-                <p className="text-muted small mb-2">
+              <div className="mt-8 border-t pt-4">
+                <p className="mb-2 text-xs text-slate-500">
                   If you believe this is an error, please contact support.
                 </p>
-                <Link to="/contact" className="small text-decoration-none">
+                <Link to="/contact" className="text-xs font-medium text-brand-600 hover:text-brand-700 dark:text-brand-400">
                   Contact Support →
                 </Link>
               </div>
-            </Card.Body>
-          </Card>
-        </Col>
-      </Row>
-    </Container>
+      </div>
+    </main>
   );
 };
 

@@ -1,772 +1,1067 @@
+// src/pages/company/CompanyDashboard.jsx
 /* eslint-disable react-hooks/exhaustive-deps */
-/* eslint-disable no-undef */
-/* eslint-disable react/jsx-no-undef */
 /* eslint-disable no-unused-vars */
-import React, { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { useNavigate, Link } from 'react-router-dom';
+import { FaBuilding, FaUsers, FaBriefcase, FaChartLine, FaEye, FaCalendarAlt, FaFilter, FaArrowUp, FaArrowDown, FaSync, FaPlus, FaBell, FaFileAlt, FaCheckCircle, FaClock, FaTimesCircle, FaChartPie, FaHandshake, FaBolt, FaInfoCircle, FaExternalLinkAlt, FaStar, FaEllipsisV, FaTrash, FaEdit, FaUserTie, FaGraduationCap, FaLightbulb, FaRocket, FaChartBar, FaFileContract, FaCommentDots, FaCalendarCheck, FaHistory, FaUsersCog, FaUserCheck, FaCalendarDay, FaArrowRight, FaMapMarkerAlt, FaGlobe, FaIndustry, FaUserPlus, FaNewspaper, FaVideo, FaBullhorn, FaUpload, FaCloudUploadAlt, FaSearch, FaChartArea, FaUserFriends, FaBook, FaRegClock, FaRegCalendar, FaRegComments, FaRegUserCircle, FaCog, FaFilePdf, FaLinkedin, FaTwitter, FaFacebook, FaInstagram, FaYoutube, FaRegEnvelope, FaPhone, FaMapMarker, FaLink, FaCamera, FaTimes, FaSpinner, FaRegEye, FaRegThumbsUp, FaRegCommentDots, FaRegShareSquare, FaRegBookmark, FaThermometerThreeQuarters, FaTrophy, FaAward, FaMedal, FaCrown, FaGem, FaDollarSign, FaCreditCard, FaUniversity, FaUserGraduate, FaUserTie as FaUserTieSolid, FaUserEdit, FaUserCog, FaUserShield, FaShieldAlt, FaRobot, FaPalette, FaClipboardCheck, FaBrain, FaStore, FaUsersCog as FaUsersCogIcon, FaHeart, FaComment, FaShare, FaBookmark, FaPaperPlane, FaImage, FaVideo as FaVideoSolid, FaPoll, FaCalendarPlus, FaUserFriends as FaUserFriendsSolid, FaBriefcase as FaBriefcaseSolid, FaBuilding as FaBuildingSolid, FaChartLine as FaChartLineSolid, FaUserPlus as FaUserPlusSolid, FaCheckDouble, FaExclamationTriangle, FaRegSmile, FaRegLaugh, FaRegHeart, FaThumbsUp, FaShareAlt, FaEllipsisH, FaRegClock as FaRegClockSolid, FaWifi, FaPlug, FaDatabase, FaCloud } from "react-icons/fa";
 import {
-  Container,
-  Row,
-  Col,
-  Card,
-  Button,
-  Badge,
-  ProgressBar,
-  Table,
-  Dropdown,
-  Alert,
-  Spinner,
-  OverlayTrigger,
-  Tooltip,
-  Modal,
-  Form,
-  Nav,
-  ListGroup,
-  Toast,
-  ToastContainer,
-  InputGroup,
-  FormControl,
-  Image,
-  Tabs,
-  Tab,
-  Placeholder,
-} from 'react-bootstrap';
-import {
-  FaBuilding,
-  FaUsers,
-  FaBriefcase,
-  FaChartLine,
-  FaMoneyBillWave,
-  FaEye,
-  FaCalendarAlt,
-  FaFilter,
-  FaArrowUp,
-  FaArrowDown,
-  FaSync,
-  FaPlus,
-  FaBell,
-  FaFileAlt,
-  FaCheckCircle,
-  FaClock,
-  FaTimesCircle,
-  FaChartPie,
-  FaHandshake,
-  FaBolt,
-  FaInfoCircle,
-  FaExternalLinkAlt,
-  FaStar,
-  FaSortAmountDown,
-  FaEllipsisV,
-  FaTrash,
-  FaEdit,
-  FaUserTie,
-  FaGraduationCap,
-  FaLightbulb,
-  FaRocket,
-  FaChartBar,
-  FaFileContract,
-  FaCommentDots,
-  FaCalendarCheck,
-  FaHistory,
-  FaUsersCog,
-  FaTachometerAlt,
-  FaUserCheck,
-  FaCalendarDay,
-  FaBell as FaBellSolid,
-  FaArrowRight,
-  FaMapMarkerAlt,
-  FaGlobe,
-  FaIndustry,
-  FaUserPlus,
-  FaNewspaper,
-  FaVideo,
-  FaBullhorn,
-  FaUpload,
-  FaCloudUploadAlt,
-  FaSearch,
-  FaChartArea,
-  FaUserFriends,
-  FaBook,
-  FaRegClock,
-  FaRegCalendar,
-  FaRegComments,
-  FaRegUserCircle,
-  FaCog,
-  FaFilePdf,
-  FaLinkedin,
-  FaTwitter,
-  FaFacebook,
-  FaInstagram,
-  FaYoutube,
-  FaRegEnvelope,
-  FaPhone,
-  FaMapMarker,
-  FaLink,
-  FaCamera,
-  FaTimes,
-  FaSpinner,
-  FaRegEye,
-  FaRegThumbsUp,
-  FaRegCommentDots,
-  FaRegShareSquare,
-  FaRegBookmark,
-  FaThermometerThreeQuarters,
-  FaBatteryThreeQuarters,
-  FaRegChartBar,
-  FaRegCalendarPlus,
-  FaRegCalendarMinus,
-  FaRegCalendarTimes,
-  FaRegCalendarCheck,
-  FaTrophy,
-  FaAward,
-  FaMedal,
-  FaCrown,
-  FaGem,
-  FaDollarSign,
-  FaRegMoneyBillAlt,
-  FaCreditCard,
-  FaUniversity,
-  FaGraduationCap as FaGraduationCapSolid,
-  FaUserGraduate,
-  FaUserSecret,
-  FaUserNinja,
-  FaUserAstronaut,
-  FaUserMd,
-  FaUserTie as FaUserTieSolid,
-  FaUserEdit,
-  FaUserCog,
-  FaUserShield,
-  FaUserLock,
-  FaUserCheck as FaUserCheckSolid,
-  FaUserTimes,
-  FaUserMinus,
-  FaUserPlus as FaUserPlusSolid,
-  FaUserFriends as FaUserFriendsSolid,
-  FaUserCircle as FaUserCircleSolid,
-  FaUser as FaUserSolid,
-  FaShieldAlt,
-  FaChartLine as FaChartLineSolid,
-  FaBriefcase as FaBriefcaseSolid,
-  FaUsers as FaUsersSolid,
-  FaRobot,
-  FaPalette,
-  FaClipboardCheck,
-  FaUserPlus as FaUserPlusIcon,
-  FaChartLine as FaChartLineIcon,
-  FaBrain,
-  FaStore,
-  FaUsersCog as FaUsersCogIcon,
-} from 'react-icons/fa';
+  collection,
+  doc,
+  query,
+  where,
+  orderBy,
+  limit,
+  onSnapshot,
+  getDocs,
+  getDoc,
+  addDoc,
+  updateDoc,
+  deleteDoc,
+  serverTimestamp,
+  Timestamp,
+  increment,
+  writeBatch,
+  arrayUnion,
+  arrayRemove,
+} from 'firebase/firestore';
+import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
+import { updateProfile } from 'firebase/auth';
 
 import { useAuth } from '../../context/AuthContext';
+import { useNotification } from '../../context/NotificationContext';
+import { useTheme } from '../../context/ThemeContext';
 import SocialDashboardSection from '../../components/social/SocialDashboardSection';
-import {
-  dashboardService,
-  companyService,
-  jobService,
-  applicationService,
-  cloudinaryService,
-} from '../../services/companyServices';
-import { newsService } from '../../services/externalAPIs';
-import './CompanyDashboard.css';
+import { db, storage, auth } from '../../config/firebase';
+import supabaseConfig, { supabase } from '../../config/supabase';
+import cloudinaryService from '../../services/cloudinaryService';
+import API_BASE_URL from '../../services/apiConfig';
 
-// Custom ImageWithFallback component
-const ImageWithFallback = ({ src, alt, fallback, className, style, ...props }) => {
-  const [error, setError] = useState(false);
+// ============================================
+// UTILITY FUNCTIONS
+// ============================================
 
-  if (error || !src) {
-    return (
-      fallback || (
-        <div
-          className={`${className} bg-light d-flex align-items-center justify-content-center`}
-          style={style}
-        >
-          <FaBuilding size={24} className="text-muted" />
-        </div>
-      )
+const getTimeGreeting = (date = new Date()) => {
+  const hour = date.getHours();
+  if (hour < 12) return 'Good morning';
+  if (hour < 17) return 'Good afternoon';
+  return 'Good evening';
+};
+
+const formatNumber = (num) => {
+  if (num === null || num === undefined) return '0';
+  return new Intl.NumberFormat('en-US').format(num);
+};
+
+const formatCurrency = (amount, currency = 'M') => {
+  if (amount === null || amount === undefined) return `${currency}0`;
+  return `${currency}${new Intl.NumberFormat('en-US').format(amount)}`;
+};
+
+const formatDate = (date, options = {}) => {
+  if (!date) return 'N/A';
+  const d = date instanceof Date ? date : new Date(date);
+  if (isNaN(d.getTime())) return 'N/A';
+  return d.toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    ...options,
+  });
+};
+
+const formatTimeAgo = (date) => {
+  if (!date) return 'Just now';
+  const now = new Date();
+  const past = date instanceof Date ? date : new Date(date);
+  if (isNaN(past.getTime())) return 'Just now';
+  
+  const diffMs = now - past;
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMs / 3600000);
+  const diffDays = Math.floor(diffMs / 86400000);
+  const diffWeeks = Math.floor(diffDays / 7);
+  const diffMonths = Math.floor(diffDays / 30);
+
+  if (diffMins < 1) return 'Just now';
+  if (diffMins < 60) return `${diffMins}m ago`;
+  if (diffHours < 24) return `${diffHours}h ago`;
+  if (diffDays < 7) return `${diffDays}d ago`;
+  if (diffWeeks < 4) return `${diffWeeks}w ago`;
+  if (diffMonths < 12) return `${diffMonths}mo ago`;
+  return past.toLocaleDateString();
+};
+
+const getStatusConfig = (status) => {
+  const configs = {
+    // Application statuses
+    applied: { bg: 'bg-blue-100 dark:bg-blue-900/30', text: 'text-blue-700 dark:text-blue-300', icon: FaFileAlt, label: 'Applied' },
+    pending: { bg: 'bg-yellow-100 dark:bg-yellow-900/30', text: 'text-yellow-700 dark:text-yellow-300', icon: FaClock, label: 'Pending' },
+    reviewed: { bg: 'bg-indigo-100 dark:bg-indigo-900/30', text: 'text-indigo-700 dark:text-indigo-300', icon: FaEye, label: 'Reviewed' },
+    interview: { bg: 'bg-purple-100 dark:bg-purple-900/30', text: 'text-purple-700 dark:text-purple-300', icon: FaCalendarAlt, label: 'Interview' },
+    shortlisted: { bg: 'bg-cyan-100 dark:bg-cyan-900/30', text: 'text-cyan-700 dark:text-cyan-300', icon: FaStar, label: 'Shortlisted' },
+    hired: { bg: 'bg-green-100 dark:bg-green-900/30', text: 'text-green-700 dark:text-green-300', icon: FaCheckCircle, label: 'Hired' },
+    rejected: { bg: 'bg-red-100 dark:bg-red-900/30', text: 'text-red-700 dark:text-red-300', icon: FaTimesCircle, label: 'Rejected' },
+    withdrawn: { bg: 'bg-gray-100 dark:bg-gray-700', text: 'text-gray-700 dark:text-gray-300', icon: FaTimes, label: 'Withdrawn' },
+    // Job statuses
+    active: { bg: 'bg-green-100 dark:bg-green-900/30', text: 'text-green-700 dark:text-green-300', icon: FaCheckCircle, label: 'Active' },
+    draft: { bg: 'bg-gray-100 dark:bg-gray-700', text: 'text-gray-700 dark:text-gray-300', icon: FaFileAlt, label: 'Draft' },
+    paused: { bg: 'bg-yellow-100 dark:bg-yellow-900/30', text: 'text-yellow-700 dark:text-yellow-300', icon: FaClock, label: 'Paused' },
+    closed: { bg: 'bg-red-100 dark:bg-red-900/30', text: 'text-red-700 dark:text-red-300', icon: FaTimesCircle, label: 'Closed' },
+    expired: { bg: 'bg-gray-100 dark:bg-gray-700', text: 'text-gray-700 dark:text-gray-300', icon: FaClock, label: 'Expired' },
+  };
+  return configs[status] || configs.pending;
+};
+
+const getPriorityConfig = (priority) => {
+  const configs = {
+    urgent: { bg: 'bg-red-500', text: 'text-white', label: 'Urgent' },
+    high: { bg: 'bg-orange-500', text: 'text-white', label: 'High' },
+    normal: { bg: 'bg-blue-500', text: 'text-white', label: 'Normal' },
+    low: { bg: 'bg-gray-500', text: 'text-white', label: 'Low' },
+  };
+  return configs[priority] || configs.normal;
+};
+
+// ============================================
+// CUSTOM HOOKS
+// ============================================
+
+const useRealtimeCompanyData = (companyId) => {
+  const [data, setData] = useState({
+    company: null,
+    stats: null,
+    jobs: [],
+    applications: [],
+    teamMembers: [],
+    followers: [],
+    notifications: [],
+    socialPosts: [],
+    loading: true,
+    error: null,
+  });
+
+  useEffect(() => {
+    if (!companyId) {
+      setData(prev => ({ ...prev, loading: false }));
+      return;
+    }
+
+    const unsubscribers = [];
+
+    // Subscribe to company profile
+    const companyUnsub = onSnapshot(
+      doc(db, 'companies', companyId),
+      (snapshot) => {
+        if (snapshot.exists()) {
+          setData(prev => ({
+            ...prev,
+            company: { id: snapshot.id, ...snapshot.data() },
+          }));
+        }
+      },
+      (error) => {
+        console.error('Company subscription error:', error);
+        setData(prev => ({ ...prev, error: error.message }));
+      }
     );
-  }
+    unsubscribers.push(companyUnsub);
+
+    // Subscribe to jobs
+    const jobsQuery = query(
+      collection(db, 'jobs'),
+      where('companyId', '==', companyId),
+      orderBy('createdAt', 'desc'),
+      limit(50)
+    );
+    const jobsUnsub = onSnapshot(
+      jobsQuery,
+      (snapshot) => {
+        const jobs = snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data(),
+        }));
+        setData(prev => ({ ...prev, jobs }));
+      },
+      (error) => {
+        console.error('Jobs subscription error:', error);
+      }
+    );
+    unsubscribers.push(jobsUnsub);
+
+    // Subscribe to applications
+    const applicationsQuery = query(
+      collection(db, 'applications'),
+      where('companyId', '==', companyId),
+      orderBy('appliedAt', 'desc'),
+      limit(100)
+    );
+    const applicationsUnsub = onSnapshot(
+      applicationsQuery,
+      (snapshot) => {
+        const applications = snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data(),
+        }));
+        setData(prev => ({ ...prev, applications }));
+      },
+      (error) => {
+        console.error('Applications subscription error:', error);
+      }
+    );
+    unsubscribers.push(applicationsUnsub);
+
+    // Subscribe to team members
+    const teamQuery = query(
+      collection(db, 'companyTeamMembers'),
+      where('companyId', '==', companyId),
+      where('status', '==', 'active')
+    );
+    const teamUnsub = onSnapshot(
+      teamQuery,
+      (snapshot) => {
+        const teamMembers = snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data(),
+        }));
+        setData(prev => ({ ...prev, teamMembers }));
+      },
+      (error) => {
+        console.error('Team subscription error:', error);
+      }
+    );
+    unsubscribers.push(teamUnsub);
+
+    // Subscribe to followers
+    const followersQuery = query(
+      collection(db, 'companyFollowers'),
+      where('companyId', '==', companyId),
+      orderBy('followedAt', 'desc'),
+      limit(100)
+    );
+    const followersUnsub = onSnapshot(
+      followersQuery,
+      (snapshot) => {
+        const followers = snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data(),
+        }));
+        setData(prev => ({ ...prev, followers }));
+      },
+      (error) => {
+        console.error('Followers subscription error:', error);
+      }
+    );
+    unsubscribers.push(followersUnsub);
+
+    // Subscribe to notifications
+    const notificationsQuery = query(
+      collection(db, 'companyNotifications'),
+      where('companyId', '==', companyId),
+      orderBy('createdAt', 'desc'),
+      limit(20)
+    );
+    const notificationsUnsub = onSnapshot(
+      notificationsQuery,
+      (snapshot) => {
+        const notifications = snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data(),
+        }));
+        setData(prev => ({ ...prev, notifications, loading: false }));
+      },
+      (error) => {
+        console.error('Notifications subscription error:', error);
+        setData(prev => ({ ...prev, loading: false }));
+      }
+    );
+    unsubscribers.push(notificationsUnsub);
+
+    // Subscribe to social posts
+    const socialQuery = query(
+      collection(db, 'socialPosts'),
+      where('authorId', '==', companyId),
+      orderBy('createdAt', 'desc'),
+      limit(20)
+    );
+    const socialUnsub = onSnapshot(
+      socialQuery,
+      (snapshot) => {
+        const socialPosts = snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data(),
+        }));
+        setData(prev => ({ ...prev, socialPosts }));
+      },
+      (error) => {
+        console.error('Social posts subscription error:', error);
+      }
+    );
+    unsubscribers.push(socialUnsub);
+
+    return () => {
+      unsubscribers.forEach(unsub => unsub());
+    };
+  }, [companyId]);
+
+  return data;
+};
+
+const useSupabaseRealtime = (companyId) => {
+  const [supabaseData, setSupabaseData] = useState({
+    analytics: null,
+    messages: [],
+    activities: [],
+  });
+
+  useEffect(() => {
+    const realtimeEnabled = import.meta.env.VITE_ENABLE_SUPABASE_REALTIME === 'true';
+    if (!companyId || !supabase || !supabaseConfig.configured || !realtimeEnabled) return;
+
+    // Subscribe to Supabase realtime for analytics
+    const analyticsChannel = supabase
+      .channel(`company-analytics-${companyId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'company_analytics',
+          filter: `company_id=eq.${companyId}`,
+        },
+        (payload) => {
+          setSupabaseData(prev => ({
+            ...prev,
+            analytics: payload.new,
+          }));
+        }
+      )
+      .subscribe();
+
+    // Subscribe to messages
+    const messagesChannel = supabase
+      .channel(`company-messages-${companyId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'messages',
+          filter: `receiver_id=eq.${companyId}`,
+        },
+        (payload) => {
+          setSupabaseData(prev => ({
+            ...prev,
+            messages: [payload.new, ...prev.messages].slice(0, 50),
+          }));
+        }
+      )
+      .subscribe();
+
+    // Subscribe to activities
+    const activitiesChannel = supabase
+      .channel(`company-activities-${companyId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'activities',
+          filter: `company_id=eq.${companyId}`,
+        },
+        (payload) => {
+          setSupabaseData(prev => ({
+            ...prev,
+            activities: [payload.new, ...prev.activities].slice(0, 50),
+          }));
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(analyticsChannel);
+      supabase.removeChannel(messagesChannel);
+      supabase.removeChannel(activitiesChannel);
+    };
+  }, [companyId]);
+
+  return supabaseData;
+};
+
+// ============================================
+// COMPONENT: Loading Skeleton
+// ============================================
+
+const LoadingSkeleton = ({ className = '' }) => (
+  <div className={`animate-pulse ${className}`}>
+    <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4 mb-2"></div>
+    <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/2 mb-2"></div>
+    <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-5/6"></div>
+  </div>
+);
+
+const CardSkeleton = () => (
+  <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm animate-pulse">
+    <div className="flex items-center justify-between mb-4">
+      <div className="w-12 h-12 bg-gray-200 dark:bg-gray-700 rounded-full"></div>
+      <div className="w-16 h-6 bg-gray-200 dark:bg-gray-700 rounded"></div>
+    </div>
+    <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded w-1/2 mb-2"></div>
+    <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4"></div>
+  </div>
+);
+
+// ============================================
+// COMPONENT: Stat Card
+// ============================================
+
+const StatCard = ({ 
+  title, 
+  value, 
+  icon: Icon, 
+  change, 
+  changeType = 'positive',
+  color = 'blue',
+  onClick,
+  loading = false,
+  subtitle,
+}) => {
+  const colorClasses = {
+    blue: 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400',
+    green: 'bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400',
+    purple: 'bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400',
+    orange: 'bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400',
+    red: 'bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400',
+    indigo: 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400',
+    pink: 'bg-pink-50 dark:bg-pink-900/20 text-pink-600 dark:text-pink-400',
+    teal: 'bg-teal-50 dark:bg-teal-900/20 text-teal-600 dark:text-teal-400',
+  };
+
+  if (loading) return <CardSkeleton />;
 
   return (
-    <img
-      src={src}
-      alt={alt}
-      className={className}
-      style={style}
-      onError={() => setError(true)}
-      {...props}
-    />
+    <motion.div
+      whileHover={{ y: -2 }}
+      whileTap={{ scale: 0.98 }}
+      className={`bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm hover:shadow-md transition-all cursor-pointer border border-gray-100 dark:border-gray-700 ${onClick ? 'cursor-pointer' : ''}`}
+      onClick={onClick}
+    >
+      <div className="flex items-start justify-between mb-4">
+        <div className={`p-3 rounded-xl ${colorClasses[color]}`}>
+          <Icon className="w-6 h-6" />
+        </div>
+        {change !== undefined && (
+          <div className={`flex items-center gap-1 text-sm font-medium ${
+            changeType === 'positive' ? 'text-green-600' : 'text-red-600'
+          }`}>
+            {changeType === 'positive' ? (
+              <FaArrowUp className="w-3 h-3" />
+            ) : (
+              <FaArrowDown className="w-3 h-3" />
+            )}
+            <span>{change}%</span>
+          </div>
+        )}
+      </div>
+      <h3 className="text-3xl font-bold text-gray-900 dark:text-white mb-1">
+        {typeof value === 'number' ? formatNumber(value) : value}
+      </h3>
+      <p className="text-sm text-gray-500 dark:text-gray-400">{title}</p>
+      {subtitle && (
+        <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">{subtitle}</p>
+      )}
+    </motion.div>
   );
 };
 
-// Error Boundary Component
-class DashboardErrorBoundary extends React.Component {
-  constructor(props) {
-    super(props);
-    this.state = { hasError: false, error: null };
-  }
+// ============================================
+// COMPONENT: Pipeline Stage
+// ============================================
 
-  static getDerivedStateFromError(error) {
-    return { hasError: true, error };
-  }
+const PipelineStage = ({ stage, count, color, icon: Icon, total, onClick }) => {
+  const percentage = total > 0 ? Math.round((count / total) * 100) : 0;
 
-  componentDidCatch(error, errorInfo) {
-    console.error('Dashboard Error:', error, errorInfo);
-  }
+  return (
+    <motion.div
+      whileHover={{ scale: 1.02 }}
+      className="flex-1 bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-100 dark:border-gray-700 cursor-pointer hover:shadow-md transition-all"
+      onClick={onClick}
+    >
+      <div className="flex items-center gap-3 mb-3">
+        <div className={`p-2 rounded-lg ${color}`}>
+          <Icon className="w-5 h-5" />
+        </div>
+        <span className="text-sm font-medium text-gray-600 dark:text-gray-400 capitalize">
+          {stage}
+        </span>
+      </div>
+      <div className="flex items-end justify-between">
+        <span className="text-2xl font-bold text-gray-900 dark:text-white">{count}</span>
+        <span className="text-sm text-gray-500">{percentage}%</span>
+      </div>
+      <div className="mt-3 h-1.5 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
+        <div
+          className={`h-full rounded-full transition-all duration-500 ${
+            stage === 'new' ? 'bg-blue-500' :
+            stage === 'reviewed' ? 'bg-indigo-500' :
+            stage === 'interview' ? 'bg-purple-500' :
+            'bg-green-500'
+          }`}
+          style={{ width: `${percentage}%` }}
+        />
+      </div>
+    </motion.div>
+  );
+};
 
-  render() {
-    if (this.state.hasError) {
-      return (
-        <Alert variant="danger" className="my-2">
-          <h5 className="mb-2 fs-6">Something went wrong</h5>
-          <p className="mb-2 fs-7">This section failed to load. Please try refreshing.</p>
-          <Button
-            variant="outline-danger"
-            size="sm"
-            onClick={() => this.setState({ hasError: false })}
+// ============================================
+// COMPONENT: Application Card
+// ============================================
+
+const ApplicationCard = ({ application, onView, onUpdateStatus, onMessage }) => {
+  const statusConfig = getStatusConfig(application.status);
+  const StatusIcon = statusConfig.icon;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-100 dark:border-gray-700 hover:shadow-md transition-all"
+    >
+      <div className="flex items-start justify-between">
+        <div className="flex items-start gap-3">
+          <div className="relative">
+            {application.candidate?.avatar ? (
+              <img
+                src={application.candidate.avatar}
+                alt={application.candidate.name}
+                className="w-12 h-12 rounded-full object-cover"
+              />
+            ) : (
+              <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white font-semibold">
+                {application.candidate?.name?.charAt(0) || 'C'}
+              </div>
+            )}
+            {application.matchScore >= 80 && (
+              <div className="absolute -top-1 -right-1 bg-green-500 rounded-full p-1">
+                <FaStar className="w-3 h-3 text-white" />
+              </div>
+            )}
+          </div>
+          <div>
+            <h4 className="font-semibold text-gray-900 dark:text-white">
+              {application.candidate?.name || 'Unknown Candidate'}
+            </h4>
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              {application.job?.title || 'Position'}
+            </p>
+            <div className="flex items-center gap-3 mt-2 text-xs text-gray-400">
+              <span className="flex items-center gap-1">
+                <FaClock className="w-3 h-3" />
+                {formatTimeAgo(application.appliedAt)}
+              </span>
+              <span className="flex items-center gap-1">
+                <FaChartLine className="w-3 h-3" />
+                {application.matchScore || 0}% match
+              </span>
+            </div>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium ${statusConfig.bg} ${statusConfig.text}`}>
+            <StatusIcon className="w-3 h-3" />
+            {statusConfig.label}
+          </span>
+        </div>
+      </div>
+
+      {application.candidate?.skills && application.candidate.skills.length > 0 && (
+        <div className="flex flex-wrap gap-1 mt-3">
+          {application.candidate.skills.slice(0, 3).map((skill, index) => (
+            <span
+              key={index}
+              className="px-2 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded text-xs"
+            >
+              {skill}
+            </span>
+          ))}
+          {application.candidate.skills.length > 3 && (
+            <span className="px-2 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded text-xs">
+              +{application.candidate.skills.length - 3}
+            </span>
+          )}
+        </div>
+      )}
+
+      <div className="flex items-center gap-2 mt-4 pt-3 border-t border-gray-100 dark:border-gray-700">
+        <button
+          onClick={() => onView(application)}
+          className="flex-1 px-3 py-2 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded-lg text-sm font-medium hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors"
+        >
+          <FaEye className="w-4 h-4 inline mr-1" />
+          View
+        </button>
+        {application.status === 'applied' && (
+          <button
+            onClick={() => onUpdateStatus(application.id, 'reviewed')}
+            className="flex-1 px-3 py-2 bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 rounded-lg text-sm font-medium hover:bg-green-100 dark:hover:bg-green-900/40 transition-colors"
           >
-            Retry
-          </Button>
-        </Alert>
-      );
-    }
+            <FaCheckCircle className="w-4 h-4 inline mr-1" />
+            Review
+          </button>
+        )}
+        {application.status === 'reviewed' && (
+          <button
+            onClick={() => onUpdateStatus(application.id, 'interview')}
+            className="flex-1 px-3 py-2 bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400 rounded-lg text-sm font-medium hover:bg-purple-100 dark:hover:bg-purple-900/40 transition-colors"
+          >
+            <FaCalendarAlt className="w-4 h-4 inline mr-1" />
+            Interview
+          </button>
+        )}
+        <button
+          onClick={() => onMessage(application)}
+          className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+        >
+          <FaCommentDots className="w-5 h-5" />
+        </button>
+      </div>
+    </motion.div>
+  );
+};
 
-    return this.props.children;
-  }
-}
+// ============================================
+// COMPONENT: Job Row
+// ============================================
 
-// Loading Skeleton Component
-const LoadingSkeleton = () => (
-  <Card className="border-0 shadow-sm">
-    <Card.Body className="p-3">
-      <Placeholder as={Card.Title} animation="wave">
-        <Placeholder xs={6} />
-      </Placeholder>
-      <Placeholder as={Card.Text} animation="wave">
-        <Placeholder xs={7} /> <Placeholder xs={4} /> <Placeholder xs={4} /> <Placeholder xs={6} />{' '}
-        <Placeholder xs={8} />
-      </Placeholder>
-    </Card.Body>
-  </Card>
-);
+const JobRow = ({ job, onView, onEdit, onDelete, onToggleStatus }) => {
+  const statusConfig = getStatusConfig(job.status);
+  const StatusIcon = statusConfig.icon;
+
+  return (
+    <motion.tr
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      className="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800/50"
+    >
+      <td className="py-4 px-4">
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+            <FaBriefcase className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+          </div>
+          <div>
+            <p className="font-medium text-gray-900 dark:text-white">{job.title}</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400 flex items-center gap-1">
+              <FaMapMarkerAlt className="w-3 h-3" />
+              {job.location || 'Remote'}
+            </p>
+          </div>
+        </div>
+      </td>
+      <td className="py-4 px-4">
+        <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium ${statusConfig.bg} ${statusConfig.text}`}>
+          <StatusIcon className="w-3 h-3" />
+          {statusConfig.label}
+        </span>
+      </td>
+      <td className="py-4 px-4">
+        <div className="flex items-center gap-2">
+          <FaUsers className="w-4 h-4 text-gray-400" />
+          <span className="text-gray-700 dark:text-gray-300">{job.applicantsCount || 0}</span>
+        </div>
+      </td>
+      <td className="py-4 px-4">
+        <div className="flex items-center gap-2">
+          <FaEye className="w-4 h-4 text-gray-400" />
+          <span className="text-gray-700 dark:text-gray-300">{job.views || 0}</span>
+        </div>
+      </td>
+      <td className="py-4 px-4 text-sm text-gray-500 dark:text-gray-400">
+        {formatTimeAgo(job.createdAt)}
+      </td>
+      <td className="py-4 px-4">
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => onView(job)}
+            className="p-2 text-gray-400 hover:text-blue-600 transition-colors"
+            title="View"
+          >
+            <FaEye className="w-4 h-4" />
+          </button>
+          <button
+            onClick={() => onEdit(job)}
+            className="p-2 text-gray-400 hover:text-indigo-600 transition-colors"
+            title="Edit"
+          >
+            <FaEdit className="w-4 h-4" />
+          </button>
+          <button
+            onClick={() => onToggleStatus(job)}
+            className="p-2 text-gray-400 hover:text-yellow-600 transition-colors"
+            title={job.status === 'active' ? 'Pause' : 'Activate'}
+          >
+            {job.status === 'active' ? <FaClock className="w-4 h-4" /> : <FaCheckCircle className="w-4 h-4" />}
+          </button>
+          <button
+            onClick={() => onDelete(job)}
+            className="p-2 text-gray-400 hover:text-red-600 transition-colors"
+            title="Delete"
+          >
+            <FaTrash className="w-4 h-4" />
+          </button>
+        </div>
+      </td>
+    </motion.tr>
+  );
+};
+
+// ============================================
+// COMPONENT: Social Post Card
+// ============================================
+
+const SocialPostCard = ({ post, onLike, onComment, onShare }) => {
+  const [isLiked, setIsLiked] = useState(false);
+  const [showComments, setShowComments] = useState(false);
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-100 dark:border-gray-700"
+    >
+      <div className="flex items-start gap-3">
+        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white font-semibold">
+          {post.authorName?.charAt(0) || 'C'}
+        </div>
+        <div className="flex-1">
+          <div className="flex items-center justify-between">
+            <div>
+              <h4 className="font-semibold text-gray-900 dark:text-white">{post.authorName}</h4>
+              <p className="text-xs text-gray-500">{formatTimeAgo(post.createdAt)}</p>
+            </div>
+            <button className="p-1 text-gray-400 hover:text-gray-600">
+              <FaEllipsisH className="w-4 h-4" />
+            </button>
+          </div>
+          
+          <p className="mt-3 text-gray-700 dark:text-gray-300">{post.content}</p>
+          
+          {post.media && post.media.length > 0 && (
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              {post.media.slice(0, 4).map((media, index) => (
+                <div key={index} className="relative aspect-video rounded-lg overflow-hidden">
+                  {media.type === 'image' ? (
+                    <img
+                      src={media.url}
+                      alt={`Post media ${index + 1}`}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <video
+                      src={media.url}
+                      className="w-full h-full object-cover"
+                      controls
+                    />
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div className="flex items-center gap-4 mt-4 pt-3 border-t border-gray-100 dark:border-gray-700">
+            <button
+              onClick={() => {
+                setIsLiked(!isLiked);
+                onLike(post.id);
+              }}
+              className={`flex items-center gap-1 text-sm ${
+                isLiked ? 'text-red-500' : 'text-gray-500 hover:text-red-500'
+              } transition-colors`}
+            >
+              {isLiked ? <FaHeart className="w-4 h-4" /> : <FaRegHeart className="w-4 h-4" />}
+              <span>{post.likesCount + (isLiked ? 1 : 0)}</span>
+            </button>
+            <button
+              onClick={() => setShowComments(!showComments)}
+              className="flex items-center gap-1 text-sm text-gray-500 hover:text-blue-500 transition-colors"
+            >
+              <FaRegCommentDots className="w-4 h-4" />
+              <span>{post.commentsCount || 0}</span>
+            </button>
+            <button
+              onClick={() => onShare(post.id)}
+              className="flex items-center gap-1 text-sm text-gray-500 hover:text-green-500 transition-colors"
+            >
+              <FaShare className="w-4 h-4" />
+              <span>Share</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </motion.div>
+  );
+};
+
+// ============================================
+// COMPONENT: Notification Item
+// ============================================
+
+const NotificationItem = ({ notification, onRead, onDelete }) => {
+  const typeIcons = {
+    application: FaFileAlt,
+    message: FaCommentDots,
+    interview: FaCalendarAlt,
+    hire: FaCheckCircle,
+    follow: FaUserPlus,
+    review: FaStar,
+  };
+  const Icon = typeIcons[notification.type] || FaBell;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, x: -10 }}
+      animate={{ opacity: 1, x: 0 }}
+      className={`flex items-start gap-3 p-3 rounded-lg ${
+        notification.read ? 'bg-transparent' : 'bg-blue-50 dark:bg-blue-900/20'
+      } hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors`}
+    >
+      <div className={`p-2 rounded-lg ${
+        notification.type === 'application' ? 'bg-blue-100 text-blue-600' :
+        notification.type === 'message' ? 'bg-green-100 text-green-600' :
+        notification.type === 'interview' ? 'bg-purple-100 text-purple-600' :
+        'bg-gray-100 text-gray-600'
+      }`}>
+        <Icon className="w-4 h-4" />
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="text-sm text-gray-900 dark:text-white font-medium truncate">
+          {notification.title}
+        </p>
+        <p className="text-xs text-gray-500 dark:text-gray-400 line-clamp-2">
+          {notification.message}
+        </p>
+        <p className="text-xs text-gray-400 mt-1">{formatTimeAgo(notification.createdAt)}</p>
+      </div>
+      <button
+        onClick={() => onDelete(notification.id)}
+        className="p-1 text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
+      >
+        <FaTimes className="w-3 h-3" />
+      </button>
+    </motion.div>
+  );
+};
+
+// ============================================
+// MAIN COMPONENT
+// ============================================
 
 const CompanyDashboard = () => {
   const navigate = useNavigate();
-  const { currentUser, userProfile, logout } = useAuth();
+  const { currentUser, userProfile } = useAuth();
+  const { showNotification } = useNotification();
+  const { theme } = useTheme();
+  
+  const companyId = currentUser?.uid;
+  
+  // Real-time data hooks
+  const { 
+    company, 
+    jobs, 
+    applications, 
+    teamMembers, 
+    followers, 
+    notifications,
+    socialPosts,
+    loading, 
+    error 
+  } = useRealtimeCompanyData(companyId);
+  
+  const supabaseData = useSupabaseRealtime(companyId);
 
-  const [dashboardData, setDashboardData] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [loadingText, setLoadingText] = useState('Loading your dashboard...');
-  const [toasts, setToasts] = useState([]);
-  const [news, setNews] = useState({ business: [], career: [], lesotho: [] });
-  const [newsLoading, setNewsLoading] = useState(false);
-  const [isMobile, setIsMobile] = useState(false);
-  const [isOnline, setIsOnline] = useState(true);
-
-  const [stats, setStats] = useState({
-    totalJobs: 0,
-    activeJobs: 0,
-    totalApplicants: 0,
-    profileViews: 0,
-    interviewRate: 0,
-    hireRate: 0,
-    avgTimeToHire: 0,
-    avgResponseTime: 2.3,
-    conversionRate: 0,
-    pendingReviews: 0,
-    pipelineStats: {
-      new: 0,
-      reviewed: 0,
-      interview: 0,
-      hired: 0,
-    },
-    totalFollowers: 0,
-    newFollowers: 0,
-  });
-
-  const [filter, setFilter] = useState('all');
-  const [sortBy, setSortBy] = useState('newest');
-  const [showUploadLogoModal, setShowUploadLogoModal] = useState(false);
-  const [showNewsModal, setShowNewsModal] = useState(false);
-  const [selectedNews, setSelectedNews] = useState(null);
-  const [uploadingLogo, setUploadingLogo] = useState(false);
-  const [logoFile, setLogoFile] = useState(null);
-  const [logoPreview, setLogoPreview] = useState(null);
+  // Local state
+  const [greeting, setGreeting] = useState(() => getTimeGreeting());
   const [activeTab, setActiveTab] = useState('overview');
-  const [realtimeListeners, setRealtimeListeners] = useState([]);
+  const [filterStatus, setFilterStatus] = useState('all');
+  const [sortBy, setSortBy] = useState('newest');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [showQuickActions, setShowQuickActions] = useState(true);
+  const [showLogoUpload, setShowLogoUpload] = useState(false);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
+  const [logoPreview, setLogoPreview] = useState(null);
+  const [logoFile, setLogoFile] = useState(null);
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const [selectedApplication, setSelectedApplication] = useState(null);
+  const [showApplicationModal, setShowApplicationModal] = useState(false);
+  const [showJobModal, setShowJobModal] = useState(false);
+  const [selectedJob, setSelectedJob] = useState(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [itemToDelete, setItemToDelete] = useState(null);
+  const [deleteType, setDeleteType] = useState(null);
+  
+  const logoInputRef = useRef(null);
 
-  // Check for mobile view
+  // Update greeting every minute
   useEffect(() => {
-    const checkMobile = () => {
-      setIsMobile(window.innerWidth <= 768);
-    };
-
-    checkMobile();
-    window.addEventListener('resize', checkMobile);
-
-    return () => window.removeEventListener('resize', checkMobile);
+    const interval = setInterval(() => {
+      setGreeting(getTimeGreeting());
+    }, 60000);
+    return () => clearInterval(interval);
   }, []);
 
-  // Check online status
+  // Online/offline detection
   useEffect(() => {
     const handleOnline = () => setIsOnline(true);
     const handleOffline = () => setIsOnline(false);
-
+    
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
-
+    
     return () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
     };
   }, []);
 
-  // Professional navigation actions
-  const primaryActions = [
-    {
-      id: 1,
-      title: 'Post New Job',
-      icon: <FaRocket className="action-icon" />,
-      variant: 'primary',
-      onClick: () => navigate('/company/jobs/create'),
-      description: 'Create and publish new job posting',
-    },
-    {
-      id: 2,
-      title: 'Review Apps',
-      icon: <FaUserCheck className="action-icon" />,
-      variant: 'success',
-      onClick: () => navigate('/company/applications'),
-      badge: () => stats.pendingReviews,
-      description: 'Review pending applications',
-    },
-    {
-      id: 3,
-      title: 'Schedule',
-      icon: <FaCalendarCheck className="action-icon" />,
-      variant: 'warning',
-      onClick: () => navigate('/company/schedule-interview'),
-      description: 'Schedule interviews',
-    },
-    {
-      id: 4,
-      title: 'Analytics',
-      icon: <FaChartBar className="action-icon" />,
-      variant: 'info',
-      onClick: () => navigate('/company/analytics'),
-      description: 'Performance analytics',
-    },
-  ];
+  // Compute stats from real-time data
+  const stats = useMemo(() => {
+    const totalApplications = applications.length;
+    const pendingReviews = applications.filter(a => a.status === 'applied').length;
+    const activeJobs = jobs.filter(j => j.status === 'active').length;
+    const interviews = applications.filter(a => a.status === 'interview').length;
+    const hired = applications.filter(a => a.status === 'hired').length;
+    const rejected = applications.filter(a => a.status === 'rejected').length;
+    
+    const interviewRate = totalApplications > 0 
+      ? Math.round((interviews / totalApplications) * 100) 
+      : 0;
+    const hireRate = totalApplications > 0 
+      ? Math.round((hired / totalApplications) * 100) 
+      : 0;
+    
+    // Calculate average time to hire
+    const hiredApps = applications.filter(a => a.status === 'hired' && a.appliedAt && a.hiredAt);
+    const avgTimeToHire = hiredApps.length > 0
+      ? Math.round(hiredApps.reduce((sum, app) => {
+          const applied = new Date(app.appliedAt?.toDate?.() || app.appliedAt);
+          const hiredDate = new Date(app.hiredAt?.toDate?.() || app.hiredAt);
+          return sum + Math.ceil((hiredDate - applied) / (1000 * 60 * 60 * 24));
+        }, 0) / hiredApps.length)
+      : 0;
 
-  const secondaryActions = [
-    {
-      id: 5,
-      title: 'Manage Team',
-      icon: <FaUsersCog className="action-icon" />,
-      onClick: () => navigate('/company/teams'),
-    },
-    {
-      id: 6,
-      title: 'Profile',
-      icon: <FaBuilding className="action-icon" />,
-      onClick: () => navigate('/company/profile'),
-    },
-    {
-      id: 7,
-      title: 'Documents',
-      icon: <FaFileContract className="action-icon" />,
-      onClick: () => navigate('/company/documents'),
-    },
-    {
-      id: 8,
-      title: 'Chat',
-      icon: <FaCommentDots className="action-icon" />,
-      onClick: () => navigate('/company/chat'),
-    },
-  ];
-
-  // Show toast notification
-  const showToast = useCallback((title, message, variant = 'info', duration = 5000) => {
-    const id = Date.now();
-    setToasts((prev) => [...prev, { id, title, message, variant }]);
-
-    setTimeout(() => {
-      setToasts((prev) => prev.filter((toast) => toast.id !== id));
-    }, duration);
-  }, []);
-
-  // Check authentication
-  useEffect(() => {
-    let isMounted = true;
-
-    if (!currentUser) {
-      navigate('/login');
-      return;
-    }
-
-    if (userProfile?.userType !== 'company') {
-      showToast('Access Denied', 'This dashboard is for companies only', 'danger');
-      navigate('/');
-      return;
-    }
-
-    const fetchData = async () => {
-      if (!isMounted) return;
-      await fetchDashboardData();
-      await fetchNews();
+    return {
+      totalJobs: jobs.length,
+      activeJobs,
+      totalApplications,
+      pendingReviews,
+      interviews,
+      hired,
+      rejected,
+      interviewRate,
+      hireRate,
+      avgTimeToHire,
+      totalFollowers: followers.length,
+      teamMembers: teamMembers.length,
+      profileViews: company?.profileViews || 0,
+      pipelineStats: {
+        new: applications.filter(a => a.status === 'applied').length,
+        reviewed: applications.filter(a => a.status === 'reviewed').length,
+        interview: interviews,
+        hired: hired,
+      },
     };
+  }, [jobs, applications, followers, teamMembers, company]);
 
-    fetchData();
-
-    const interval = setInterval(() => {
-      if (isMounted && isOnline) {
-        fetchDashboardData();
-      }
-    }, 300000);
-
-    return () => {
-      isMounted = false;
-      clearInterval(interval);
-    };
-  }, [currentUser, userProfile, navigate, showToast, isOnline]);
-
-  const fetchDashboardData = useCallback(async () => {
-    if (!currentUser || !isOnline) {
-      showToast('Offline', 'You are currently offline. Data may be outdated.', 'warning');
-      return;
+  // Filter and sort applications
+  const filteredApplications = useMemo(() => {
+    let filtered = [...applications];
+    
+    if (filterStatus !== 'all') {
+      filtered = filtered.filter(a => a.status === filterStatus);
     }
-
-    try {
-      setLoading(true);
-      setLoadingText('Loading dashboard data...');
-
-      const data = await dashboardService.getDashboardData();
-
-      if (data) {
-        setDashboardData(data);
-        updateStats(data);
-
-        const newCount = data.applicationStats?.new || 0;
-        document.title =
-          newCount > 0
-            ? `(${newCount}) ${data.company?.name || 'Company'} Dashboard`
-            : `${data.company?.name || 'Company'} Dashboard`;
-
-        if (!loading) {
-          showToast('Dashboard Updated', 'Latest data loaded successfully', 'success');
-        }
-      }
-    } catch (error) {
-      console.error('Error fetching dashboard data:', error);
-      showToast('Error', 'Failed to load dashboard data', 'warning');
-
-      setDashboardData({
-        company: {
-          name: userProfile?.companyName || 'Your Company',
-          logo: null,
-          industry: 'Not specified',
-          location: 'Not specified',
-          website: '',
-          description: 'Complete your company profile to get started',
-          followersCount: 0,
-        },
-        stats: {
-          totalJobs: 0,
-          activeJobs: 0,
-          applications: 0,
-          profileViews: 0,
-          totalApplicants: 0,
-        },
-        recentApplications: [],
-        jobListings: [],
-        pipelineStats: { new: 0, reviewed: 0, interview: 0, hired: 0 },
-        topCandidates: [],
-        applicationStats: {
-          total: 0,
-          new: 0,
-          reviewed: 0,
-          interview: 0,
-          rejected: 0,
-          hired: 0,
-          withdrawn: 0,
-        },
-      });
-    } finally {
-      setLoading(false);
-      setLoadingText('Loading your dashboard...');
+    
+    if (searchTerm) {
+      const term = searchTerm.toLowerCase();
+      filtered = filtered.filter(a => 
+        a.candidate?.name?.toLowerCase().includes(term) ||
+        a.job?.title?.toLowerCase().includes(term) ||
+        a.candidate?.email?.toLowerCase().includes(term)
+      );
     }
-  }, [currentUser, userProfile, showToast, loading, isOnline]);
-
-  const fetchNews = useCallback(async () => {
-    if (!isOnline) {
-      showToast('Offline', 'Cannot fetch news while offline', 'warning');
-      return;
-    }
-
-    try {
-      setNewsLoading(true);
-      const newsData = await newsService.getDashboardNews();
-      if (newsData) {
-        setNews(newsData);
-      }
-    } catch (error) {
-      console.error('Error fetching news:', error);
-      showToast('News Update', 'Could not load latest news', 'warning');
-    } finally {
-      setNewsLoading(false);
-    }
-  }, [showToast, isOnline]);
-
-  const updateStats = useCallback((data) => {
-    if (!data) return;
-
-    const newStats = {
-      totalJobs: data.stats?.totalJobs || 0,
-      activeJobs: data.stats?.activeJobs || 0,
-      totalApplicants: data.stats?.totalApplicants || 0,
-      profileViews: data.stats?.profileViews || 0,
-      interviewRate: calculateInterviewRate(data.applicationStats),
-      hireRate: calculateHireRate(data.applicationStats),
-      avgTimeToHire: calculateAvgTimeToHire(data.recentApplications || []),
-      avgResponseTime: calculateAvgResponseTime(data.recentApplications || []),
-      conversionRate: calculateConversionRate(data.applicationStats),
-      pendingReviews: data.applicationStats?.new || 0,
-      totalFollowers: data.company?.followersCount || 0,
-      newFollowers: calculateNewFollowers(data.company?.followersData || []),
-      pipelineStats: data.pipelineStats || { new: 0, reviewed: 0, interview: 0, hired: 0 },
-    };
-
-    setStats(newStats);
-  }, []);
-
-  const calculateInterviewRate = (stats) => {
-    if (!stats || stats.total === 0) return 0;
-    return Math.round((stats.interview / stats.total) * 100);
-  };
-
-  const calculateHireRate = (stats) => {
-    if (!stats || stats.total === 0) return 0;
-    return Math.round((stats.hired / stats.total) * 100);
-  };
-
-  const calculateConversionRate = (stats) => {
-    if (!stats || stats.total === 0) return 0;
-    return Math.round((stats.hired / stats.total) * 100);
-  };
-
-  const calculateAvgTimeToHire = (applications) => {
-    const hiredApps = applications.filter(
-      (app) => app.status === 'hired' && app.appliedAt && app.hiredAt
-    );
-    if (hiredApps.length === 0) return 14;
-
-    const totalDays = hiredApps.reduce((sum, app) => {
-      const appliedDate = new Date(app.appliedAt);
-      const hiredDate = new Date(app.hiredAt);
-      const diffTime = Math.abs(hiredDate - appliedDate);
-      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-      return sum + diffDays;
-    }, 0);
-
-    return Math.round(totalDays / hiredApps.length);
-  };
-
-  const calculateAvgResponseTime = (applications) => {
-    const reviewedApps = applications.filter(
-      (app) =>
-        ['reviewed', 'interview', 'hired', 'rejected'].includes(app.status) &&
-        app.appliedAt &&
-        app.reviewedAt
-    );
-    if (reviewedApps.length === 0) return 2.3;
-
-    const totalDays = reviewedApps.reduce((sum, app) => {
-      const appliedDate = new Date(app.appliedAt);
-      const reviewedDate = new Date(app.reviewedAt || app.updatedAt);
-      const diffTime = Math.abs(reviewedDate - appliedDate);
-      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-      return sum + diffDays;
-    }, 0);
-
-    return Math.round((totalDays / reviewedApps.length) * 10) / 10;
-  };
-
-  const calculateNewFollowers = (followers) => {
-    const lastWeek = new Date();
-    lastWeek.setDate(lastWeek.getDate() - 7);
-    return followers.filter((f) => new Date(f.followedAt) > lastWeek).length;
-  };
-
-  const getStatusBadge = useCallback((status) => {
-    const variants = {
-      applied: { bg: 'light', text: 'dark', icon: <FaClock /> },
-      pending: { bg: 'warning', text: 'dark', icon: <FaClock /> },
-      reviewed: { bg: 'info', text: 'white', icon: <FaEye /> },
-      interview: { bg: 'primary', text: 'white', icon: <FaCalendarAlt /> },
-      hired: { bg: 'success', text: 'white', icon: <FaCheckCircle /> },
-      rejected: { bg: 'danger', text: 'white', icon: <FaTimesCircle /> },
-      withdrawn: { bg: 'secondary', text: 'white', icon: null },
-      active: { bg: 'success', text: 'white', icon: <FaCheckCircle /> },
-      paused: { bg: 'warning', text: 'dark', icon: null },
-      closed: { bg: 'secondary', text: 'white', icon: null },
-    };
-
-    const variant = variants[status] || { bg: 'secondary', text: 'white', icon: null };
-
-    return (
-      <Badge
-        bg={variant.bg}
-        text={variant.text}
-        className="status-badge d-flex align-items-center gap-1"
-      >
-        {variant.icon}
-        {status.charAt(0).toUpperCase() + status.slice(1)}
-      </Badge>
-    );
-  }, []);
-
-  const handleLogoUpload = async () => {
-    if (!logoFile || !currentUser) return;
-
-    try {
-      setUploadingLogo(true);
-
-      const response = await cloudinaryService.uploadImage(logoFile);
-      if (!response?.success || !response?.url) {
-        throw new Error(response?.error || 'Cloudinary upload failed');
-      }
-      const logoUrl = response.url;
-
-      await companyService.updateCompanyProfile({
-        logo: logoUrl,
-        updatedAt: new Date().toISOString(),
-      });
-
-      setDashboardData((prev) => ({
-        ...prev,
-        company: { ...prev.company, logo: logoUrl },
-      }));
-
-      setShowUploadLogoModal(false);
-      setLogoFile(null);
-      setLogoPreview(null);
-
-      showToast('Success', 'Company logo updated successfully!', 'success');
-    } catch (error) {
-      console.error('Error uploading logo:', error);
-      showToast('Error', 'Failed to upload logo. Please try again.', 'danger');
-    } finally {
-      setUploadingLogo(false);
-    }
-  };
-
-  const handleUpdateApplicationStatus = async (applicationId, newStatus) => {
-    try {
-      await applicationService.updateApplicationStatus(applicationId, newStatus);
-      showToast('Status Updated', `Application status updated to ${newStatus}`, 'success');
-      fetchDashboardData();
-    } catch (error) {
-      console.error('Error updating application status:', error);
-      showToast('Error', 'Failed to update application status', 'danger');
-    }
-  };
-
-  const handleFilterChange = (newFilter) => {
-    setFilter(newFilter);
-  };
-
-  const handleSortChange = (newSort) => {
-    setSortBy(newSort);
-  };
-
-  const getFilteredApplications = useCallback(() => {
-    if (!dashboardData?.recentApplications) return [];
-
-    let filtered = [...dashboardData.recentApplications];
-
-    if (filter !== 'all') {
-      filtered = filtered.filter((app) => app.status === filter);
-    }
-
+    
     filtered.sort((a, b) => {
       switch (sortBy) {
         case 'newest':
-          return new Date(b.appliedAt) - new Date(a.appliedAt);
+          return new Date(b.appliedAt?.toDate?.() || b.appliedAt) - new Date(a.appliedAt?.toDate?.() || a.appliedAt);
         case 'oldest':
-          return new Date(a.appliedAt) - new Date(b.appliedAt);
+          return new Date(a.appliedAt?.toDate?.() || a.appliedAt) - new Date(b.appliedAt?.toDate?.() || b.appliedAt);
         case 'match':
           return (b.matchScore || 0) - (a.matchScore || 0);
         default:
           return 0;
       }
     });
-
+    
     return filtered;
-  }, [dashboardData, filter, sortBy]);
+  }, [applications, filterStatus, sortBy, searchTerm]);
 
-  const getTimeAgo = useCallback((date) => {
-    if (!date) return 'Just now';
+  // ============================================
+  // HANDLERS
+  // ============================================
 
-    const now = new Date();
-    const past = new Date(date);
-    const diffMs = now - past;
-    const diffMins = Math.floor(diffMs / 60000);
-    const diffHours = Math.floor(diffMs / 3600000);
-    const diffDays = Math.floor(diffMs / 86400000);
+  const handleLogoUpload = async () => {
+    if (!logoFile || !companyId) return;
 
-    if (diffMins < 1) return 'Just now';
-    if (diffMins < 60) return `${diffMins}m ago`;
-    if (diffHours < 24) return `${diffHours}h ago`;
-    if (diffDays < 7) return `${diffDays}d ago`;
-    return past.toLocaleDateString();
-  }, []);
+    try {
+      setUploadingLogo(true);
 
-  const handleViewApplication = (applicationId) => {
-    navigate(`/company/applications/${applicationId}`);
-  };
+      const token = await auth.currentUser?.getIdToken();
+      if (!token) throw new Error('Please sign in again before uploading the company logo.');
+      const formData = new FormData();
+      formData.append('file', logoFile);
+      formData.append('assetType', 'logo');
+      const response = await fetch(`${API_BASE_URL}/api/media/company/branding-image`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok || !payload.success || !payload.data?.url) {
+        throw new Error(payload.message || 'Company logo upload failed.');
+      }
 
-  const handleViewJob = (jobId) => {
-    navigate(`/company/jobs/${jobId}`);
-  };
-
-  const handleViewCandidate = (candidateId) => {
-    navigate(`/company/candidates/${candidateId}`);
-  };
-
-  const handleQuickAction = (action) => {
-    if (action.onClick) action.onClick();
-  };
-
-  const handleViewNewsArticle = (article) => {
-    setSelectedNews(article);
-    setShowNewsModal(true);
+      showNotification('success', 'Logo updated successfully!');
+      setShowLogoUpload(false);
+      setLogoFile(null);
+      setLogoPreview(null);
+    } catch (error) {
+      console.error('Error uploading logo:', error);
+      showNotification('error', error.message || 'Failed to upload logo. Please try again.');
+    } finally {
+      setUploadingLogo(false);
+    }
   };
 
   const handleFileSelect = (e) => {
-    const file = e.target.files[0];
+    const file = e.target.files?.[0];
     if (!file) return;
 
-    const validTypes = {
-      'image/jpeg': 'jpg',
-      'image/png': 'png',
-      'image/gif': 'gif',
-      'image/webp': 'webp',
-      'image/svg+xml': 'svg',
-    };
-
-    if (!validTypes[file.type]) {
-      showToast('Invalid File', 'Only image files are allowed', 'danger');
+    // Validate file type
+    const validTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+    if (!validTypes.includes(file.type)) {
+      showNotification('error', 'Please select a valid image file (JPEG, PNG, GIF, or WebP)');
       return;
     }
 
-    const MAX_SIZE = 10 * 1024 * 1024;
-    if (file.size > MAX_SIZE) {
-      showToast('File Too Large', 'Maximum file size is 10MB', 'danger');
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      showNotification('error', 'File size must be less than 5MB');
       return;
     }
 
     setLogoFile(file);
 
+    // Create preview
     const reader = new FileReader();
     reader.onloadend = () => {
       setLogoPreview(reader.result);
@@ -774,878 +1069,1060 @@ const CompanyDashboard = () => {
     reader.readAsDataURL(file);
   };
 
-  const renderApplicationRow = useCallback(
-    (app) => (
-      <ListGroup.Item key={app.id} className="application-item border-0 px-3 py-2 hover-highlight">
-        <div className="d-flex flex-column flex-md-row justify-content-between align-items-start gap-2">
-          <div className="flex-grow-1">
-            <div className="d-flex align-items-center gap-2 mb-1">
-              <h6 className="mb-0 fw-semibold fs-6">{app.job?.title || 'Position'}</h6>
-              {app.matchScore > 80 && (
-                <Badge bg="success" className="d-flex align-items-center gap-1">
-                  <FaStar size={10} /> Top
-                </Badge>
-              )}
+  const handleUpdateApplicationStatus = async (applicationId, newStatus) => {
+    try {
+      await updateDoc(doc(db, 'applications', applicationId), {
+        status: newStatus,
+        [`${newStatus}At`]: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        updatedBy: companyId,
+      });
+
+      // Add activity to Supabase
+      await supabase
+        .from('company_activities')
+        .insert({
+          company_id: companyId,
+          activity_type: 'application_status_updated',
+          metadata: { application_id: applicationId, new_status: newStatus },
+          created_at: new Date().toISOString(),
+        });
+
+      showNotification('success', `Application status updated to ${newStatus}`);
+    } catch (error) {
+      console.error('Error updating application status:', error);
+      showNotification('error', 'Failed to update application status');
+    }
+  };
+
+  const handleToggleJobStatus = async (job) => {
+    try {
+      const newStatus = job.status === 'active' ? 'paused' : 'active';
+      await updateDoc(doc(db, 'jobs', job.id), {
+        status: newStatus,
+        updatedAt: serverTimestamp(),
+      });
+      showNotification('success', `Job ${newStatus === 'active' ? 'activated' : 'paused'}`);
+    } catch (error) {
+      console.error('Error toggling job status:', error);
+      showNotification('error', 'Failed to update job status');
+    }
+  };
+
+  const handleDeleteJob = async (job) => {
+    setItemToDelete(job);
+    setDeleteType('job');
+    setShowDeleteConfirm(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!itemToDelete) return;
+
+    try {
+      if (deleteType === 'job') {
+        await deleteDoc(doc(db, 'jobs', itemToDelete.id));
+        showNotification('success', 'Job deleted successfully');
+      } else if (deleteType === 'application') {
+        await deleteDoc(doc(db, 'applications', itemToDelete.id));
+        showNotification('success', 'Application deleted successfully');
+      } else if (deleteType === 'notification') {
+        await deleteDoc(doc(db, 'companyNotifications', itemToDelete.id));
+      }
+    } catch (error) {
+      console.error('Error deleting item:', error);
+      showNotification('error', 'Failed to delete item');
+    } finally {
+      setShowDeleteConfirm(false);
+      setItemToDelete(null);
+      setDeleteType(null);
+    }
+  };
+
+  const handleMarkNotificationRead = async (notificationId) => {
+    try {
+      await updateDoc(doc(db, 'companyNotifications', notificationId), {
+        read: true,
+        readAt: serverTimestamp(),
+      });
+    } catch (error) {
+      console.error('Error marking notification as read:', error);
+    }
+  };
+
+  const handleLikePost = async (postId) => {
+    try {
+      const postRef = doc(db, 'socialPosts', postId);
+      const postDoc = await getDoc(postRef);
+      
+      if (postDoc.exists()) {
+        const post = postDoc.data();
+        const likes = post.likes || [];
+        const isLiked = likes.includes(companyId);
+        
+        await updateDoc(postRef, {
+          likes: isLiked ? arrayRemove(companyId) : arrayUnion(companyId),
+          likesCount: increment(isLiked ? -1 : 1),
+        });
+      }
+    } catch (error) {
+      console.error('Error liking post:', error);
+    }
+  };
+
+  const handleSharePost = async (postId) => {
+    try {
+      const postUrl = `${window.location.origin}/company/posts/${postId}`;
+      
+      if (navigator.share) {
+        await navigator.share({
+          title: 'Check out this post',
+          url: postUrl,
+        });
+      } else {
+        await navigator.clipboard.writeText(postUrl);
+        showNotification('success', 'Link copied to clipboard');
+      }
+    } catch (error) {
+      console.error('Error sharing post:', error);
+    }
+  };
+
+  const handleViewApplication = (application) => {
+    setSelectedApplication(application);
+    setShowApplicationModal(true);
+  };
+
+  const handleMessageCandidate = (application) => {
+    navigate(`/company/chat?candidate=${application.candidateId}`);
+  };
+
+  const handleViewJob = (job) => {
+    navigate(`/company/jobs/${job.id}`);
+  };
+
+  const handleEditJob = (job) => {
+    navigate(`/company/jobs/${job.id}/edit`);
+  };
+
+  // ============================================
+  // RENDER
+  // ============================================
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-6">
+        <div className="max-w-7xl mx-auto">
+          <div className="animate-pulse space-y-6">
+            <div className="h-32 bg-white dark:bg-gray-800 rounded-xl"></div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              {[...Array(4)].map((_, i) => (
+                <div key={i} className="h-40 bg-white dark:bg-gray-800 rounded-xl"></div>
+              ))}
             </div>
-            <div className="d-flex flex-wrap align-items-center gap-2 gap-md-3 mb-2 fs-7">
-              <span className="d-flex align-items-center gap-1 text-muted">
-                <FaUserTie size={12} /> {app.candidate?.fullName || 'Candidate'}
-              </span>
-              <span className="d-flex align-items-center gap-1 text-muted">
-                <FaCalendarAlt size={12} /> {getTimeAgo(app.appliedAt)}
-              </span>
-              <span className="d-flex align-items-center gap-1 text-muted">
-                <FaChartLine size={12} /> {app.matchScore || 0}%
-              </span>
-            </div>
-            {app.candidate?.skills && app.candidate.skills.length > 0 && (
-              <div className="d-flex flex-wrap gap-1">
-                {app.candidate.skills.slice(0, 2).map((skill) => (
-                  <Badge key={skill} bg="light" text="dark" className="fw-normal">
-                    {skill}
-                  </Badge>
-                ))}
-                {app.candidate.skills.length > 2 && (
-                  <Badge bg="light" text="dark" className="fw-normal">
-                    +{app.candidate.skills.length - 2}
-                  </Badge>
-                )}
-              </div>
-            )}
-          </div>
-          <div className="d-flex flex-column align-items-end gap-2 min-w-100">
-            {getStatusBadge(app.status)}
-            <div className="d-flex gap-1">
-              <Button
-                variant="outline-primary"
-                size="sm"
-                onClick={() => handleViewApplication(app.id)}
-              >
-                View
-              </Button>
-              {app.status === 'applied' && (
-                <Button
-                  variant="outline-success"
-                  size="sm"
-                  onClick={() => handleUpdateApplicationStatus(app.id, 'reviewed')}
-                >
-                  Review
-                </Button>
-              )}
-            </div>
+            <div className="h-64 bg-white dark:bg-gray-800 rounded-xl"></div>
           </div>
         </div>
-      </ListGroup.Item>
-    ),
-    [getStatusBadge, getTimeAgo]
-  );
-
-  const renderJobRow = useCallback(
-    (job) => (
-      <tr key={job.id} className="align-middle">
-        <td>
-          <div>
-            <strong className="fs-7">{job.title}</strong>
-            <div className="fs-8 text-muted">{job.location}</div>
-          </div>
-        </td>
-        <td>
-          <div className="d-flex align-items-center gap-1">
-            <FaUsers className="text-muted" size={14} />
-            <span className="fs-7">{job.applicantsCount || 0}</span>
-          </div>
-        </td>
-        <td>
-          <div className="d-flex flex-column gap-1">
-            {getStatusBadge(job.status)}
-            {job.urgency === 'high' && (
-              <Badge bg="danger" className="fs-8">
-                Urgent
-              </Badge>
-            )}
-          </div>
-        </td>
-        <td className="text-muted fs-8">{job.createdAt ? getTimeAgo(job.createdAt) : 'N/A'}</td>
-        <td>
-          <Dropdown>
-            <Dropdown.Toggle variant="link" className="text-decoration-none p-0">
-              <FaEllipsisV />
-            </Dropdown.Toggle>
-            <Dropdown.Menu>
-              <Dropdown.Item onClick={() => handleViewJob(job.id)}>
-                <FaEye className="me-2" /> View
-              </Dropdown.Item>
-              <Dropdown.Item onClick={() => navigate(`/company/jobs/${job.id}/edit`)}>
-                <FaEdit className="me-2" /> Edit
-              </Dropdown.Item>
-              <Dropdown.Item onClick={() => navigate(`/company/jobs/${job.id}/applicants`)}>
-                <FaUsers className="me-2" /> Applicants
-              </Dropdown.Item>
-            </Dropdown.Menu>
-          </Dropdown>
-        </td>
-      </tr>
-    ),
-    [getStatusBadge, getTimeAgo, navigate]
-  );
-
-  if (loading && !dashboardData) {
-    return (
-      <div className="dashboard-loading d-flex flex-column align-items-center justify-content-center min-vh-50">
-        <Spinner animation="border" variant="primary" style={{ width: '3rem', height: '3rem' }} />
-        <p className="mt-3 fs-5">{loadingText}</p>
       </div>
     );
   }
 
-  const companyName = dashboardData?.company?.name || userProfile?.companyName || '';
-  const welcomeName = companyName || 'Company';
-  const displayName = userProfile?.displayName || userProfile?.email?.split('@')[0] || '';
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center p-6">
+        <div className="bg-white dark:bg-gray-800 rounded-xl p-8 max-w-md text-center">
+          <FaExclamationTriangle className="w-16 h-16 text-red-500 mx-auto mb-4" />
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
+            Something went wrong
+          </h2>
+          <p className="text-gray-500 dark:text-gray-400 mb-4">{error}</p>
+          <button
+            onClick={() => window.location.reload()}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            Reload Page
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  const companyName = company?.name || company?.companyName || userProfile?.companyName || 'Your Company';
+  const displayName = userProfile?.displayName || userProfile?.fullName || '';
+  const unreadNotifications = notifications.filter(n => !n.read).length;
 
   return (
-    <Container
-      fluid
-      className={`company-dashboard-container ${isMobile ? 'mobile-view' : ''} px-0 px-md-3 py-2`}
-    >
-      {/* Toast Notifications */}
-      <ToastContainer position="top-end" className="p-3" style={{ zIndex: 9999 }}>
-        {toasts.map((toast) => (
-          <Toast
-            key={toast.id}
-            bg={toast.variant}
-            onClose={() => setToasts((prev) => prev.filter((t) => t.id !== toast.id))}
-            delay={5000}
-            autohide
-            className="shadow-sm"
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+      {/* Offline Banner */}
+      <AnimatePresence>
+        {!isOnline && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            className="bg-yellow-500 text-white px-4 py-2 text-center text-sm"
           >
-            <Toast.Header className={`bg-${toast.variant} text-white`}>
-              <strong className="me-auto fs-7">{toast.title}</strong>
-              <small>
-                {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-              </small>
-            </Toast.Header>
-            <Toast.Body className="text-white fs-7">{toast.message}</Toast.Body>
-          </Toast>
-        ))}
-      </ToastContainer>
+            <FaWifi className="w-4 h-4 inline mr-2" />
+            You are offline. Some features may be limited.
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-      {/* Offline Alert */}
-      {!isOnline && (
-        <Alert variant="warning" className="mb-3 mx-2 mx-md-0 fs-7">
-          <FaBellSolid className="me-2" />
-          You are currently offline. Some features may be limited.
-        </Alert>
-      )}
+      <div className="max-w-7xl mx-auto p-4 md:p-6">
+        {/* Header */}
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm mb-6"
+        >
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="flex items-center gap-4">
+              {/* Company Logo */}
+              <div className="relative group">
+                {company?.logo ? (
+                  <img
+                    src={company.logo}
+                    alt={companyName}
+                    className="w-16 h-16 rounded-xl object-cover border-2 border-gray-100 dark:border-gray-700"
+                  />
+                ) : (
+                  <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-2xl font-bold">
+                    {companyName.charAt(0)}
+                  </div>
+                )}
+                <button
+                  onClick={() => setShowLogoUpload(true)}
+                  className="absolute inset-0 bg-black/50 rounded-xl flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                >
+                  <FaCamera className="w-6 h-6 text-white" />
+                </button>
+              </div>
 
-      {/* Welcome Header - Compact */}
-      <Row className="mb-3 mx-2 mx-md-0">
-        <Col>
-          <Card className="border-0 shadow-sm">
-            <Card.Body className="p-3">
-              <div className="d-flex flex-column flex-md-row justify-content-between align-items-start gap-3">
-                <div className="d-flex align-items-center gap-3">
-                  <div className="position-relative">
-                    <ImageWithFallback
-                      src={dashboardData?.company?.logo}
-                      alt={welcomeName}
-                      className="company-logo rounded-circle border"
-                      style={{ width: '60px', height: '60px', objectFit: 'cover' }}
-                      onClick={() => setShowUploadLogoModal(true)}
-                      title="Click to change logo"
-                      fallback={
-                        <div
-                          className="company-logo-placeholder rounded-circle border d-flex align-items-center justify-content-center bg-primary text-white"
-                          style={{ width: '60px', height: '60px' }}
-                          onClick={() => setShowUploadLogoModal(true)}
-                        >
-                          <FaBuilding size={24} />
-                        </div>
-                      }
-                    />
-                  </div>
-                  <div>
-                    <h1 className="h4 mb-1 fw-bold">Welcome back, {displayName}!</h1>
-                    <p className="text-muted fs-7 mb-0">
-                      Managing <strong>{welcomeName}</strong> dashboard
-                    </p>
-                    <div className="d-flex align-items-center gap-2 mt-1">
-                      <Badge bg="info" className="fs-8">
-                        <FaShieldAlt className="me-1" />
-                        {dashboardData?.company?.isVerified ? 'Verified' : 'Unverified'}
-                      </Badge>
-                      <Badge bg="light" text="dark" className="fs-8">
-                        <FaRegEye className="me-1" /> {stats.profileViews}
-                      </Badge>
-                    </div>
-                  </div>
-                </div>
-                <div className="d-flex gap-2 align-self-stretch">
-                  <Button
-                    variant="outline-primary"
-                    className="d-flex align-items-center gap-2"
-                    onClick={fetchDashboardData}
-                    disabled={loading || !isOnline}
-                    size="sm"
-                  >
-                    <FaSync className={loading ? 'fa-spin' : ''} />
-                    {!isMobile && 'Refresh'}
-                  </Button>
-                  <Button
-                    variant="primary"
-                    className="d-flex align-items-center gap-2"
-                    onClick={() => navigate('/company/jobs/create')}
-                    size="sm"
-                  >
-                    <FaPlus /> {!isMobile && 'Post Job'}
-                  </Button>
-                  <Button
-                    variant="light"
-                    className="position-relative"
-                    onClick={() => navigate('/company/notifications')}
-                    size="sm"
-                  >
-                    <FaBellSolid />
-                    {stats.pendingReviews > 0 && (
-                      <span className="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
-                        {stats.pendingReviews}
-                      </span>
-                    )}
-                  </Button>
+              <div>
+                <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+                  {greeting}, {displayName || companyName}!
+                </h1>
+                <p className="text-gray-500 dark:text-gray-400 mt-1">
+                  Here's what's happening with your company today
+                </p>
+                <div className="flex items-center gap-3 mt-2">
+                  <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${
+                    company?.isVerified 
+                      ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+                      : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400'
+                  }`}>
+                    <FaShieldAlt className="w-3 h-3" />
+                    {company?.isVerified ? 'Verified' : 'Unverified'}
+                  </span>
+                  <span className="flex items-center gap-1 text-xs text-gray-500">
+                    <FaEye className="w-3 h-3" />
+                    {formatNumber(stats.profileViews)} profile views
+                  </span>
                 </div>
               </div>
-            </Card.Body>
-          </Card>
-        </Col>
-      </Row>
+            </div>
 
-      <Row className="mb-3 mx-2 mx-md-0">
-        <Col>
-          <SocialDashboardSection
-            audience="company"
-            title="Brand And Talent Feed"
-            subtitle="Share company culture, project wins, team updates, event media, and opportunities so the app feels closer to LinkedIn than a static jobs board."
-          />
-        </Col>
-      </Row>
-
-      {/* Stats Cards - Responsive Grid */}
-      <Row className="g-2 mb-3 mx-2 mx-md-0">
-        <Col xl={3} lg={6} md={6} sm={6} xs={12}>
-          <DashboardErrorBoundary>
-            <Card className="stat-card border-0 shadow-sm h-100">
-              <Card.Body className="p-3">
-                <div className="d-flex align-items-center justify-content-between mb-2">
-                  <div className="stat-icon-circle bg-primary-light">
-                    <FaBriefcase className="text-primary" size={20} />
-                  </div>
-                  <span className="text-success fw-bold fs-8">
-                    <FaArrowUp className="me-1" /> 12%
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => navigate('/company/notifications')}
+                className="relative p-3 bg-gray-100 dark:bg-gray-700 rounded-xl hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+              >
+                <FaBell className="w-5 h-5 text-gray-600 dark:text-gray-300" />
+                {unreadNotifications > 0 && (
+                  <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center">
+                    {unreadNotifications > 9 ? '9+' : unreadNotifications}
                   </span>
-                </div>
-                <h3 className="stat-value mb-1 fs-4">{stats.totalJobs}</h3>
-                <p className="stat-label text-muted mb-2 fs-8">Total Jobs</p>
-                <div className="d-flex justify-content-between align-items-center">
-                  <span className="text-muted fs-8">Active: {stats.activeJobs}</span>
-                  <Button
-                    variant="link"
-                    className="text-decoration-none p-0 fs-8"
-                    onClick={() => navigate('/company/jobs')}
-                  >
-                    View <FaExternalLinkAlt className="ms-1" size={10} />
-                  </Button>
-                </div>
-              </Card.Body>
-            </Card>
-          </DashboardErrorBoundary>
-        </Col>
-
-        <Col xl={3} lg={6} md={6} sm={6} xs={12}>
-          <DashboardErrorBoundary>
-            <Card className="stat-card border-0 shadow-sm h-100">
-              <Card.Body className="p-3">
-                <div className="d-flex align-items-center justify-content-between mb-2">
-                  <div className="stat-icon-circle bg-success-light">
-                    <FaUsersSolid className="text-success" size={20} />
-                  </div>
-                  <span className="text-success fw-bold fs-8">
-                    <FaArrowUp className="me-1" /> 8%
-                  </span>
-                </div>
-                <h3 className="stat-value mb-1 fs-4">{stats.totalApplicants}</h3>
-                <p className="stat-label text-muted mb-2 fs-8">Applicants</p>
-                <div className="d-flex justify-content-between align-items-center">
-                  <span className="text-muted fs-8">{stats.pendingReviews} pending</span>
-                  <Button
-                    variant="link"
-                    className="text-decoration-none p-0 fs-8"
-                    onClick={() => navigate('/company/applications')}
-                  >
-                    Review <FaExternalLinkAlt className="ms-1" size={10} />
-                  </Button>
-                </div>
-              </Card.Body>
-            </Card>
-          </DashboardErrorBoundary>
-        </Col>
-
-        <Col xl={3} lg={6} md={6} sm={6} xs={12}>
-          <DashboardErrorBoundary>
-            <Card className="stat-card border-0 shadow-sm h-100">
-              <Card.Body className="p-3">
-                <div className="d-flex align-items-center justify-content-between mb-2">
-                  <div className="stat-icon-circle bg-info-light">
-                    <FaChartLineSolid className="text-info" size={20} />
-                  </div>
-                  <span
-                    className={
-                      stats.interviewRate > 20
-                        ? 'text-success fw-bold fs-8'
-                        : 'text-danger fw-bold fs-8'
-                    }
-                  >
-                    {stats.interviewRate > 20 ? (
-                      <FaArrowUp className="me-1" />
-                    ) : (
-                      <FaArrowDown className="me-1" />
-                    )}
-                    {stats.interviewRate > 20 ? '5%' : '2%'}
-                  </span>
-                </div>
-                <h3 className="stat-value mb-1 fs-4">{stats.interviewRate}%</h3>
-                <p className="stat-label text-muted mb-2 fs-8">Interview Rate</p>
-                <div className="d-flex justify-content-between align-items-center">
-                  <span className="text-muted fs-8">Hire: {stats.hireRate}%</span>
-                  <Button
-                    variant="link"
-                    className="text-decoration-none p-0 fs-8"
-                    onClick={() => navigate('/company/analytics')}
-                  >
-                    Stats <FaExternalLinkAlt className="ms-1" size={10} />
-                  </Button>
-                </div>
-              </Card.Body>
-            </Card>
-          </DashboardErrorBoundary>
-        </Col>
-
-        <Col xl={3} lg={6} md={6} sm={6} xs={12}>
-          <DashboardErrorBoundary>
-            <Card className="stat-card border-0 shadow-sm h-100">
-              <Card.Body className="p-3">
-                <div className="d-flex align-items-center justify-content-between mb-2">
-                  <div className="stat-icon-circle bg-warning-light">
-                    <FaClock className="text-warning" size={20} />
-                  </div>
-                  <span
-                    className={
-                      stats.avgTimeToHire < 30
-                        ? 'text-success fw-bold fs-8'
-                        : 'text-danger fw-bold fs-8'
-                    }
-                  >
-                    {stats.avgTimeToHire < 30 ? (
-                      <FaArrowDown className="me-1" />
-                    ) : (
-                      <FaArrowUp className="me-1" />
-                    )}
-                    {stats.avgTimeToHire < 30 ? '5d' : '3d'}
-                  </span>
-                </div>
-                <h3 className="stat-value mb-1 fs-4">{stats.avgTimeToHire}</h3>
-                <p className="stat-label text-muted mb-2 fs-8">Avg. Hire Time</p>
-                <div className="d-flex justify-content-between align-items-center">
-                  <span className="text-muted fs-8">Response: {stats.avgResponseTime}d</span>
-                  <Button
-                    variant="link"
-                    className="text-decoration-none p-0 fs-8"
-                    onClick={() => navigate('/company/analytics/performance')}
-                  >
-                    Details <FaExternalLinkAlt className="ms-1" size={10} />
-                  </Button>
-                </div>
-              </Card.Body>
-            </Card>
-          </DashboardErrorBoundary>
-        </Col>
-      </Row>
-
-      {/* Pipeline Stats - Compact */}
-      <Row className="mb-3 mx-2 mx-md-0">
-        <Col>
-          <DashboardErrorBoundary>
-            <Card className="border-0 shadow-sm">
-              <Card.Header className="bg-white border-0 py-2">
-                <h5 className="mb-0 d-flex align-items-center fs-6">
-                  <FaChartArea className="me-2 text-primary" />
-                  Recruitment Pipeline
-                  <Badge bg="primary" className="ms-2 fs-8">
-                    AI Powered
-                  </Badge>
-                </h5>
-              </Card.Header>
-              <Card.Body className="p-2">
-                <Row className="g-2">
-                  {Object.entries(stats.pipelineStats).map(([stage, count], index) => {
-                    const colors = [
-                      { bg: 'primary', text: 'white', icon: <FaUserPlusSolid /> },
-                      { bg: 'info', text: 'white', icon: <FaEye /> },
-                      { bg: 'warning', text: 'dark', icon: <FaCalendarCheck /> },
-                      { bg: 'success', text: 'white', icon: <FaUserCheckSolid /> },
-                    ];
-                    const color = colors[index] || { bg: 'secondary', text: 'white' };
-                    const stageNames = {
-                      new: 'New',
-                      reviewed: 'Reviewed',
-                      interview: 'Interview',
-                      hired: 'Hired',
-                    };
-
-                    return (
-                      <Col key={stage} xl={3} lg={3} md={6} sm={6} xs={12}>
-                        <div className={`border-0 bg-${color.bg}-subtle rounded p-2 h-100`}>
-                          <div className="d-flex align-items-center justify-content-between">
-                            <div className="d-flex align-items-center gap-2">
-                              <div
-                                className={`rounded-circle p-1 bg-${color.bg} text-${color.text}`}
-                              >
-                                {React.cloneElement(color.icon, { size: 16 })}
-                              </div>
-                              <div>
-                                <h6 className="mb-0 fs-7">{stageNames[stage]}</h6>
-                                <h4 className="mb-0 mt-1">{count}</h4>
-                              </div>
-                            </div>
-                            {index < 3 && <FaArrowRight className="text-muted" />}
-                          </div>
-                          {count > 0 && (
-                            <Button
-                              variant="outline-primary"
-                              size="sm"
-                              className="w-100 mt-2 fs-8"
-                              onClick={() => navigate(`/company/applications?filter=${stage}`)}
-                            >
-                              View
-                            </Button>
-                          )}
-                        </div>
-                      </Col>
-                    );
-                  })}
-                </Row>
-              </Card.Body>
-            </Card>
-          </DashboardErrorBoundary>
-        </Col>
-      </Row>
-
-      {/* Quick Actions */}
-      <Row className="mb-3 mx-2 mx-md-0">
-        <Col>
-          <DashboardErrorBoundary>
-            <Card className="border-0 shadow-sm">
-              <Card.Header className="bg-white border-0 py-2">
-                <h5 className="mb-0 d-flex align-items-center fs-6">
-                  <FaBolt className="me-2 text-warning" />
-                  Quick Actions
-                </h5>
-              </Card.Header>
-              <Card.Body className="p-2">
-                <Row className="g-2">
-                  {primaryActions.map((action) => (
-                    <Col key={action.id} xl={3} lg={3} md={6} sm={6} xs={12}>
-                      <Button
-                        variant={action.variant || 'outline-primary'}
-                        className="w-100 h-100 d-flex flex-column align-items-center justify-content-center p-2 border-0 shadow-sm"
-                        onClick={() => handleQuickAction(action)}
-                        size="sm"
-                      >
-                        <div className="mb-1" style={{ fontSize: '1.2rem' }}>
-                          {action.icon}
-                        </div>
-                        <span className="fw-medium fs-7">{action.title}</span>
-                        {action.badge &&
-                          typeof action.badge === 'function' &&
-                          action.badge() > 0 && (
-                            <Badge bg="danger" className="position-absolute top-0 end-0 mt-1 me-1">
-                              {action.badge()}
-                            </Badge>
-                          )}
-                      </Button>
-                    </Col>
-                  ))}
-                </Row>
-              </Card.Body>
-            </Card>
-          </DashboardErrorBoundary>
-        </Col>
-      </Row>
-
-      {/* Main Content */}
-      <Row className="g-3 mx-2 mx-md-0">
-        {/* Left Column - Applications & Jobs */}
-        <Col xl={8} xs={12}>
-          {/* Recent Applications */}
-          <DashboardErrorBoundary>
-            <Card className="border-0 shadow-sm h-100">
-              <Card.Header className="bg-white border-0 py-2">
-                <div className="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-2">
-                  <div>
-                    <h5 className="mb-0 d-flex align-items-center fs-6">
-                      <FaFileAlt className="me-2 text-primary" />
-                      Recent Applications
-                      {stats.pendingReviews > 0 && (
-                        <Badge bg="danger" className="ms-2 fs-8">
-                          {stats.pendingReviews} new
-                        </Badge>
-                      )}
-                    </h5>
-                  </div>
-                  <div className="d-flex gap-1">
-                    <Dropdown>
-                      <Dropdown.Toggle
-                        variant="outline-secondary"
-                        size="sm"
-                        className="d-flex align-items-center gap-1 fs-8"
-                      >
-                        <FaFilter /> Filter
-                      </Dropdown.Toggle>
-                      <Dropdown.Menu>
-                        <Dropdown.Item onClick={() => handleFilterChange('all')}>All</Dropdown.Item>
-                        <Dropdown.Item onClick={() => handleFilterChange('applied')}>
-                          New
-                        </Dropdown.Item>
-                        <Dropdown.Item onClick={() => handleFilterChange('interview')}>
-                          Interview
-                        </Dropdown.Item>
-                      </Dropdown.Menu>
-                    </Dropdown>
-                    <Dropdown>
-                      <Dropdown.Toggle
-                        variant="outline-secondary"
-                        size="sm"
-                        className="d-flex align-items-center gap-1 fs-8"
-                      >
-                        <FaSortAmountDown /> Sort
-                      </Dropdown.Toggle>
-                      <Dropdown.Menu>
-                        <Dropdown.Item onClick={() => handleSortChange('newest')}>
-                          Newest
-                        </Dropdown.Item>
-                        <Dropdown.Item onClick={() => handleSortChange('oldest')}>
-                          Oldest
-                        </Dropdown.Item>
-                        <Dropdown.Item onClick={() => handleSortChange('match')}>
-                          Best Match
-                        </Dropdown.Item>
-                      </Dropdown.Menu>
-                    </Dropdown>
-                  </div>
-                </div>
-              </Card.Header>
-              <Card.Body className="p-0" style={{ maxHeight: '400px', overflowY: 'auto' }}>
-                {dashboardData?.recentApplications?.length > 0 ? (
-                  <ListGroup variant="flush">
-                    {getFilteredApplications().slice(0, 5).map(renderApplicationRow)}
-                  </ListGroup>
-                ) : (
-                  <div className="text-center py-4">
-                    <FaFileAlt className="text-muted mb-2" size={32} />
-                    <h5 className="fs-6">No applications</h5>
-                    <p className="text-muted mb-3 fs-7">
-                      Post jobs to start receiving applications
-                    </p>
-                    <Button
-                      variant="primary"
-                      size="sm"
-                      onClick={() => navigate('/company/jobs/create')}
-                    >
-                      <FaPlus className="me-2" /> Post a Job
-                    </Button>
-                  </div>
                 )}
-              </Card.Body>
-              <Card.Footer className="bg-white border-0 py-2">
-                <Button
-                  variant="link"
-                  className="text-decoration-none p-0 fs-7"
-                  onClick={() => navigate('/company/applications')}
-                >
-                  View All Applications <FaExternalLinkAlt className="ms-2" />
-                </Button>
-              </Card.Footer>
-            </Card>
-          </DashboardErrorBoundary>
-
-          {/* Active Jobs */}
-          <DashboardErrorBoundary>
-            <Card className="border-0 shadow-sm mt-3">
-              <Card.Header className="bg-white border-0 py-2">
-                <div className="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-2">
-                  <h5 className="mb-0 d-flex align-items-center fs-6">
-                    <FaBriefcase className="me-2 text-primary" />
-                    Active Jobs
-                  </h5>
-                  <div className="d-flex align-items-center gap-1">
-                    <Badge bg="light" text="dark" className="fs-8">
-                      {dashboardData?.jobListings?.length || 0} jobs
-                    </Badge>
-                    <Button
-                      variant="outline-success"
-                      size="sm"
-                      onClick={() => navigate('/company/jobs/create')}
-                    >
-                      <FaPlus /> New
-                    </Button>
-                  </div>
-                </div>
-              </Card.Header>
-              <Card.Body className="p-0" style={{ maxHeight: '300px', overflowY: 'auto' }}>
-                {dashboardData?.jobListings?.length > 0 ? (
-                  <div className="table-responsive">
-                    <Table hover className="mb-0">
-                      <thead className="table-light">
-                        <tr>
-                          <th className="fs-8">Position</th>
-                          <th className="fs-8">Apps</th>
-                          <th className="fs-8">Status</th>
-                          <th className="fs-8">Posted</th>
-                          <th className="fs-8"></th>
-                        </tr>
-                      </thead>
-                      <tbody>{dashboardData.jobListings.slice(0, 5).map(renderJobRow)}</tbody>
-                    </Table>
-                  </div>
-                ) : (
-                  <div className="text-center py-4">
-                    <FaBriefcase className="text-muted mb-2" size={32} />
-                    <h5 className="fs-6">No active jobs</h5>
-                    <p className="text-muted mb-3 fs-7">Create your first job posting</p>
-                    <Button
-                      variant="primary"
-                      size="sm"
-                      onClick={() => navigate('/company/jobs/create')}
-                    >
-                      <FaPlus className="me-2" /> Create Job
-                    </Button>
-                  </div>
-                )}
-              </Card.Body>
-            </Card>
-          </DashboardErrorBoundary>
-        </Col>
-
-        {/* Right Column - Sidebar */}
-        <Col xl={4} xs={12}>
-          {/* Followers */}
-          <DashboardErrorBoundary>
-            <Card className="border-0 shadow-sm mb-3">
-              <Card.Header className="bg-white border-0 py-2">
-                <div className="d-flex justify-content-between align-items-center">
-                  <h5 className="mb-0 d-flex align-items-center fs-6">
-                    <FaUserFriends className="me-2 text-success" />
-                    Followers
-                  </h5>
-                  <Badge bg="success" className="fs-8">
-                    {stats.totalFollowers}
-                  </Badge>
-                </div>
-              </Card.Header>
-              <Card.Body>
-                {stats.totalFollowers > 0 ? (
-                  <div>
-                    <div className="text-center mb-3">
-                      <div className="display-6">{stats.totalFollowers}</div>
-                      <p className="text-muted fs-8">Students following</p>
-                    </div>
-                    <div className="d-grid gap-2">
-                      <Button
-                        variant="outline-success"
-                        onClick={() => navigate('/company/followers')}
-                        size="sm"
-                      >
-                        <FaUserFriends className="me-2" />
-                        Manage
-                      </Button>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="text-center py-3">
-                    <FaUserFriends className="text-muted mb-2" size={32} />
-                    <h5 className="fs-6">No followers</h5>
-                    <p className="text-muted mb-3 fs-7">Improve your company profile</p>
-                    <Button
-                      variant="outline-success"
-                      onClick={() => navigate('/company/profile')}
-                      size="sm"
-                    >
-                      Complete Profile
-                    </Button>
-                  </div>
-                )}
-              </Card.Body>
-            </Card>
-          </DashboardErrorBoundary>
-
-          {/* Quick Links */}
-          <DashboardErrorBoundary>
-            <Card className="border-0 shadow-sm mb-3">
-              <Card.Header className="bg-white border-0 py-2">
-                <h5 className="mb-0 d-flex align-items-center fs-6">
-                  <FaCog className="me-2 text-info" />
-                  Quick Links
-                </h5>
-              </Card.Header>
-              <Card.Body className="p-2">
-                <Row className="g-2">
-                  {secondaryActions.map((action) => (
-                    <Col key={action.id} lg={6} md={6} sm={6} xs={6}>
-                      <Button
-                        variant="light"
-                        className="w-100 d-flex flex-column align-items-center justify-content-center p-2 text-center"
-                        onClick={() => handleQuickAction(action)}
-                        size="sm"
-                      >
-                        <div className="mb-1">{React.cloneElement(action.icon, { size: 20 })}</div>
-                        <span className="fs-8">{action.title}</span>
-                      </Button>
-                    </Col>
-                  ))}
-                </Row>
-              </Card.Body>
-            </Card>
-          </DashboardErrorBoundary>
-
-          {/* News */}
-          <DashboardErrorBoundary>
-            <Card className="border-0 shadow-sm">
-              <Card.Header className="bg-white border-0 py-2">
-                <div className="d-flex justify-content-between align-items-center">
-                  <h5 className="mb-0 d-flex align-items-center fs-6">
-                    <FaNewspaper className="me-2 text-info" />
-                    News
-                  </h5>
-                  <Button
-                    variant="link"
-                    size="sm"
-                    onClick={fetchNews}
-                    disabled={newsLoading || !isOnline}
-                    className="p-0"
-                  >
-                    <FaSync className={newsLoading ? 'fa-spin' : ''} size={12} />
-                  </Button>
-                </div>
-              </Card.Header>
-              <Card.Body className="p-0" style={{ maxHeight: '300px', overflowY: 'auto' }}>
-                {newsLoading ? (
-                  <div className="text-center py-3">
-                    <Spinner animation="border" size="sm" />
-                    <p className="mt-2 mb-0 fs-8">Loading news...</p>
-                  </div>
-                ) : news.business.length > 0 ? (
-                  <div>
-                    {news.business.slice(0, 3).map((article, index) => (
-                      <div
-                        key={index}
-                        className="px-3 py-2 border-bottom hover-lift cursor-pointer"
-                        onClick={() => window.open(article.url, '_blank')}
-                      >
-                        <h6 className="mb-1 fs-7 line-clamp-2">{article.title}</h6>
-                        <div className="d-flex align-items-center text-muted fs-8">
-                          <FaRegClock className="me-1" />
-                          {new Date(article.publishedAt).toLocaleDateString()}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-center py-3">
-                    <FaNewspaper className="text-muted mb-2" size={24} />
-                    <p className="mb-0 text-muted fs-8">No news available</p>
-                  </div>
-                )}
-              </Card.Body>
-            </Card>
-          </DashboardErrorBoundary>
-        </Col>
-      </Row>
-
-      {/* Welcome Alert */}
-      {(!dashboardData?.company?.name || dashboardData.company.name === '') && (
-        <Alert variant="info" className="mt-3 mx-2 mx-md-0 border-0 shadow-sm"></Alert>
-      )}
-
-      {/* Upload Logo Modal */}
-      <Modal show={showUploadLogoModal} onHide={() => setShowUploadLogoModal(false)} centered>
-        <Modal.Header closeButton className="border-0">
-          <Modal.Title className="d-flex align-items-center gap-2 fs-6">
-            <FaCamera className="text-primary" />
-            Upload Logo
-          </Modal.Title>
-        </Modal.Header>
-        <Modal.Body>
-          <div className="text-center mb-3">
-            <div
-              className="logo-upload-area border rounded p-3 mb-2 cursor-pointer"
-              onClick={() => document.getElementById('logo-upload').click()}
-              style={{
-                borderStyle: 'dashed',
-                minHeight: '150px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              {logoPreview ? (
-                <div>
-                  <img
-                    src={logoPreview}
-                    alt="Logo preview"
-                    className="img-fluid rounded"
-                    style={{ maxHeight: '120px' }}
-                  />
-                  <p className="mt-2 mb-0 text-muted fs-8">Click to change</p>
-                </div>
-              ) : (
-                <div>
-                  <FaCloudUploadAlt className="text-muted mb-2" size={32} />
-                  <p className="mb-1 fs-7">Click to upload</p>
-                  <p className="text-muted fs-8 mb-0">PNG, JPG, GIF up to 10MB</p>
-                </div>
-              )}
-              <input
-                id="logo-upload"
-                type="file"
-                accept="image/*"
-                onChange={handleFileSelect}
-                className="d-none"
-              />
+              </button>
+              <button
+                onClick={() => navigate('/company/jobs/create')}
+                className="px-4 py-3 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 transition-colors flex items-center gap-2"
+              >
+                <FaPlus className="w-4 h-4" />
+                Post Job
+              </button>
             </div>
           </div>
-        </Modal.Body>
-        <Modal.Footer className="border-0">
-          <Button variant="light" onClick={() => setShowUploadLogoModal(false)} size="sm">
-            Cancel
-          </Button>
-          <Button
-            variant="primary"
-            onClick={handleLogoUpload}
-            disabled={!logoFile || uploadingLogo || !isOnline}
-            className="d-flex align-items-center gap-2"
-            size="sm"
+        </motion.div>
+
+        {/* Stats Grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          <StatCard
+            title="Total Jobs"
+            value={stats.totalJobs}
+            icon={FaBriefcase}
+            color="blue"
+            subtitle={`${stats.activeJobs} active`}
+            onClick={() => navigate('/company/jobs')}
+          />
+          <StatCard
+            title="Applications"
+            value={stats.totalApplications}
+            icon={FaUsers}
+            color="green"
+            subtitle={`${stats.pendingReviews} pending review`}
+            onClick={() => navigate('/company/applications')}
+          />
+          <StatCard
+            title="Interview Rate"
+            value={`${stats.interviewRate}%`}
+            icon={FaChartLine}
+            color="purple"
+            change={5}
+            changeType="positive"
+            onClick={() => navigate('/company/analytics')}
+          />
+          <StatCard
+            title="Avg. Time to Hire"
+            value={`${stats.avgTimeToHire} days`}
+            icon={FaClock}
+            color="orange"
+            change={-2}
+            changeType="positive"
+            onClick={() => navigate('/company/analytics')}
+          />
+        </div>
+
+        {/* Discovery shortcuts moved here from the company sidebar. */}
+        <section className="mb-6 rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800" aria-labelledby="company-discovery-title">
+          <div className="mb-4">
+            <h2 id="company-discovery-title" className="text-lg font-semibold text-gray-900 dark:text-white">Discover talent and partners</h2>
+            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Search registered students, organizations, and the company marketplace.</p>
+          </div>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            {[
+              { label: 'Find students', detail: 'Explore registered student profiles', icon: FaUsers, path: '/company/search/students' },
+              { label: 'Find partners', detail: 'Connect with organizations', icon: FaBuilding, path: '/company/search/partners' },
+              { label: 'Explore marketplace', detail: 'Browse opportunities and listings', icon: FaStore, path: '/company/search/market' },
+            ].map(({ label, detail, icon: Icon, path }) => (
+              <Link key={path} to={path} className="group flex min-w-0 items-center gap-3 rounded-xl border border-gray-200 p-4 transition hover:border-blue-400 hover:bg-blue-50/60 dark:border-gray-700 dark:hover:border-blue-500 dark:hover:bg-gray-700/70">
+                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300"><Icon className="h-5 w-5" /></span>
+                <span className="min-w-0 flex-1"><span className="block font-medium text-gray-900 dark:text-white">{label}</span><span className="mt-0.5 block text-sm text-gray-500 dark:text-gray-400">{detail}</span></span>
+                <FaArrowRight aria-hidden="true" className="h-4 w-4 shrink-0 text-gray-400 transition group-hover:translate-x-1 group-hover:text-blue-600" />
+              </Link>
+            ))}
+          </div>
+        </section>
+
+        {/* Pipeline */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 }}
+          className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm mb-6"
+        >
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+              <FaChartArea className="w-5 h-5 text-blue-600" />
+              Recruitment Pipeline
+            </h2>
+            <span className="px-2 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 text-xs font-medium rounded-full">
+              Real-time
+            </span>
+          </div>
+          <div className="flex flex-col md:flex-row gap-4">
+            <PipelineStage
+              stage="new"
+              count={stats.pipelineStats.new}
+              color="bg-blue-100 text-blue-600"
+              icon={FaUserPlus}
+              total={stats.totalApplications}
+              onClick={() => navigate('/company/applications?status=applied')}
+            />
+            <PipelineStage
+              stage="reviewed"
+              count={stats.pipelineStats.reviewed}
+              color="bg-indigo-100 text-indigo-600"
+              icon={FaEye}
+              total={stats.totalApplications}
+              onClick={() => navigate('/company/applications?status=reviewed')}
+            />
+            <PipelineStage
+              stage="interview"
+              count={stats.pipelineStats.interview}
+              color="bg-purple-100 text-purple-600"
+              icon={FaCalendarAlt}
+              total={stats.totalApplications}
+              onClick={() => navigate('/company/applications?status=interview')}
+            />
+            <PipelineStage
+              stage="hired"
+              count={stats.pipelineStats.hired}
+              color="bg-green-100 text-green-600"
+              icon={FaUserCheck}
+              total={stats.totalApplications}
+              onClick={() => navigate('/company/applications?status=hired')}
+            />
+          </div>
+        </motion.div>
+
+        {/* Quick Actions */}
+        <AnimatePresence>
+          {showQuickActions && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm mb-6"
+            >
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                  <FaBolt className="w-5 h-5 text-yellow-500" />
+                  Quick Actions
+                </h2>
+                <button
+                  onClick={() => setShowQuickActions(false)}
+                  className="p-1 text-gray-400 hover:text-gray-600"
+                >
+                  <FaTimes className="w-4 h-4" />
+                </button>
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                {[
+                  { icon: FaRocket, label: 'Post Job', color: 'bg-blue-50 text-blue-600 dark:bg-blue-900/20', onClick: () => navigate('/company/jobs/create') },
+                  { icon: FaUserCheck, label: 'Review Apps', color: 'bg-green-50 text-green-600 dark:bg-green-900/20', onClick: () => navigate('/company/applications'), badge: stats.pendingReviews },
+                  { icon: FaCalendarCheck, label: 'Schedule', color: 'bg-purple-50 text-purple-600 dark:bg-purple-900/20', onClick: () => navigate('/company/schedule-interview') },
+                  { icon: FaChartBar, label: 'Analytics', color: 'bg-orange-50 text-orange-600 dark:bg-orange-900/20', onClick: () => navigate('/company/analytics') },
+                  { icon: FaUsersCog, label: 'Team', color: 'bg-indigo-50 text-indigo-600 dark:bg-indigo-900/20', onClick: () => navigate('/company/teams') },
+                  { icon: FaBuilding, label: 'Profile', color: 'bg-pink-50 text-pink-600 dark:bg-pink-900/20', onClick: () => navigate('/company/profile') },
+                  { icon: FaCommentDots, label: 'Messages', color: 'bg-teal-50 text-teal-600 dark:bg-teal-900/20', onClick: () => navigate('/company/chat') },
+                  { icon: FaFileContract, label: 'Documents', color: 'bg-gray-50 text-gray-600 dark:bg-gray-700', onClick: () => navigate('/company/documents') },
+                ].map((action, index) => (
+                  <motion.button
+                    key={index}
+                    whileHover={{ y: -2 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={action.onClick}
+                    className="relative flex flex-col items-center justify-center p-4 rounded-xl border border-gray-100 dark:border-gray-700 hover:shadow-md transition-all"
+                  >
+                    <div className={`p-3 rounded-xl ${action.color} mb-2`}>
+                      <action.icon className="w-5 h-5" />
+                    </div>
+                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                      {action.label}
+                    </span>
+                    {action.badge > 0 && (
+                      <span className="absolute top-2 right-2 px-1.5 py-0.5 bg-red-500 text-white text-xs rounded-full">
+                        {action.badge}
+                      </span>
+                    )}
+                  </motion.button>
+                ))}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Main Content Tabs */}
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
+          {/* Tab Navigation */}
+          <div className="flex border-b border-gray-100 dark:border-gray-700 overflow-x-auto">
+            {[
+              { id: 'overview', label: 'Overview', icon: FaChartPie },
+              { id: 'applications', label: 'Applications', icon: FaFileAlt, badge: stats.pendingReviews },
+              { id: 'jobs', label: 'Jobs', icon: FaBriefcase },
+              { id: 'social', label: 'Social', icon: FaBullhorn },
+            ].map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`flex items-center gap-2 px-6 py-4 text-sm font-medium whitespace-nowrap transition-colors ${
+                  activeTab === tab.id
+                    ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50/50 dark:bg-blue-900/10'
+                    : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
+                }`}
+              >
+                <tab.icon className="w-4 h-4" />
+                {tab.label}
+                {tab.badge > 0 && (
+                  <span className="px-1.5 py-0.5 bg-red-500 text-white text-xs rounded-full">
+                    {tab.badge}
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
+
+          {/* Tab Content */}
+          <div className="p-6">
+            <AnimatePresence mode="wait">
+              {activeTab === 'overview' && (
+                <motion.div
+                  key="overview"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  className="grid grid-cols-1 lg:grid-cols-3 gap-6"
+                >
+                  {/* Recent Applications */}
+                  <div className="lg:col-span-2">
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                        Recent Applications
+                      </h3>
+                      <Link
+                        to="/company/applications"
+                        className="text-sm text-blue-600 hover:text-blue-700 flex items-center gap-1"
+                      >
+                        View All
+                        <FaArrowRight className="w-3 h-3" />
+                      </Link>
+                    </div>
+                    <div className="space-y-3">
+                      {applications.slice(0, 5).map((application) => (
+                        <ApplicationCard
+                          key={application.id}
+                          application={application}
+                          onView={handleViewApplication}
+                          onUpdateStatus={handleUpdateApplicationStatus}
+                          onMessage={handleMessageCandidate}
+                        />
+                      ))}
+                      {applications.length === 0 && (
+                        <div className="text-center py-12">
+                          <FaFileAlt className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                          <p className="text-gray-500">No applications yet</p>
+                          <button
+                            onClick={() => navigate('/company/jobs/create')}
+                            className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 transition-colors"
+                          >
+                            Post Your First Job
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Right Sidebar */}
+                  <div className="space-y-6">
+                    {/* Notifications */}
+                    <div>
+                      <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                        Notifications
+                      </h3>
+                      <div className="space-y-2">
+                        {notifications.slice(0, 5).map((notification) => (
+                          <NotificationItem
+                            key={notification.id}
+                            notification={notification}
+                            onRead={handleMarkNotificationRead}
+                            onDelete={(id) => {
+                              setItemToDelete({ id });
+                              setDeleteType('notification');
+                              setShowDeleteConfirm(true);
+                            }}
+                          />
+                        ))}
+                        {notifications.length === 0 && (
+                          <p className="text-sm text-gray-500 text-center py-4">
+                            No notifications
+                          </p>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Team Members */}
+                    <div>
+                      <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                        Team Members
+                      </h3>
+                      <div className="flex -space-x-2">
+                        {teamMembers.slice(0, 5).map((member) => (
+                          <div
+                            key={member.id}
+                            className="w-10 h-10 rounded-full border-2 border-white dark:border-gray-800 bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white text-sm font-medium"
+                            title={member.name}
+                          >
+                            {member.name?.charAt(0) || 'U'}
+                          </div>
+                        ))}
+                        {teamMembers.length > 5 && (
+                          <div className="w-10 h-10 rounded-full border-2 border-white dark:border-gray-800 bg-gray-200 dark:bg-gray-700 flex items-center justify-center text-gray-600 dark:text-gray-300 text-sm font-medium">
+                            +{teamMembers.length - 5}
+                          </div>
+                        )}
+                      </div>
+                      <Link
+                        to="/company/teams"
+                        className="mt-3 text-sm text-blue-600 hover:text-blue-700 flex items-center gap-1"
+                      >
+                        Manage Team
+                        <FaArrowRight className="w-3 h-3" />
+                      </Link>
+                    </div>
+
+                    {/* Followers */}
+                    <div>
+                      <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                        Followers
+                      </h3>
+                      <div className="flex items-center gap-4">
+                        <div className="text-3xl font-bold text-gray-900 dark:text-white">
+                          {formatNumber(stats.totalFollowers)}
+                        </div>
+                        <div className="text-sm text-gray-500">
+                          students following
+                          <br />
+                          your company
+                        </div>
+                      </div>
+                      <Link
+                        to="/company/followers"
+                        className="mt-3 text-sm text-blue-600 hover:text-blue-700 flex items-center gap-1"
+                      >
+                        View All Followers
+                        <FaArrowRight className="w-3 h-3" />
+                      </Link>
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+
+              {activeTab === 'applications' && (
+                <motion.div
+                  key="applications"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                >
+                  {/* Filters */}
+                  <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-6">
+                    <div className="flex items-center gap-3">
+                      <div className="relative">
+                        <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                        <input
+                          type="text"
+                          placeholder="Search applications..."
+                          value={searchTerm}
+                          onChange={(e) => setSearchTerm(e.target.value)}
+                          className="pl-10 pr-4 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-full md:w-64"
+                        />
+                      </div>
+                      <select
+                        value={filterStatus}
+                        onChange={(e) => setFilterStatus(e.target.value)}
+                        className="px-3 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      >
+                        <option value="all">All Status</option>
+                        <option value="applied">Applied</option>
+                        <option value="reviewed">Reviewed</option>
+                        <option value="interview">Interview</option>
+                        <option value="hired">Hired</option>
+                        <option value="rejected">Rejected</option>
+                      </select>
+                    </div>
+                    <select
+                      value={sortBy}
+                      onChange={(e) => setSortBy(e.target.value)}
+                      className="px-3 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="newest">Newest First</option>
+                      <option value="oldest">Oldest First</option>
+                      <option value="match">Best Match</option>
+                    </select>
+                  </div>
+
+                  {/* Applications Grid */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {filteredApplications.map((application) => (
+                      <ApplicationCard
+                        key={application.id}
+                        application={application}
+                        onView={handleViewApplication}
+                        onUpdateStatus={handleUpdateApplicationStatus}
+                        onMessage={handleMessageCandidate}
+                      />
+                    ))}
+                  </div>
+
+                  {filteredApplications.length === 0 && (
+                    <div className="text-center py-12">
+                      <FaFileAlt className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                      <p className="text-gray-500">No applications found</p>
+                    </div>
+                  )}
+                </motion.div>
+              )}
+
+              {activeTab === 'jobs' && (
+                <motion.div
+                  key="jobs"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                >
+                  <div className="flex items-center justify-between mb-6">
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                      Your Jobs ({jobs.length})
+                    </h3>
+                    <button
+                      onClick={() => navigate('/company/jobs/create')}
+                      className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors flex items-center gap-2"
+                    >
+                      <FaPlus className="w-4 h-4" />
+                      Post New Job
+                    </button>
+                  </div>
+
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead>
+                        <tr className="border-b border-gray-100 dark:border-gray-700">
+                          <th className="text-left py-3 px-4 text-sm font-medium text-gray-500 dark:text-gray-400">Job</th>
+                          <th className="text-left py-3 px-4 text-sm font-medium text-gray-500 dark:text-gray-400">Status</th>
+                          <th className="text-left py-3 px-4 text-sm font-medium text-gray-500 dark:text-gray-400">Applications</th>
+                          <th className="text-left py-3 px-4 text-sm font-medium text-gray-500 dark:text-gray-400">Views</th>
+                          <th className="text-left py-3 px-4 text-sm font-medium text-gray-500 dark:text-gray-400">Posted</th>
+                          <th className="text-left py-3 px-4 text-sm font-medium text-gray-500 dark:text-gray-400">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {jobs.map((job) => (
+                          <JobRow
+                            key={job.id}
+                            job={job}
+                            onView={handleViewJob}
+                            onEdit={handleEditJob}
+                            onDelete={handleDeleteJob}
+                            onToggleStatus={handleToggleJobStatus}
+                          />
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {jobs.length === 0 && (
+                    <div className="text-center py-12">
+                      <FaBriefcase className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                      <p className="text-gray-500">No jobs posted yet</p>
+                      <button
+                        onClick={() => navigate('/company/jobs/create')}
+                        className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 transition-colors"
+                      >
+                        Post Your First Job
+                      </button>
+                    </div>
+                  )}
+                </motion.div>
+              )}
+
+              {activeTab === 'social' && (
+                <motion.div
+                  key="social"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                >
+                  <div className="flex items-center justify-between mb-6">
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                      Company Feed
+                    </h3>
+                    <button
+                      onClick={() => navigate('/company/social/create')}
+                      className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors flex items-center gap-2"
+                    >
+                      <FaPlus className="w-4 h-4" />
+                      Create Post
+                    </button>
+                  </div>
+
+                  <div className="space-y-4">
+                    {socialPosts.map((post) => (
+                      <SocialPostCard
+                        key={post.id}
+                        post={post}
+                        onLike={handleLikePost}
+                        onComment={() => {}}
+                        onShare={handleSharePost}
+                      />
+                    ))}
+                    {socialPosts.length === 0 && (
+                      <div className="text-center py-12">
+                        <FaBullhorn className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                        <p className="text-gray-500">No posts yet</p>
+                        <p className="text-sm text-gray-400 mt-1">
+                          Share updates with your followers
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        </div>
+      </div>
+
+      {/* Logo Upload Modal */}
+      <AnimatePresence>
+        {showLogoUpload && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+            onClick={() => setShowLogoUpload(false)}
           >
-            {uploadingLogo ? (
-              <>
-                <Spinner animation="border" size="sm" /> Uploading...
-              </>
-            ) : (
-              <>
-                <FaUpload /> Upload
-              </>
-            )}
-          </Button>
-        </Modal.Footer>
-      </Modal>
-    </Container>
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              onClick={(e) => e.stopPropagation()}
+              className="bg-white dark:bg-gray-800 rounded-xl p-6 w-full max-w-md"
+            >
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                  Upload Company Logo
+                </h3>
+                <button
+                  onClick={() => setShowLogoUpload(false)}
+                  className="p-1 text-gray-400 hover:text-gray-600"
+                >
+                  <FaTimes className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div
+                onClick={() => logoInputRef.current?.click()}
+                className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-xl p-8 text-center cursor-pointer hover:border-blue-500 transition-colors"
+              >
+                {logoPreview ? (
+                  <div>
+                    <img
+                      src={logoPreview}
+                      alt="Logo preview"
+                      className="w-32 h-32 mx-auto rounded-xl object-cover mb-4"
+                    />
+                    <p className="text-sm text-gray-500">Click to change</p>
+                  </div>
+                ) : (
+                  <div>
+                    <FaCloudUploadAlt className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                    <p className="text-gray-600 dark:text-gray-300 font-medium">
+                      Click to upload
+                    </p>
+                    <p className="text-sm text-gray-400 mt-1">
+                      PNG, JPG, GIF up to 5MB
+                    </p>
+                  </div>
+                )}
+                <input
+                  ref={logoInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleFileSelect}
+                  className="hidden"
+                />
+              </div>
+
+              <div className="flex items-center gap-3 mt-6">
+                <button
+                  onClick={() => setShowLogoUpload(false)}
+                  className="flex-1 px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg font-medium hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleLogoUpload}
+                  disabled={!logoFile || uploadingLogo}
+                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                >
+                  {uploadingLogo ? (
+                    <>
+                      <FaSpinner className="w-4 h-4 animate-spin" />
+                      Uploading...
+                    </>
+                  ) : (
+                    <>
+                      <FaUpload className="w-4 h-4" />
+                      Upload
+                    </>
+                  )}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Delete Confirmation Modal */}
+      <AnimatePresence>
+        {showDeleteConfirm && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+            onClick={() => setShowDeleteConfirm(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              onClick={(e) => e.stopPropagation()}
+              className="bg-white dark:bg-gray-800 rounded-xl p-6 w-full max-w-md"
+            >
+              <div className="flex items-center gap-4 mb-4">
+                <div className="p-3 bg-red-100 dark:bg-red-900/30 rounded-full">
+                  <FaExclamationTriangle className="w-6 h-6 text-red-600" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                    Confirm Delete
+                  </h3>
+                  <p className="text-sm text-gray-500">
+                    This action cannot be undone
+                  </p>
+                </div>
+              </div>
+
+              <p className="text-gray-600 dark:text-gray-300 mb-6">
+                Are you sure you want to delete this {deleteType}? This will permanently remove it from your records.
+              </p>
+
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => setShowDeleteConfirm(false)}
+                  className="flex-1 px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg font-medium hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={confirmDelete}
+                  className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 transition-colors"
+                >
+                  Delete
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Application Detail Modal */}
+      <AnimatePresence>
+        {showApplicationModal && selectedApplication && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+            onClick={() => setShowApplicationModal(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              onClick={(e) => e.stopPropagation()}
+              className="bg-white dark:bg-gray-800 rounded-xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto"
+            >
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                  Application Details
+                </h3>
+                <button
+                  onClick={() => setShowApplicationModal(false)}
+                  className="p-1 text-gray-400 hover:text-gray-600"
+                >
+                  <FaTimes className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Candidate Info */}
+              <div className="flex items-start gap-4 mb-6">
+                <div className="w-16 h-16 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white text-2xl font-bold">
+                  {selectedApplication.candidate?.name?.charAt(0) || 'C'}
+                </div>
+                <div>
+                  <h4 className="text-xl font-semibold text-gray-900 dark:text-white">
+                    {selectedApplication.candidate?.name || 'Unknown Candidate'}
+                  </h4>
+                  <p className="text-gray-500">{selectedApplication.candidate?.email}</p>
+                  <div className="flex items-center gap-3 mt-2">
+                    <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium ${
+                      getStatusConfig(selectedApplication.status).bg
+                    } ${getStatusConfig(selectedApplication.status).text}`}>
+                      {getStatusConfig(selectedApplication.status).label}
+                    </span>
+                    {selectedApplication.matchScore && (
+                      <span className="text-sm text-gray-500">
+                        {selectedApplication.matchScore}% match
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Job Info */}
+              <div className="bg-gray-50 dark:bg-gray-700 rounded-xl p-4 mb-6">
+                <h5 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">
+                  Applied For
+                </h5>
+                <p className="font-semibold text-gray-900 dark:text-white">
+                  {selectedApplication.job?.title || 'Position'}
+                </p>
+                <p className="text-sm text-gray-500">
+                  {selectedApplication.job?.location || 'Remote'}
+                </p>
+              </div>
+
+              {/* Skills */}
+              {selectedApplication.candidate?.skills?.length > 0 && (
+                <div className="mb-6">
+                  <h5 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">
+                    Skills
+                  </h5>
+                  <div className="flex flex-wrap gap-2">
+                    {selectedApplication.candidate.skills.map((skill, index) => (
+                      <span
+                        key={index}
+                        className="px-3 py-1 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded-full text-sm"
+                      >
+                        {skill}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Actions */}
+              <div className="flex items-center gap-3 pt-4 border-t border-gray-100 dark:border-gray-700">
+                {selectedApplication.status === 'applied' && (
+                  <button
+                    onClick={() => {
+                      handleUpdateApplicationStatus(selectedApplication.id, 'reviewed');
+                      setShowApplicationModal(false);
+                    }}
+                    className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 transition-colors"
+                  >
+                    Mark as Reviewed
+                  </button>
+                )}
+                {selectedApplication.status === 'reviewed' && (
+                  <button
+                    onClick={() => {
+                      handleUpdateApplicationStatus(selectedApplication.id, 'interview');
+                      setShowApplicationModal(false);
+                    }}
+                    className="flex-1 px-4 py-2 bg-purple-600 text-white rounded-lg font-medium hover:bg-purple-700 transition-colors"
+                  >
+                    Schedule Interview
+                  </button>
+                )}
+                <button
+                  onClick={() => handleMessageCandidate(selectedApplication)}
+                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors"
+                >
+                  Send Message
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+      <div className="mx-auto w-full max-w-7xl px-4 pb-8 sm:px-6 lg:px-8">
+        <SocialDashboardSection audience="company" title="Career Connect network" subtitle="Share company updates publicly or with your accepted connections, and connect with members across the platform." />
+      </div>
+    </div>
   );
 };
 

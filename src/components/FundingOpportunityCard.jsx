@@ -4,7 +4,6 @@ import PropTypes from 'prop-types';
 import { formatDistanceToNow } from 'date-fns';
 
 import { formatCurrency } from '../../utils/formatters';
-import './FundingOpportunityCard.css';
 
 export const FundingOpportunityCard = memo(
   ({ opportunity, isSaved, onSave, onApply, onShare, viewMode }) => {

@@ -6,18 +6,23 @@ import {
   getDoc,
   getDocs,
   limit,
+  onSnapshot,
   orderBy,
   query,
+  runTransaction,
   serverTimestamp,
   setDoc,
   Timestamp,
   updateDoc,
+  writeBatch,
   where,
 } from 'firebase/firestore';
 import { deleteObject, ref } from 'firebase/storage';
 
-import { db, storage } from '../config/firebase';
+import { auth, db, storage } from '../config/firebase';
 
+import { apiRequest } from './apiClient';
+import { cloudinaryService } from './cloudinaryService';
 import { storageService } from './storageService';
 
 const COLLECTIONS = {
@@ -46,28 +51,65 @@ const safeDateConvert = (firebaseDate) => {
   return null;
 };
 
+const normalizeOpportunity = (snapshot) => {
+  const data = snapshot.data();
+  const requirementSkills = Array.isArray(data.requirements)
+    ? data.requirements.map((skill) => typeof skill === 'string' ? skill : skill?.name || skill?.title || '').filter(Boolean)
+    : Array.isArray(data.requirements?.skills)
+      ? data.requirements.skills
+      : typeof data.requirements === 'string'
+        ? data.requirements.split(/\r?\n|,/).map((skill) => skill.trim()).filter(Boolean)
+        : [];
+
+  return {
+    ...data,
+    id: snapshot.id,
+    type: data.type || data.jobType || data.positionType || 'full-time',
+    companyName: data.companyName || data.company || '',
+    skills: Array.isArray(data.skills)
+      ? data.skills.map((skill) => typeof skill === 'string' ? skill : skill?.name || skill?.title || '').filter(Boolean)
+      : typeof data.skills === 'string'
+        ? data.skills.split(/\r?\n|,/).map((skill) => skill.trim()).filter(Boolean)
+        : requirementSkills,
+    deadline: safeDateConvert(data.deadline),
+  };
+};
+
+const subscribeToQuery = (firestoreQuery, onData, onError, mapSnapshot) => {
+  if (typeof onData !== 'function') return () => {};
+  try {
+    return onSnapshot(
+      firestoreQuery,
+      (snapshot) => onData(mapSnapshot(snapshot)),
+      (error) => onError?.(error)
+    );
+  } catch (error) {
+    onError?.(error);
+    return () => {};
+  }
+};
+
 const calculateProfileCompletion = (profile) => {
   if (!profile) return 0;
   let completion = 0;
 
-  // Basic info (30%)
-  const basicFields = ['fullName', 'email', 'phone', 'address', 'dateOfBirth'];
-  basicFields.forEach((field) => {
-    if (profile[field]) completion += 6; // 6% per field
-  });
+  // Count only values actually present on the saved profile.
+  const basicFields = ['fullName', 'email', 'phone', 'address', 'dateOfBirth', 'institution', 'program', 'yearOfStudy', 'bio'];
+  const filledBasicFields = basicFields.filter((field) => String(profile[field] || '').trim()).length;
+  completion += Math.round((filledBasicFields / basicFields.length) * 40);
 
   // Qualifications (30%)
   if (profile.qualifications) {
     const quals = profile.qualifications;
-    if (quals.educationLevel && quals.educationLevel !== 'Not specified') completion += 15;
-    if (quals.overallGrade && quals.overallGrade !== 'Not specified') completion += 15;
+    if (quals.educationLevel && quals.educationLevel !== 'Not specified') completion += 10;
+    if (quals.overallGrade && quals.overallGrade !== 'Not specified') completion += 10;
   }
 
   // Job Preferences (20%)
   if (profile.jobPreferences) {
     const prefs = profile.jobPreferences;
-    if (prefs.industries && prefs.industries.length > 0) completion += 10;
-    if (prefs.jobTypes && prefs.jobTypes.length > 0) completion += 10;
+    if (prefs.industries && prefs.industries.length > 0) completion += 5;
+    if (prefs.jobTypes && prefs.jobTypes.length > 0) completion += 5;
   }
 
   // Skills & Documents (20%)
@@ -77,11 +119,13 @@ const calculateProfileCompletion = (profile) => {
   return Math.min(100, completion);
 };
 
-const checkJobQualification = async (student, job) => {
+const checkJobQualification = (student, job) => {
   if (!student || !job) return false;
 
   const studentQuals = student.qualifications || {};
-  const studentSkills = student.skills || [];
+  const studentSkills = (Array.isArray(student.skills) ? student.skills : [])
+    .map((skill) => typeof skill === 'string' ? skill : skill?.name || '')
+    .filter(Boolean);
 
   // Check education requirements
   if (job.requirements?.minEducation) {
@@ -100,8 +144,11 @@ const checkJobQualification = async (student, job) => {
   }
 
   // Check skills
-  if (job.requirements?.skills && job.requirements.skills.length > 0) {
-    const hasRequiredSkills = job.requirements.skills.every((skill) =>
+  const requiredSkills = (Array.isArray(job.requirements?.skills) ? job.requirements.skills : [])
+    .map((skill) => typeof skill === 'string' ? skill : skill?.name || '')
+    .filter(Boolean);
+  if (requiredSkills.length > 0) {
+    const hasRequiredSkills = requiredSkills.every((skill) =>
       studentSkills.some(
         (s) =>
           s.toLowerCase().includes(skill.toLowerCase()) ||
@@ -277,7 +324,7 @@ export const getStudentProfile = async (userId) => {
               email: userData.email,
               fullName: userData.displayName,
               userType: 'student',
-              profileCompletion: 30,
+              profileCompletion: 0,
               qualifications: {
                 educationLevel: 'Not specified',
                 overallGrade: 'Not specified',
@@ -321,8 +368,16 @@ export const updateStudentProfile = async (userId, updates) => {
       // Update existing
       await updateDoc(studentRef, {
         ...updates,
+        profileCompletion: calculateProfileCompletion({ ...(studentSnap.data() || {}), ...updates }),
         updatedAt: serverTimestamp(),
       });
+    }
+
+    if (!studentSnap.exists()) {
+      const createdProfile = await getStudentProfile(userId);
+      if (createdProfile.success) {
+        await updateDoc(studentRef, { profileCompletion: calculateProfileCompletion(createdProfile.data) });
+      }
     }
 
     // Recalculate profile completion
@@ -395,46 +450,46 @@ export const uploadResume = async (file, userId) => {
       return { success: false, error: 'Please upload a PDF or Word document' };
     }
 
-    if (file.size > 10 * 1024 * 1024) {
-      return { success: false, error: 'File size must be less than 10MB' };
+    if (file.size > 5 * 1024 * 1024) {
+      return { success: false, error: 'File size must be less than 5MB' };
     }
-
-    const timestamp = Date.now();
-    const safeFileName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
-    const filePath = `students/${userId}/resumes/${timestamp}_${safeFileName}`;
 
     console.log('📤 Uploading resume...');
 
-    const uploadResult = await storageService.uploadFile(file, filePath, {
-      customMetadata: {
-        studentId: userId,
-        documentType: 'resume',
-        originalName: file.name,
-      },
+    if (auth.currentUser?.uid !== userId) throw new Error('Please sign in again to upload your resume.');
+    const formData = new FormData();
+    formData.append('file', file);
+    const uploadResult = await apiRequest('/api/media/student/resume', {
+      method: 'POST',
+      body: formData,
     });
 
-    if (!uploadResult.success) {
-      throw new Error(uploadResult.error || 'Resume upload failed');
+    if (!uploadResult?.url || !uploadResult.publicId) {
+      throw new Error('Cloudinary returned incomplete resume metadata.');
     }
+    const publicId = uploadResult.publicId;
 
-    console.log('✅ Resume uploaded successfully via:', uploadResult.storageType);
+    console.log('Resume uploaded successfully to Cloudinary');
 
     // Update student profile with resume URL
     const studentRef = doc(db, COLLECTIONS.STUDENTS, userId);
     await updateDoc(studentRef, {
       resumeUrl: uploadResult.url,
-      resumeStorageType: uploadResult.storageType,
+      resumeStorageType: 'cloudinary',
       updatedAt: serverTimestamp(),
     });
 
     // Also save to documents collection
     const documentData = {
+      userId,
       studentId: userId,
       documentType: 'resume',
       fileName: file.name,
       fileUrl: uploadResult.url,
-      storagePath: filePath,
-      storageType: uploadResult.storageType,
+      storagePath: publicId,
+      publicId,
+      cloudinaryResourceType: uploadResult.resourceType || 'raw',
+      storageType: 'cloudinary',
       uploadedAt: serverTimestamp(),
       fileSize: file.size,
       mimeType: file.type,
@@ -446,7 +501,7 @@ export const uploadResume = async (file, userId) => {
     return {
       success: true,
       url: uploadResult.url,
-      storageType: uploadResult.storageType,
+      storageType: 'cloudinary',
     };
   } catch (error) {
     console.error('❌ Error uploading resume:', error);
@@ -461,24 +516,65 @@ export const getStudentDocuments = async (studentId) => {
     }
 
     const documentsRef = collection(db, COLLECTIONS.DOCUMENTS);
-    const q = query(
-      documentsRef,
-      where('studentId', '==', studentId),
-      orderBy('uploadedAt', 'desc')
-    );
-
-    const snapshot = await getDocs(q);
-    const documents = snapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-      uploadedAt: safeDateConvert(doc.data().uploadedAt),
-    }));
+    const [studentRecords, legacyRecords] = await Promise.all([
+      getDocs(query(documentsRef, where('studentId', '==', studentId))),
+      getDocs(query(documentsRef, where('userId', '==', studentId))),
+    ]);
+    const documents = Array.from(new Map(
+      [...studentRecords.docs, ...legacyRecords.docs].map((documentSnapshot) => {
+        const data = documentSnapshot.data();
+        return [documentSnapshot.id, {
+          id: documentSnapshot.id,
+          ...data,
+          uploadedAt: safeDateConvert(data.uploadedAt),
+        }];
+      })
+    ).values()).sort((left, right) => (right.uploadedAt?.getTime() || 0) - (left.uploadedAt?.getTime() || 0));
 
     return { success: true, data: documents };
   } catch (error) {
+    if (error?.code === 'permission-denied' || error?.message?.toLowerCase().includes('permission')) {
+      return { success: false, error: 'You do not have permission to view these documents. Check the Firestore documents rules or contact support.' };
+    }
+
     console.error('❌ Error getting student documents:', error);
     return { success: false, error: error.message };
   }
+};
+
+export const subscribeToStudentDocuments = (studentId, onData, onError) => {
+  if (!studentId || typeof onData !== 'function') return () => {};
+
+  const snapshots = new Map();
+  const emitDocuments = () => {
+    const records = new Map();
+    snapshots.forEach((snapshot) => snapshot.docs.forEach((documentSnapshot) => {
+      const data = documentSnapshot.data();
+      records.set(documentSnapshot.id, {
+        id: documentSnapshot.id,
+        ...data,
+        uploadedAt: safeDateConvert(data.uploadedAt),
+      });
+    }));
+    onData([...records.values()]
+      .sort((left, right) => (right.uploadedAt?.getTime() || 0) - (left.uploadedAt?.getTime() || 0)));
+  };
+  const documentsRef = collection(db, COLLECTIONS.DOCUMENTS);
+  const subscribe = (key, field) => subscribeToQuery(
+    query(documentsRef, where(field, '==', studentId)),
+    (snapshot) => {
+      snapshots.set(key, snapshot);
+      emitDocuments();
+    },
+    onError,
+    (snapshot) => snapshot
+  );
+  const unsubscribeByStudentId = subscribe('studentId', 'studentId');
+  const unsubscribeByUserId = subscribe('userId', 'userId');
+  return () => {
+    unsubscribeByStudentId();
+    unsubscribeByUserId();
+  };
 };
 
 export const uploadDocument = async (userId, file, documentType) => {
@@ -493,37 +589,32 @@ export const uploadDocument = async (userId, file, documentType) => {
       return { success: false, error: 'Please upload PDF, Word, or image files only' };
     }
 
-    if (file.size > 10 * 1024 * 1024) {
-      return { success: false, error: 'File size must be less than 10MB' };
+    if (file.size > 5 * 1024 * 1024) {
+      return { success: false, error: 'File size must be 5MB or smaller' };
     }
 
-    const timestamp = Date.now();
-    const safeFileName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
-    const filePath = `students/${userId}/documents/${documentType}_${timestamp}_${safeFileName}`;
+    if (auth.currentUser?.uid !== userId) {
+      return { success: false, error: 'Please sign in again to upload this document.' };
+    }
 
-    console.log('📤 Starting file upload process...');
-
-    const uploadResult = await storageService.uploadFile(file, filePath, {
-      customMetadata: {
-        studentId: userId,
-        documentType: documentType,
-        originalName: file.name,
-      },
+    const uploadResult = await cloudinaryService.uploadToCloudinary(file, `students/${userId}/documents`, {
+      tags: ['student-document', documentType, `student_${userId}`],
+      context: { studentId: userId, documentType, originalName: file.name },
     });
-
-    if (!uploadResult.success) {
-      throw new Error(uploadResult.error || 'Upload failed');
+    if (!uploadResult?.success || !uploadResult.url || !uploadResult.public_id) {
+      throw new Error(uploadResult?.error || 'Cloudinary could not save the file. Check the upload preset and Cloudinary configuration.');
     }
-
-    console.log('✅ File uploaded successfully:', uploadResult.storageType);
 
     const documentData = {
       studentId: userId,
+      userId,
       documentType,
       fileName: file.name,
       fileUrl: uploadResult.url,
-      storagePath: filePath,
-      storageType: uploadResult.storageType,
+      storagePath: uploadResult.public_id,
+      publicId: uploadResult.public_id,
+      storageType: 'cloudinary',
+      cloudinaryResourceType: uploadResult.resource_type || 'raw',
       uploadedAt: serverTimestamp(),
       fileSize: file.size,
       mimeType: file.type,
@@ -531,13 +622,18 @@ export const uploadDocument = async (userId, file, documentType) => {
     };
 
     const documentsRef = collection(db, COLLECTIONS.DOCUMENTS);
-    const docRef = await addDoc(documentsRef, documentData);
+    let docRef;
+    try {
+      docRef = await addDoc(documentsRef, documentData);
+    } catch (recordError) {
+      throw recordError;
+    }
 
     return {
       success: true,
       id: docRef.id,
       url: uploadResult.url,
-      storageType: uploadResult.storageType,
+      storageType: 'cloudinary',
       message: 'Document uploaded successfully!',
     };
   } catch (error) {
@@ -546,22 +642,63 @@ export const uploadDocument = async (userId, file, documentType) => {
   }
 };
 
-export const deleteDocument = async (documentId, storagePath) => {
+export const deleteDocument = async (documentId, storagePath, studentId = null) => {
   try {
     if (!documentId) {
       return { success: false, error: 'Document ID is required' };
     }
 
-    if (storagePath) {
+    const documentRef = doc(db, COLLECTIONS.DOCUMENTS, documentId);
+    const documentSnapshot = await getDoc(documentRef);
+    if (!documentSnapshot.exists()) {
+      return { success: false, error: 'Document not found.' };
+    }
+    const documentData = documentSnapshot.data();
+    const ownerId = documentData.studentId || documentData.userId;
+    if (studentId && ownerId !== studentId) {
+      return { success: false, error: 'You can only delete your own documents.' };
+    }
+
+    const storedPath = storagePath || documentData.storagePath;
+    const cloudinaryStored = documentData.storageType === 'cloudinary' || cloudinaryService.isCloudinaryUrl(documentData.fileUrl);
+    if (cloudinaryStored) {
       try {
-        const fileRef = ref(storage, storagePath);
+        const token = await auth.currentUser?.getIdToken();
+        if (!token || auth.currentUser?.uid !== documentData.studentId) {
+          throw new Error('Please sign in again to delete this document.');
+        }
+
+        const response = await fetch(`${storageService.baseUrl}/media/cloudinary/delete-student-document`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ documentId }),
+        });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok || !result.success) {
+          throw new Error(result.message || 'Cloudinary could not delete this file.');
+        }
+
+        return { success: true, message: 'Document deleted successfully!' };
+      } catch (storageError) {
+        return { success: false, error: `File deletion failed; the document record was kept. ${storageError.message}` };
+      }
+    } else if (
+      storedPath
+      || /^https:\/\/(?:firebasestorage\.googleapis\.com|storage\.googleapis\.com)\//i.test(documentData.fileUrl || '')
+    ) {
+      try {
+        const fileRef = ref(storage, storedPath || documentData.fileUrl);
         await deleteObject(fileRef);
       } catch (storageError) {
-        console.warn('⚠️ Could not delete file from storage:', storageError);
+        if (storageError?.code !== 'storage/object-not-found') {
+          return { success: false, error: `File deletion failed; the document record was kept. ${storageError.message}` };
+        }
       }
     }
 
-    const documentRef = doc(db, COLLECTIONS.DOCUMENTS, documentId);
     await deleteDoc(documentRef);
 
     return { success: true, message: 'Document deleted successfully!' };
@@ -576,16 +713,12 @@ export const deleteDocument = async (documentId, storagePath) => {
 export const getJobs = async (studentId = null) => {
   try {
     const jobsRef = collection(db, COLLECTIONS.JOBS);
-    const jobsQuery = query(
-      jobsRef,
-      where('status', '==', 'active'),
-      where('deadline', '>=', new Date())
-    );
+    const jobsQuery = query(jobsRef, where('status', '==', 'active'));
     const jobsSnap = await getDocs(jobsQuery);
-    const jobs = jobsSnap.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-    }));
+    const now = Date.now();
+    const jobs = jobsSnap.docs
+      .map(normalizeOpportunity)
+      .filter((job) => !job.deadline || job.deadline.getTime() >= now);
 
     if (studentId) {
       const studentProfile = await getStudentProfile(studentId);
@@ -606,6 +739,103 @@ export const getJobs = async (studentId = null) => {
   }
 };
 
+export const subscribeToActiveJobs = (onData, onError) => {
+  const jobsQuery = query(
+    collection(db, COLLECTIONS.JOBS),
+    where('status', '==', 'active')
+  );
+
+  return subscribeToQuery(jobsQuery, (snapshot) => {
+    const now = Date.now();
+    const jobs = snapshot.docs
+      .map(normalizeOpportunity)
+      .filter((job) => {
+        if (job.approved === false) return false;
+        return !job.deadline || job.deadline.getTime() >= now;
+      })
+      .sort((left, right) => {
+        const leftDate = safeDateConvert(left.createdAt)?.getTime() || 0;
+        const rightDate = safeDateConvert(right.createdAt)?.getTime() || 0;
+        return rightDate - leftDate;
+      });
+    onData(jobs);
+  }, onError, (snapshot) => snapshot);
+};
+
+export const subscribeToSavedJobs = (studentId, onData, onError) => {
+  if (!studentId || typeof onData !== 'function') return () => {};
+  const savedJobsQuery = query(
+    collection(db, 'savedJobs'),
+    where('userId', '==', studentId)
+  );
+
+  return subscribeToQuery(savedJobsQuery, (snapshot) => {
+    onData(snapshot.docs
+      .filter((savedJob) => savedJob.data().isActive !== false)
+      .map((savedJob) => ({ id: savedJob.id, ...savedJob.data() })));
+  }, onError, (snapshot) => snapshot);
+};
+
+export const subscribeToCompanyFollows = (studentId, onData, onError) => {
+  if (!studentId || typeof onData !== 'function') return () => {};
+  const followsQuery = query(collection(db, 'companyFollowers'), where('studentId', '==', studentId));
+  return onSnapshot(followsQuery, (snapshot) => {
+    onData(new Set(snapshot.docs.filter((entry) => entry.data().status !== 'inactive').map((entry) => entry.data().companyId)));
+  }, onError);
+};
+
+export const setCompanyFollow = async (studentId, companyId, following) => {
+  if (!studentId || !companyId || studentId === companyId) return { success: false, error: 'A valid company is required.' };
+  const followerRef = doc(db, 'companyFollowers', `${companyId}_${studentId}`);
+  const edgeRef = doc(db, 'company_chat_followers', `${companyId}_${studentId}`);
+  try {
+    const batch = writeBatch(db);
+    if (following) {
+      batch.set(followerRef, { companyId, studentId, status: 'active', followedAt: serverTimestamp(), updatedAt: serverTimestamp() }, { merge: true });
+      batch.set(edgeRef, { companyId, followerId: studentId, status: 'active', updatedAt: serverTimestamp() }, { merge: true });
+    } else {
+      batch.delete(followerRef);
+      batch.delete(edgeRef);
+    }
+    await batch.commit();
+    return { success: true };
+  } catch (error) { return { success: false, error: error.message || 'Unable to update company follow.' }; }
+};
+
+export const setStudentJobSaved = async (studentId, jobId, saved) => {
+  if (!studentId || !jobId) return { success: false, error: 'Student and job are required.' };
+  const savedJobId = `${studentId}_${encodeURIComponent(jobId)}`;
+  const savedJobRef = doc(db, 'savedJobs', savedJobId);
+
+  try {
+    if (saved) {
+      const existingQuery = query(collection(db, 'savedJobs'), where('userId', '==', studentId));
+      const existingSnapshot = await getDocs(existingQuery);
+      const existingSavedJob = existingSnapshot.docs.find((record) => record.data().jobId === jobId);
+      if (existingSavedJob) {
+        await updateDoc(existingSavedJob.ref, { isActive: true, savedAt: serverTimestamp() });
+        return { success: true };
+      }
+      await setDoc(savedJobRef, {
+        userId: studentId,
+        studentId,
+        jobId,
+        isActive: true,
+        savedAt: serverTimestamp(),
+      }, { merge: true });
+    } else {
+      const existingQuery = query(collection(db, 'savedJobs'), where('userId', '==', studentId));
+      const existingSnapshot = await getDocs(existingQuery);
+      await Promise.all(existingSnapshot.docs
+        .filter((record) => record.data().jobId === jobId)
+        .map((record) => deleteDoc(record.ref)));
+    }
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+};
+
 export const getRecommendedJobs = async (studentId) => {
   try {
     if (!studentId) return { success: false, error: 'Student ID is required' };
@@ -617,7 +847,7 @@ export const getRecommendedJobs = async (studentId) => {
     if (!jobsResult.success) return { success: false, error: 'Failed to load jobs' };
 
     const student = studentProfile.data;
-    const studentSkills = student.skills || [];
+    const studentSkills = Array.isArray(student.skills) ? student.skills : [];
     const studentPreferences = student.jobPreferences || {};
 
     const recommendedJobs = jobsResult.data.filter((job) => {
@@ -643,8 +873,8 @@ export const getRecommendedJobs = async (studentId) => {
 
     // Sort by relevance (more skills matched = higher rank)
     recommendedJobs.sort((a, b) => {
-      const aSkills = a.requirements?.skills || [];
-      const bSkills = b.requirements?.skills || [];
+      const aSkills = Array.isArray(a.requirements?.skills) ? a.requirements.skills : [];
+      const bSkills = Array.isArray(b.requirements?.skills) ? b.requirements.skills : [];
 
       const aMatches = aSkills.filter((skill) =>
         studentSkills.some((s) => s.toLowerCase().includes(skill.toLowerCase()))
@@ -668,21 +898,45 @@ export const getRecommendedJobs = async (studentId) => {
 
 export const applyForJob = async (applicationData) => {
   try {
-    console.log('📝 Submitting job application:', applicationData);
+    const { studentId, jobId } = applicationData || {};
+    if (!studentId || !jobId) {
+      return { success: false, error: 'Student ID and job ID are required.' };
+    }
+
+    const existingQuery = query(
+      collection(db, COLLECTIONS.APPLICATIONS),
+      where('studentId', '==', studentId)
+    );
+    const existingApplications = await getDocs(existingQuery);
+    if (existingApplications.docs.some((application) => application.data().jobId === jobId)) {
+      return { success: false, error: 'You have already applied for this opportunity.' };
+    }
+
+    const jobSnapshot = await getDoc(doc(db, COLLECTIONS.JOBS, jobId));
+    if (!jobSnapshot.exists()) {
+      return { success: false, error: 'This opportunity is no longer available.' };
+    }
+    const job = normalizeOpportunity(jobSnapshot);
+    if (job.status !== 'active') {
+      return { success: false, error: 'Applications are closed for this opportunity.' };
+    }
 
     const application = {
       ...applicationData,
+      studentId,
+      jobId,
+      jobTitle: job.title || 'Opportunity',
+      jobName: job.title || 'Opportunity',
+      companyName: job.companyName || '',
+      type: job.type === 'internship' ? 'internship' : 'job',
       appliedAt: serverTimestamp(),
       status: 'pending',
       updatedAt: serverTimestamp(),
     };
 
-    const docRef = await addDoc(collection(db, 'applications'), application);
-
-    console.log('✅ Application submitted successfully:', docRef.id);
+    const docRef = await addDoc(collection(db, COLLECTIONS.APPLICATIONS), application);
     return { success: true, id: docRef.id };
   } catch (error) {
-    console.error('❌ Error submitting application:', error);
     return { success: false, error: error.message };
   }
 };
@@ -696,21 +950,22 @@ export const checkExistingApplication = async (studentId, jobId) => {
     const applicationsRef = collection(db, COLLECTIONS.APPLICATIONS);
     const q = query(
       applicationsRef,
-      where('studentId', '==', studentId),
-      where('jobId', '==', jobId)
+      where('studentId', '==', studentId)
     );
 
     const querySnapshot = await getDocs(q);
+    const existingApplication = querySnapshot.docs.find(
+      (application) => application.data().jobId === jobId
+    );
 
-    if (querySnapshot.empty) {
+    if (!existingApplication) {
       return { success: true, exists: false };
     } else {
-      const existingApp = querySnapshot.docs[0];
       return {
         success: true,
         exists: true,
-        applicationId: existingApp.id,
-        data: existingApp.data(),
+        applicationId: existingApplication.id,
+        data: existingApplication.data(),
       };
     }
   } catch (error) {
@@ -724,11 +979,7 @@ export const getStudentApplications = async (studentId) => {
     if (!studentId) return { success: false, error: 'Student ID is required' };
 
     const applicationsRef = collection(db, COLLECTIONS.APPLICATIONS);
-    const q = query(
-      applicationsRef,
-      where('studentId', '==', studentId),
-      orderBy('appliedAt', 'desc')
-    );
+    const q = query(applicationsRef, where('studentId', '==', studentId));
 
     const snapshot = await getDocs(q);
     const applications = snapshot.docs.map((doc) => ({
@@ -739,7 +990,63 @@ export const getStudentApplications = async (studentId) => {
 
     return { success: true, data: applications };
   } catch (error) {
+    if (error?.code === 'permission-denied' || error?.message?.toLowerCase().includes('permission')) {
+      return { success: false, error: 'You do not have permission to view these applications. Check the Firestore applications rules or contact support.' };
+    }
+
     console.error('❌ Error getting student applications:', error);
+    return { success: false, error: error.message };
+  }
+};
+
+export const subscribeToStudentApplications = (studentId, onData, onError) => {
+  if (!studentId || typeof onData !== 'function') return () => {};
+  const applicationsQuery = query(
+    collection(db, COLLECTIONS.APPLICATIONS),
+    where('studentId', '==', studentId)
+  );
+
+  return subscribeToQuery(applicationsQuery, (snapshot) => {
+    const applications = snapshot.docs
+      .map((applicationSnapshot) => {
+        const data = applicationSnapshot.data();
+        return {
+          id: applicationSnapshot.id,
+          ...data,
+          appliedAt: safeDateConvert(data.appliedAt || data.appliedDate),
+        };
+      })
+      .sort((left, right) => (right.appliedAt?.getTime() || 0) - (left.appliedAt?.getTime() || 0));
+    onData(applications);
+  }, onError, (snapshot) => snapshot);
+};
+
+export const withdrawStudentApplication = async (applicationId, studentId) => {
+  if (!applicationId || !studentId) {
+    return { success: false, error: 'Application and student are required.' };
+  }
+
+  try {
+    const applicationRef = doc(db, COLLECTIONS.APPLICATIONS, applicationId);
+    await runTransaction(db, async (transaction) => {
+      const applicationSnapshot = await transaction.get(applicationRef);
+      if (!applicationSnapshot.exists() || applicationSnapshot.data().studentId !== studentId) {
+        throw new Error('Application not found.');
+      }
+
+      const status = String(applicationSnapshot.data().status || '').toLowerCase();
+      if (!['pending', 'under_review'].includes(status)) {
+        throw new Error('This application can no longer be withdrawn.');
+      }
+
+      transaction.update(applicationRef, {
+        status: 'withdrawn',
+        updatedAt: serverTimestamp(),
+        withdrawnAt: serverTimestamp(),
+      });
+    });
+    return { success: true };
+  } catch (error) {
     return { success: false, error: error.message };
   }
 };
@@ -844,7 +1151,7 @@ export const getStudentNotifications = async (studentId, limitCount = 10) => {
     return { success: true, data: notifications };
   } catch (error) {
     console.error('❌ Error getting notifications:', error);
-    return { success: true, data: [] };
+    return { success: false, data: [], error: error.message || 'Unable to load notifications.' };
   }
 };
 
@@ -869,10 +1176,10 @@ export const getUnreadNotificationsCount = async (studentId) => {
       const unreadCount = result.data.filter((notification) => !notification.read).length;
       return { success: true, count: unreadCount };
     }
-    return { success: true, count: 0 };
+    return { success: false, count: 0, error: result.error };
   } catch (error) {
     console.error('❌ Error getting unread notifications count:', error);
-    return { success: true, count: 0 };
+    return { success: false, count: 0, error: error.message || 'Unable to load unread notifications.' };
   }
 };
 

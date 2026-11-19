@@ -1,14 +1,9 @@
 /* eslint-disable prettier/prettier */
 import { createContext, useState, useContext, useCallback, useEffect } from 'react';
-import {
-  FaBell,
-  FaCheckCircle,
-  FaExclamationTriangle,
-  FaInfoCircle,
-  FaMoneyBillWave,
-  FaUsers,
-  FaCalendarAlt,
-} from 'react-icons/fa';
+import { onAuthStateChanged } from 'firebase/auth';
+import { FaBell, FaCheckCircle, FaExclamationTriangle, FaInfoCircle, FaMoneyBillWave, FaUsers, FaCalendarAlt } from "react-icons/fa";
+import { addDoc, collection, doc, getDocs, onSnapshot, query, serverTimestamp, updateDoc, where } from 'firebase/firestore';
+import { auth, db } from '../config/firebase';
 
 const NotificationContext = createContext();
 
@@ -24,65 +19,25 @@ export const NotificationProvider = ({ children }) => {
   const [notifications, setNotifications] = useState([]);
 
   useEffect(() => {
-    const savedNotifications = localStorage.getItem('careerconnect_notifications');
-    if (savedNotifications) {
-      try {
-        setNotifications(JSON.parse(savedNotifications));
-      } catch (error) {
-        console.error('Error loading notifications:', error);
-      }
-    }
-
-    if (!savedNotifications) {
-      const sampleNotifications = [
-        {
-          id: '1',
-          type: 'success',
-          title: 'Welcome to CareerConnect!',
-          message: 'Your account has been successfully created.',
-          time: 'Just now',
-          read: false,
-          icon: <FaCheckCircle />,
-          link: '/welcome',
-        },
-        {
-          id: '2',
-          type: 'info',
-          title: 'New Mentorship Opportunity',
-          message: 'Connect with experienced entrepreneurs in your field.',
-          time: '2 hours ago',
-          read: false,
-          icon: <FaUsers />,
-          link: '/mentorship',
-        },
-        {
-          id: '3',
-          type: 'warning',
-          title: 'Funding Deadline Approaching',
-          message: 'Apply for youth entrepreneurship grant before Friday.',
-          time: '1 day ago',
-          read: true,
-          icon: <FaMoneyBillWave />,
-          link: '/funding',
-        },
-      ];
-
-      setNotifications(sampleNotifications);
-      localStorage.setItem('careerconnect_notifications', JSON.stringify(sampleNotifications));
-    }
+    let stopNotifications = () => {};
+    const stopAuth = onAuthStateChanged(auth, (user) => {
+      stopNotifications();
+      setNotifications([]);
+      if (!user?.uid) return;
+      stopNotifications = onSnapshot(query(collection(db, 'notifications'), where('userId', '==', user.uid)), (snapshot) => {
+        setNotifications(snapshot.docs.map((record) => ({ id: record.id, ...record.data() })));
+      }, (error) => console.error('Unable to subscribe to account notifications:', error));
+    });
+    return () => { stopNotifications(); stopAuth(); };
   }, []);
-
-  useEffect(() => {
-    localStorage.setItem('careerconnect_notifications', JSON.stringify(notifications));
-  }, [notifications]);
 
   const removeNotification = useCallback((id) => {
     setNotifications((prev) => prev.filter((notification) => notification.id !== id));
   }, []);
 
   const addNotification = useCallback(
-    (notification) => {
-      const id = Date.now().toString();
+    async (notification) => {
+      const id = globalThis.crypto?.randomUUID?.() || Date.now().toString();
       const icons = {
         success: <FaCheckCircle />,
         warning: <FaExclamationTriangle />,
@@ -107,12 +62,19 @@ export const NotificationProvider = ({ children }) => {
         ...notification,
       };
 
-      setNotifications((prev) => [newNotification, ...prev]);
-
-      if (newNotification.duration > 0) {
-        setTimeout(() => {
-          removeNotification(id);
-        }, newNotification.duration);
+      if (auth.currentUser?.uid) {
+        await addDoc(collection(db, 'notifications'), {
+          userId: auth.currentUser.uid,
+          type: newNotification.type,
+          title: newNotification.title || '',
+          message: newNotification.message || '',
+          link: newNotification.link || '',
+          read: false,
+          createdAt: serverTimestamp(),
+        });
+      } else {
+        setNotifications((prev) => [newNotification, ...prev]);
+        if (newNotification.duration > 0) setTimeout(() => removeNotification(id), newNotification.duration);
       }
 
       if (notification.playSound !== false) {
@@ -130,25 +92,22 @@ export const NotificationProvider = ({ children }) => {
     [removeNotification]
   );
 
-  const markAsRead = useCallback((id) => {
-    setNotifications((prev) =>
-      prev.map((notification) =>
-        notification.id === id ? { ...notification, read: true } : notification
-      )
-    );
+  const markAsRead = useCallback(async (id) => {
+    if (String(id).length < 15) return;
+    await updateDoc(doc(db, 'notifications', id), { read: true, readAt: serverTimestamp() });
+    setNotifications((current) => current.map((notification) => notification.id === id ? { ...notification, read: true, readAt: new Date() } : notification));
   }, []);
 
-  const markAllAsRead = useCallback(() => {
-    setNotifications((prev) => prev.map((notification) => ({ ...notification, read: true })));
-  }, []);
+  const markAllAsRead = useCallback(async () => {
+    await Promise.all(notifications.filter((notification) => !notification.read && notification.id.length > 15).map((notification) => updateDoc(doc(db, 'notifications', notification.id), { read: true, readAt: serverTimestamp() })));
+  }, [notifications]);
 
-  const clearAllNotifications = useCallback(() => {
-    setNotifications([]);
-    localStorage.removeItem('careerconnect_notifications');
-  }, []);
+  const clearAllNotifications = useCallback(async () => {
+    await Promise.all(notifications.filter((notification) => notification.id.length > 15).map((notification) => updateDoc(doc(db, 'notifications', notification.id), { deleted: true, deletedAt: serverTimestamp() })));
+  }, [notifications]);
 
   const getUnreadCount = useCallback(() => {
-    return notifications.filter((notification) => !notification.read).length;
+    return notifications.filter((notification) => !notification.read && !notification.deleted && !notification.archived).length;
   }, [notifications]);
 
   const getNotificationsByType = useCallback(
@@ -157,6 +116,24 @@ export const NotificationProvider = ({ children }) => {
     },
     [notifications]
   );
+
+  const fetchNotifications = useCallback(async () => {
+    const userId = auth.currentUser?.uid;
+    if (!userId) {
+      setNotifications([]);
+      return [];
+    }
+
+    const snapshot = await getDocs(query(collection(db, 'notifications'), where('userId', '==', userId)));
+    const latestNotifications = snapshot.docs
+      .map((record) => ({ id: record.id, ...record.data() }))
+      .sort((a, b) => {
+        const getMillis = (value) => value?.toMillis?.() ?? (value instanceof Date ? value.getTime() : 0);
+        return getMillis(b.createdAt) - getMillis(a.createdAt);
+      });
+    setNotifications(latestNotifications);
+    return latestNotifications;
+  }, []);
 
   const addSuccessNotification = useCallback(
     (title, message, options = {}) =>
@@ -191,8 +168,11 @@ export const NotificationProvider = ({ children }) => {
     [addNotification]
   );
 
+  const unreadCount = notifications.filter((notification) => !notification.read && !notification.deleted && !notification.archived).length;
+
   const value = {
     notifications,
+    unreadCount,
     addNotification,
     removeNotification,
     markAsRead,
@@ -200,6 +180,7 @@ export const NotificationProvider = ({ children }) => {
     clearAllNotifications,
     getUnreadCount,
     getNotificationsByType,
+    fetchNotifications,
     addSuccessNotification,
     addErrorNotification,
     addWarningNotification,

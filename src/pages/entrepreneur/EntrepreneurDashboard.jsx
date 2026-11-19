@@ -1,11 +1,5 @@
-import { Col, Row, Card, Badge } from 'react-bootstrap';
-import {
-  FaBullseye,
-  FaChartLine,
-  FaHandHoldingUsd,
-  FaRocket,
-  FaUsers,
-} from 'react-icons/fa';
+import { Col, Row, Card, Badge } from '../../components/ui/tailwindCompat';
+import { FaBullseye, FaChartLine, FaHandHoldingUsd, FaRocket, FaUsers } from "react-icons/fa";
 
 import { useAuth } from '../../context/AuthContext';
 import PageContainer from '../../components/layout/PageContainer';
@@ -101,3 +95,5 @@ const EntrepreneurDashboard = () => {
 };
 
 export default EntrepreneurDashboard;
+
+

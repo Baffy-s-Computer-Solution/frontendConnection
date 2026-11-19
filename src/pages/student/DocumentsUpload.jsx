@@ -9,7 +9,7 @@ import {
   ProgressBar,
   Form,
   Alert,
-} from 'react-bootstrap';
+} from '../../components/ui/tailwindCompat';
 
 const DocumentsUpload = () => {
   const [uploading, setUploading] = useState(false);
@@ -333,3 +333,6 @@ const DocumentsUpload = () => {
 };
 
 export default DocumentsUpload;
+
+
+

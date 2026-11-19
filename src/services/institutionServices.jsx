@@ -9,15 +9,21 @@ import {
   doc,
   updateDoc,
   addDoc,
+  deleteDoc,
   onSnapshot,
   orderBy,
   limit,
   Timestamp,
   writeBatch,
-} from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+} from "firebase/firestore";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 
-import { db, storage, auth } from '../config/firebase';
+import { db, storage, auth } from "../config/firebase";
+
+const ownsInstitution = async (institutionId, userId) => {
+  const snapshot = await getDoc(doc(db, "institutions", institutionId));
+  return snapshot.exists() && snapshot.data().userId === userId;
+};
 
 export const institutionService = {
   // === DASHBOARD METHODS ===
@@ -27,34 +33,40 @@ export const institutionService = {
    */
   async getInstitutionProfile(userId) {
     try {
-      console.log('Fetching institution profile for user:', userId);
+      console.log("Fetching institution profile for user:", userId);
 
-      if (!userId || userId === 'undefined') {
-        throw new Error('Invalid user ID');
+      if (!userId || userId === "undefined") {
+        throw new Error("Invalid user ID");
       }
 
-      const institutionQuery = query(collection(db, 'institutions'), where('userId', '==', userId));
+      const institutionQuery = query(
+        collection(db, "institutions"),
+        where("userId", "==", userId),
+      );
 
       const snapshot = await getDocs(institutionQuery);
 
       if (snapshot.empty) {
-        console.log('No institution found for user, creating default...');
+        console.log("No institution found for user, creating default...");
         // Create a default institution profile if none exists
         const defaultInstitution = {
           userId: userId,
-          name: 'New Institution',
-          email: '',
-          phone: '',
-          address: '',
-          type: 'university',
-          status: 'active',
-          logo: '',
-          description: '',
+          name: "New Institution",
+          email: "",
+          phone: "",
+          address: "",
+          type: "university",
+          status: "active",
+          logo: "",
+          description: "",
           createdAt: Timestamp.now(),
           updatedAt: Timestamp.now(),
         };
 
-        const newInstitutionRef = await addDoc(collection(db, 'institutions'), defaultInstitution);
+        const newInstitutionRef = await addDoc(
+          collection(db, "institutions"),
+          defaultInstitution,
+        );
 
         return {
           id: newInstitutionRef.id,
@@ -70,9 +82,81 @@ export const institutionService = {
         ...data,
       };
     } catch (error) {
-      console.error('Error fetching institution profile:', error);
-      throw new Error('Failed to load institution profile');
+      console.error("Error fetching institution profile:", error);
+      throw new Error("Failed to load institution profile");
     }
+  },
+
+  async updateInstitutionProfile(userId, institutionId, updates) {
+    if (!userId || !institutionId || auth.currentUser?.uid !== userId) {
+      throw new Error("You are not allowed to update this institution.");
+    }
+
+    const editableFields = [
+      "name",
+      "email",
+      "phone",
+      "address",
+      "type",
+      "website",
+      "description",
+    ];
+    const profileUpdates = {};
+    for (const field of editableFields) {
+      if (updates[field] === undefined) continue;
+      if (typeof updates[field] !== "string") {
+        throw new Error(`Invalid institution ${field}.`);
+      }
+
+      const value = updates[field].trim();
+      const maxLength = field === "description" ? 2000 : 240;
+      if (value.length > maxLength) {
+        throw new Error(`Institution ${field} is too long.`);
+      }
+      profileUpdates[field] = value;
+    }
+
+    if (
+      profileUpdates.email &&
+      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(profileUpdates.email)
+    ) {
+      throw new Error("Enter a valid contact email address.");
+    }
+
+    if (profileUpdates.website) {
+      let website;
+      try {
+        website = new URL(profileUpdates.website);
+      } catch {
+        throw new Error("Enter a valid institution website URL.");
+      }
+      if (!["http:", "https:"].includes(website.protocol)) {
+        throw new Error("Institution website must use HTTP or HTTPS.");
+      }
+    }
+
+    if (Object.keys(profileUpdates).length === 0) {
+      throw new Error("No institution profile changes were provided.");
+    }
+
+    const profileRef = doc(db, "institutions", institutionId);
+    const profileSnapshot = await getDoc(profileRef);
+    if (!profileSnapshot.exists() || profileSnapshot.data().userId !== userId) {
+      throw new Error("Institution profile not found.");
+    }
+
+    const updatedAt = Timestamp.now();
+    await updateDoc(profileRef, { ...profileUpdates, updatedAt });
+
+    return {
+      success: true,
+      data: {
+        id: profileSnapshot.id,
+        ...profileSnapshot.data(),
+        ...profileUpdates,
+        updatedAt,
+      },
+    };
   },
 
   /**
@@ -80,19 +164,34 @@ export const institutionService = {
    */
   async getDashboardStats(institutionId) {
     try {
-      console.log('Fetching REAL dashboard stats for institution:', institutionId);
+      console.log(
+        "Fetching REAL dashboard stats for institution:",
+        institutionId,
+      );
 
-      if (!institutionId || institutionId === 'undefined') {
-        throw new Error('Invalid institution ID');
+      if (!institutionId || institutionId === "undefined") {
+        throw new Error("Invalid institution ID");
       }
 
       // Get current month start and end dates
       const now = new Date();
-      const startOfCurrentMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-      const endOfCurrentMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+      const startOfCurrentMonth = new Date(
+        now.getFullYear(),
+        now.getMonth(),
+        1,
+      );
+      const endOfCurrentMonth = new Date(
+        now.getFullYear(),
+        now.getMonth() + 1,
+        0,
+      );
 
       // Get last month for comparison
-      const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      const startOfLastMonth = new Date(
+        now.getFullYear(),
+        now.getMonth() - 1,
+        1,
+      );
       const endOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0);
 
       // Get REAL counts from Firestore
@@ -107,58 +206,62 @@ export const institutionService = {
         // Current month active students
         getDocs(
           query(
-            collection(db, 'students'),
-            where('institutionId', '==', institutionId),
-            where('status', '==', 'active'),
-            where('enrolledDate', '>=', Timestamp.fromDate(startOfCurrentMonth)),
-            where('enrolledDate', '<=', Timestamp.fromDate(endOfCurrentMonth))
-          )
+            collection(db, "students"),
+            where("institutionId", "==", institutionId),
+            where("status", "==", "active"),
+            where(
+              "enrolledDate",
+              ">=",
+              Timestamp.fromDate(startOfCurrentMonth),
+            ),
+            where("enrolledDate", "<=", Timestamp.fromDate(endOfCurrentMonth)),
+          ),
         ).catch(() => ({ size: 0 })),
         // Last month active students for comparison
         getDocs(
           query(
-            collection(db, 'students'),
-            where('institutionId', '==', institutionId),
-            where('status', '==', 'active'),
-            where('enrolledDate', '>=', Timestamp.fromDate(startOfLastMonth)),
-            where('enrolledDate', '<=', Timestamp.fromDate(endOfLastMonth))
-          )
+            collection(db, "students"),
+            where("institutionId", "==", institutionId),
+            where("status", "==", "active"),
+            where("enrolledDate", ">=", Timestamp.fromDate(startOfLastMonth)),
+            where("enrolledDate", "<=", Timestamp.fromDate(endOfLastMonth)),
+          ),
         ).catch(() => ({ size: 0 })),
         // Current active courses
         getDocs(
           query(
-            collection(db, 'courses'),
-            where('institutionId', '==', institutionId),
-            where('status', '==', 'active')
-          )
+            collection(db, "courses"),
+            where("institutionId", "==", institutionId),
+            where("status", "==", "active"),
+          ),
         ).catch(() => ({ size: 0 })),
         // Last month active courses for comparison
         getDocs(
           query(
-            collection(db, 'courses'),
-            where('institutionId', '==', institutionId),
-            where('status', '==', 'active'),
-            where('createdAt', '>=', Timestamp.fromDate(startOfLastMonth)),
-            where('createdAt', '<=', Timestamp.fromDate(endOfLastMonth))
-          )
+            collection(db, "courses"),
+            where("institutionId", "==", institutionId),
+            where("status", "==", "active"),
+            where("createdAt", ">=", Timestamp.fromDate(startOfLastMonth)),
+            where("createdAt", "<=", Timestamp.fromDate(endOfLastMonth)),
+          ),
         ).catch(() => ({ size: 0 })),
         // Pending applications
         getDocs(
           query(
-            collection(db, 'applications'),
-            where('institutionId', '==', institutionId),
-            where('status', '==', 'pending')
-          )
+            collection(db, "applications"),
+            where("institutionId", "==", institutionId),
+            where("status", "==", "pending"),
+          ),
         ).catch(() => ({ size: 0 })),
         // Monthly revenue
         getDocs(
           query(
-            collection(db, 'payments'),
-            where('institutionId', '==', institutionId),
-            where('status', '==', 'completed'),
-            where('paymentDate', '>=', Timestamp.fromDate(startOfCurrentMonth)),
-            where('paymentDate', '<=', Timestamp.fromDate(endOfCurrentMonth))
-          )
+            collection(db, "payments"),
+            where("institutionId", "==", institutionId),
+            where("status", "==", "completed"),
+            where("paymentDate", ">=", Timestamp.fromDate(startOfCurrentMonth)),
+            where("paymentDate", "<=", Timestamp.fromDate(endOfCurrentMonth)),
+          ),
         ).catch(() => ({ forEach: () => {} })),
       ]);
 
@@ -176,12 +279,12 @@ export const institutionService = {
       // Get last month's revenue for comparison
       const lastMonthPayments = await getDocs(
         query(
-          collection(db, 'payments'),
-          where('institutionId', '==', institutionId),
-          where('status', '==', 'completed'),
-          where('paymentDate', '>=', Timestamp.fromDate(startOfLastMonth)),
-          where('paymentDate', '<=', Timestamp.fromDate(endOfLastMonth))
-        )
+          collection(db, "payments"),
+          where("institutionId", "==", institutionId),
+          where("status", "==", "completed"),
+          where("paymentDate", ">=", Timestamp.fromDate(startOfLastMonth)),
+          where("paymentDate", "<=", Timestamp.fromDate(endOfLastMonth)),
+        ),
       ).catch(() => ({ forEach: () => {} }));
 
       if (lastMonthPayments.forEach) {
@@ -220,25 +323,32 @@ export const institutionService = {
       // Get faculties count
       const facultiesSnapshot = await getDocs(
         query(
-          collection(db, 'faculties'),
-          where('institutionId', '==', institutionId),
-          where('status', '==', 'active')
-        )
+          collection(db, "faculties"),
+          where("institutionId", "==", institutionId),
+          where("status", "==", "active"),
+        ),
       ).catch(() => ({ size: 0 }));
 
       // Get upcoming events count
       const eventsSnapshot = await getDocs(
         query(
-          collection(db, 'events'),
-          where('institutionId', '==', institutionId),
-          where('date', '>=', Timestamp.fromDate(new Date())),
-          where('date', '<=', Timestamp.fromDate(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000))) // Next 30 days
-        )
+          collection(db, "events"),
+          where("institutionId", "==", institutionId),
+          where("date", ">=", Timestamp.fromDate(new Date())),
+          where(
+            "date",
+            "<=",
+            Timestamp.fromDate(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)),
+          ), // Next 30 days
+        ),
       ).catch(() => ({ size: 0 }));
 
       // Get average completion rate (from enrolled courses)
       const enrolledCoursesSnapshot = await getDocs(
-        query(collection(db, 'student_courses'), where('institutionId', '==', institutionId))
+        query(
+          collection(db, "student_courses"),
+          where("institutionId", "==", institutionId),
+        ),
       ).catch(() => ({ forEach: () => {} }));
 
       let totalCompletion = 0;
@@ -257,7 +367,10 @@ export const institutionService = {
 
       // Get satisfaction score (from course reviews)
       const reviewsSnapshot = await getDocs(
-        query(collection(db, 'course_reviews'), where('institutionId', '==', institutionId))
+        query(
+          collection(db, "course_reviews"),
+          where("institutionId", "==", institutionId),
+        ),
       ).catch(() => ({ forEach: () => {} }));
 
       let totalRating = 0;
@@ -295,8 +408,8 @@ export const institutionService = {
         satisfactionScore: avgSatisfactionScore,
       };
     } catch (error) {
-      console.error('Error fetching dashboard stats:', error);
-      throw new Error('Failed to load dashboard statistics');
+      console.error("Error fetching dashboard stats:", error);
+      throw new Error("Failed to load dashboard statistics");
     }
   },
 
@@ -305,17 +418,20 @@ export const institutionService = {
    */
   async getRecentApplications(institutionId, limitCount = 10) {
     try {
-      console.log('Fetching REAL recent applications for institution:', institutionId);
+      console.log(
+        "Fetching REAL recent applications for institution:",
+        institutionId,
+      );
 
-      if (!institutionId || institutionId === 'undefined') {
-        throw new Error('Invalid institution ID');
+      if (!institutionId || institutionId === "undefined") {
+        throw new Error("Invalid institution ID");
       }
 
       const applicationsQuery = query(
-        collection(db, 'applications'),
-        where('institutionId', '==', institutionId),
-        orderBy('submittedAt', 'desc'),
-        limit(limitCount)
+        collection(db, "applications"),
+        where("institutionId", "==", institutionId),
+        orderBy("submittedAt", "desc"),
+        limit(limitCount),
       );
 
       const snapshot = await getDocs(applicationsQuery);
@@ -325,37 +441,41 @@ export const institutionService = {
         const appData = docSnap.data();
 
         // Get student info
-        let studentName = 'Unknown Student';
-        let studentEmail = '';
-        let studentPhoto = '';
+        let studentName = "Unknown Student";
+        let studentEmail = "";
+        let studentPhoto = "";
 
         if (appData.studentId) {
           try {
-            const studentDoc = await getDoc(doc(db, 'users', appData.studentId));
+            const studentDoc = await getDoc(
+              doc(db, "users", appData.studentId),
+            );
             if (studentDoc.exists()) {
               const studentData = studentDoc.data();
               studentName =
-                `${studentData.firstName || ''} ${studentData.lastName || ''}`.trim() ||
-                'Unknown Student';
-              studentEmail = studentData.email || '';
-              studentPhoto = studentData.photoURL || '';
+                `${studentData.firstName || ""} ${studentData.lastName || ""}`.trim() ||
+                "Unknown Student";
+              studentEmail = studentData.email || "";
+              studentPhoto = studentData.photoURL || "";
             }
           } catch (err) {
-            console.warn('Error fetching student info:', err);
+            console.warn("Error fetching student info:", err);
           }
         }
 
         // Get course/program info if available
-        let programName = 'Unknown Program';
+        let programName = "Unknown Program";
         if (appData.courseId) {
           try {
-            const courseDoc = await getDoc(doc(db, 'courses', appData.courseId));
+            const courseDoc = await getDoc(
+              doc(db, "courses", appData.courseId),
+            );
             if (courseDoc.exists()) {
               const courseData = courseDoc.data();
               programName = courseData.title || programName;
             }
           } catch (err) {
-            console.warn('Error fetching course info:', err);
+            console.warn("Error fetching course info:", err);
           }
         }
 
@@ -371,8 +491,8 @@ export const institutionService = {
 
       return applications;
     } catch (error) {
-      console.error('Error fetching recent applications:', error);
-      throw new Error('Failed to load applications');
+      console.error("Error fetching recent applications:", error);
+      throw new Error("Failed to load applications");
     }
   },
 
@@ -381,22 +501,27 @@ export const institutionService = {
    */
   async getUpcomingEvents(institutionId, limitCount = 5) {
     try {
-      console.log('Fetching REAL upcoming events for institution:', institutionId);
+      console.log(
+        "Fetching REAL upcoming events for institution:",
+        institutionId,
+      );
 
-      if (!institutionId || institutionId === 'undefined') {
-        throw new Error('Invalid institution ID');
+      if (!institutionId || institutionId === "undefined") {
+        throw new Error("Invalid institution ID");
       }
 
       const now = new Date();
-      const thirtyDaysFromNow = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+      const thirtyDaysFromNow = new Date(
+        now.getTime() + 30 * 24 * 60 * 60 * 1000,
+      );
 
       const eventsQuery = query(
-        collection(db, 'events'),
-        where('institutionId', '==', institutionId),
-        where('date', '>=', Timestamp.fromDate(now)),
-        where('date', '<=', Timestamp.fromDate(thirtyDaysFromNow)),
-        orderBy('date', 'asc'),
-        limit(limitCount)
+        collection(db, "events"),
+        where("institutionId", "==", institutionId),
+        where("date", ">=", Timestamp.fromDate(now)),
+        where("date", "<=", Timestamp.fromDate(thirtyDaysFromNow)),
+        orderBy("date", "asc"),
+        limit(limitCount),
       );
 
       const snapshot = await getDocs(eventsQuery);
@@ -408,8 +533,8 @@ export const institutionService = {
 
       return events;
     } catch (error) {
-      console.error('Error fetching upcoming events:', error);
-      throw new Error('Failed to load upcoming events');
+      console.error("Error fetching upcoming events:", error);
+      throw new Error("Failed to load upcoming events");
     }
   },
 
@@ -418,18 +543,21 @@ export const institutionService = {
    */
   async getNotifications(institutionId, limitCount = 10) {
     try {
-      console.log('Fetching REAL notifications for institution:', institutionId);
+      console.log(
+        "Fetching REAL notifications for institution:",
+        institutionId,
+      );
 
-      if (!institutionId || institutionId === 'undefined') {
-        throw new Error('Invalid institution ID');
+      if (!institutionId || institutionId === "undefined") {
+        throw new Error("Invalid institution ID");
       }
 
       const notificationsQuery = query(
-        collection(db, 'notifications'),
-        where('institutionId', '==', institutionId),
-        where('read', '==', false),
-        orderBy('createdAt', 'desc'),
-        limit(limitCount)
+        collection(db, "notifications"),
+        where("institutionId", "==", institutionId),
+        where("read", "==", false),
+        orderBy("createdAt", "desc"),
+        limit(limitCount),
       );
 
       const snapshot = await getDocs(notificationsQuery);
@@ -441,8 +569,8 @@ export const institutionService = {
 
       return notifications;
     } catch (error) {
-      console.error('Error fetching notifications:', error);
-      throw new Error('Failed to load notifications');
+      console.error("Error fetching notifications:", error);
+      throw new Error("Failed to load notifications");
     }
   },
 
@@ -452,19 +580,22 @@ export const institutionService = {
    * Real-time listener for applications - REAL DATA ONLY
    */
   onApplicationsUpdate(institutionId, callback) {
-    console.log('Setting up REAL-TIME listener for applications:', institutionId);
+    console.log(
+      "Setting up REAL-TIME listener for applications:",
+      institutionId,
+    );
 
-    if (!institutionId || institutionId === 'undefined') {
-      console.error('Invalid institution ID for real-time listener');
+    if (!institutionId || institutionId === "undefined") {
+      console.error("Invalid institution ID for real-time listener");
       return () => {};
     }
 
     try {
       const applicationsQuery = query(
-        collection(db, 'applications'),
-        where('institutionId', '==', institutionId),
-        orderBy('submittedAt', 'desc'),
-        limit(10)
+        collection(db, "applications"),
+        where("institutionId", "==", institutionId),
+        orderBy("submittedAt", "desc"),
+        limit(10),
       );
 
       const unsubscribe = onSnapshot(
@@ -473,21 +604,23 @@ export const institutionService = {
           const applications = await Promise.all(
             snapshot.docs.map(async (docSnap) => {
               const appData = docSnap.data();
-              let studentName = 'Unknown Student';
-              let studentEmail = '';
+              let studentName = "Unknown Student";
+              let studentEmail = "";
 
               if (appData.studentId) {
                 try {
-                  const studentDoc = await getDoc(doc(db, 'users', appData.studentId));
+                  const studentDoc = await getDoc(
+                    doc(db, "users", appData.studentId),
+                  );
                   if (studentDoc.exists()) {
                     const studentData = studentDoc.data();
                     studentName =
-                      `${studentData.firstName || ''} ${studentData.lastName || ''}`.trim() ||
-                      'Unknown Student';
-                    studentEmail = studentData.email || '';
+                      `${studentData.firstName || ""} ${studentData.lastName || ""}`.trim() ||
+                      "Unknown Student";
+                    studentEmail = studentData.email || "";
                   }
                 } catch (err) {
-                  console.warn('Error fetching student info:', err);
+                  console.warn("Error fetching student info:", err);
                 }
               }
 
@@ -497,20 +630,20 @@ export const institutionService = {
                 studentName,
                 studentEmail,
               };
-            })
+            }),
           );
 
           callback(applications);
         },
         (error) => {
-          console.error('Error in applications real-time listener:', error);
+          console.error("Error in applications real-time listener:", error);
           callback([]);
-        }
+        },
       );
 
       return unsubscribe;
     } catch (error) {
-      console.error('Error setting up applications listener:', error);
+      console.error("Error setting up applications listener:", error);
       return () => {};
     }
   },
@@ -519,20 +652,23 @@ export const institutionService = {
    * Real-time listener for notifications - REAL DATA ONLY
    */
   onNotificationsUpdate(institutionId, callback) {
-    console.log('Setting up REAL-TIME listener for notifications:', institutionId);
+    console.log(
+      "Setting up REAL-TIME listener for notifications:",
+      institutionId,
+    );
 
-    if (!institutionId || institutionId === 'undefined') {
-      console.error('Invalid institution ID for real-time listener');
+    if (!institutionId || institutionId === "undefined") {
+      console.error("Invalid institution ID for real-time listener");
       return () => {};
     }
 
     try {
       const notificationsQuery = query(
-        collection(db, 'notifications'),
-        where('institutionId', '==', institutionId),
-        where('read', '==', false),
-        orderBy('createdAt', 'desc'),
-        limit(10)
+        collection(db, "notifications"),
+        where("institutionId", "==", institutionId),
+        where("read", "==", false),
+        orderBy("createdAt", "desc"),
+        limit(10),
       );
 
       const unsubscribe = onSnapshot(
@@ -545,14 +681,14 @@ export const institutionService = {
           callback(notifications);
         },
         (error) => {
-          console.error('Error in notifications real-time listener:', error);
+          console.error("Error in notifications real-time listener:", error);
           callback([]);
-        }
+        },
       );
 
       return unsubscribe;
     } catch (error) {
-      console.error('Error setting up notifications listener:', error);
+      console.error("Error setting up notifications listener:", error);
       return () => {};
     }
   },
@@ -561,10 +697,10 @@ export const institutionService = {
    * Real-time listener for stats - REAL DATA ONLY
    */
   onStatsUpdate(institutionId, callback) {
-    console.log('Setting up REAL-TIME listener for stats:', institutionId);
+    console.log("Setting up REAL-TIME listener for stats:", institutionId);
 
-    if (!institutionId || institutionId === 'undefined') {
-      console.error('Invalid institution ID for stats listener');
+    if (!institutionId || institutionId === "undefined") {
+      console.error("Invalid institution ID for stats listener");
       return () => {};
     }
 
@@ -576,7 +712,7 @@ export const institutionService = {
         const stats = await this.getDashboardStats(institutionId);
         callback(stats);
       } catch (error) {
-        console.error('Error refreshing stats:', error);
+        console.error("Error refreshing stats:", error);
         // Return empty stats on error
         callback({
           totalStudents: 0,
@@ -605,19 +741,19 @@ export const institutionService = {
 
     // Also listen for changes in relevant collections
     const collectionsToWatch = [
-      'students',
-      'courses',
-      'applications',
-      'payments',
-      'events',
-      'faculties',
+      "students",
+      "courses",
+      "applications",
+      "payments",
+      "events",
+      "faculties",
     ];
 
     const unsubscribers = collectionsToWatch.map((collectionName) => {
       try {
         const q = query(
           collection(db, collectionName),
-          where('institutionId', '==', institutionId)
+          where("institutionId", "==", institutionId),
         );
 
         return onSnapshot(q, () => {
@@ -632,7 +768,7 @@ export const institutionService = {
     return () => {
       clearInterval(refreshInterval);
       unsubscribers.forEach((unsub) => {
-        if (typeof unsub === 'function') unsub();
+        if (typeof unsub === "function") unsub();
       });
     };
   },
@@ -641,24 +777,26 @@ export const institutionService = {
    * Real-time listener for events - REAL DATA ONLY
    */
   onEventsUpdate(institutionId, callback) {
-    console.log('Setting up REAL-TIME listener for events:', institutionId);
+    console.log("Setting up REAL-TIME listener for events:", institutionId);
 
-    if (!institutionId || institutionId === 'undefined') {
-      console.error('Invalid institution ID for events listener');
+    if (!institutionId || institutionId === "undefined") {
+      console.error("Invalid institution ID for events listener");
       return () => {};
     }
 
     try {
       const now = new Date();
-      const thirtyDaysFromNow = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+      const thirtyDaysFromNow = new Date(
+        now.getTime() + 30 * 24 * 60 * 60 * 1000,
+      );
 
       const eventsQuery = query(
-        collection(db, 'events'),
-        where('institutionId', '==', institutionId),
-        where('date', '>=', Timestamp.fromDate(now)),
-        where('date', '<=', Timestamp.fromDate(thirtyDaysFromNow)),
-        orderBy('date', 'asc'),
-        limit(5)
+        collection(db, "events"),
+        where("institutionId", "==", institutionId),
+        where("date", ">=", Timestamp.fromDate(now)),
+        where("date", "<=", Timestamp.fromDate(thirtyDaysFromNow)),
+        orderBy("date", "asc"),
+        limit(5),
       );
 
       const unsubscribe = onSnapshot(
@@ -671,14 +809,14 @@ export const institutionService = {
           callback(events);
         },
         (error) => {
-          console.error('Error in events real-time listener:', error);
+          console.error("Error in events real-time listener:", error);
           callback([]);
-        }
+        },
       );
 
       return unsubscribe;
     } catch (error) {
-      console.error('Error setting up events listener:', error);
+      console.error("Error setting up events listener:", error);
       return () => {};
     }
   },
@@ -688,10 +826,10 @@ export const institutionService = {
   /**
    * Get enrollment analytics - REAL DATA ONLY
    */
-  async getEnrollmentAnalytics(institutionId, _period = 'month') {
+  async getEnrollmentAnalytics(institutionId, _period = "month") {
     try {
-      if (!institutionId || institutionId === 'undefined') {
-        throw new Error('Invalid institution ID');
+      if (!institutionId || institutionId === "undefined") {
+        throw new Error("Invalid institution ID");
       }
 
       const now = new Date();
@@ -701,21 +839,25 @@ export const institutionService = {
       // Get data for last 6 months
       for (let i = 5; i >= 0; i--) {
         const month = new Date(now.getFullYear(), now.getMonth() - i, 1);
-        const nextMonth = new Date(now.getFullYear(), now.getMonth() - i + 1, 1);
+        const nextMonth = new Date(
+          now.getFullYear(),
+          now.getMonth() - i + 1,
+          1,
+        );
 
-        const monthName = month.toLocaleDateString('en-US', { month: 'short' });
+        const monthName = month.toLocaleDateString("en-US", { month: "short" });
         months.push(monthName);
 
         try {
           // Query students enrolled in this month
           const studentsSnapshot = await getDocs(
             query(
-              collection(db, 'students'),
-              where('institutionId', '==', institutionId),
-              where('status', '==', 'active'),
-              where('enrolledDate', '>=', Timestamp.fromDate(month)),
-              where('enrolledDate', '<', Timestamp.fromDate(nextMonth))
-            )
+              collection(db, "students"),
+              where("institutionId", "==", institutionId),
+              where("status", "==", "active"),
+              where("enrolledDate", ">=", Timestamp.fromDate(month)),
+              where("enrolledDate", "<", Timestamp.fromDate(nextMonth)),
+            ),
           );
 
           values.push(studentsSnapshot.size || 0);
@@ -728,7 +870,8 @@ export const institutionService = {
       // Calculate total change
       const firstValue = values[0] || 0;
       const lastValue = values[values.length - 1] || 0;
-      const totalChange = firstValue > 0 ? ((lastValue - firstValue) / firstValue) * 100 : 0;
+      const totalChange =
+        firstValue > 0 ? ((lastValue - firstValue) / firstValue) * 100 : 0;
 
       return {
         labels: months,
@@ -737,9 +880,9 @@ export const institutionService = {
         isIncreasing: totalChange > 0,
       };
     } catch (error) {
-      console.error('Error fetching enrollment analytics:', error);
+      console.error("Error fetching enrollment analytics:", error);
       // Return fallback data
-      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'];
+      const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun"];
       const values = [0, 0, 0, 0, 0, 0];
       return {
         labels: months,
@@ -752,14 +895,17 @@ export const institutionService = {
 
   /* Get revenue analytics - REAL DATA ONLY
    */
-  async getRevenueAnalytics(institutionId, period = 'month') {
+  async getRevenueAnalytics(institutionId, period = "month") {
     try {
-      if (!institutionId || institutionId === 'undefined') {
-        console.error('Invalid institution ID for revenue analytics');
+      if (!institutionId || institutionId === "undefined") {
+        console.error("Invalid institution ID for revenue analytics");
         return this.getDefaultRevenueAnalytics();
       }
 
-      console.log('Fetching REAL revenue analytics for institution:', institutionId);
+      console.log(
+        "Fetching REAL revenue analytics for institution:",
+        institutionId,
+      );
 
       const now = new Date();
       const months = [];
@@ -768,21 +914,25 @@ export const institutionService = {
       // Get data for last 6 months
       for (let i = 5; i >= 0; i--) {
         const month = new Date(now.getFullYear(), now.getMonth() - i, 1);
-        const nextMonth = new Date(now.getFullYear(), now.getMonth() - i + 1, 1);
+        const nextMonth = new Date(
+          now.getFullYear(),
+          now.getMonth() - i + 1,
+          1,
+        );
 
-        const monthName = month.toLocaleDateString('en-US', { month: 'short' });
+        const monthName = month.toLocaleDateString("en-US", { month: "short" });
         months.push(monthName);
 
         try {
           // Query payments in this month
           const paymentsSnapshot = await getDocs(
             query(
-              collection(db, 'payments'),
-              where('institutionId', '==', institutionId),
-              where('status', '==', 'completed'),
-              where('paymentDate', '>=', Timestamp.fromDate(month)),
-              where('paymentDate', '<', Timestamp.fromDate(nextMonth))
-            )
+              collection(db, "payments"),
+              where("institutionId", "==", institutionId),
+              where("status", "==", "completed"),
+              where("paymentDate", ">=", Timestamp.fromDate(month)),
+              where("paymentDate", "<", Timestamp.fromDate(nextMonth)),
+            ),
           );
 
           let monthRevenue = 0;
@@ -803,17 +953,19 @@ export const institutionService = {
         values,
         totalRevenue: values.reduce((sum, val) => sum + val, 0),
         averageRevenue:
-          values.length > 0 ? values.reduce((sum, val) => sum + val, 0) / values.length : 0,
+          values.length > 0
+            ? values.reduce((sum, val) => sum + val, 0) / values.length
+            : 0,
       };
     } catch (error) {
-      console.error('Error fetching revenue analytics:', error);
+      console.error("Error fetching revenue analytics:", error);
       return this.getDefaultRevenueAnalytics();
     }
   },
 
   // Add helper method
   getDefaultRevenueAnalytics() {
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'];
+    const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun"];
     const values = [15000, 18000, 22000, 19000, 25000, 28000]; // Sample data
     return {
       labels: months,
@@ -825,19 +977,142 @@ export const institutionService = {
 
   // === UTILITY METHODS ===
 
+  async getFaculties(userId, institutionId) {
+    if (!userId || auth.currentUser?.uid !== userId || !institutionId) {
+      throw new Error("You are not allowed to view these faculties.");
+    }
+
+    const institutionSnapshot = await getDoc(
+      doc(db, "institutions", institutionId),
+    );
+    if (
+      !institutionSnapshot.exists() ||
+      institutionSnapshot.data().userId !== userId
+    ) {
+      throw new Error("Institution not found.");
+    }
+
+    const snapshot = await getDocs(
+      query(
+        collection(db, "faculties"),
+        where("institutionId", "==", institutionId),
+      ),
+    );
+
+    return snapshot.docs
+      .map((facultyDoc) => ({ id: facultyDoc.id, ...facultyDoc.data() }))
+      .sort((first, second) => {
+        const firstCreated = first.createdAt?.toMillis?.() || 0;
+        const secondCreated = second.createdAt?.toMillis?.() || 0;
+        return secondCreated - firstCreated;
+      });
+  },
+
+  async createFaculty(userId, institutionId, facultyData) {
+    if (!userId || auth.currentUser?.uid !== userId || !institutionId) {
+      throw new Error("You are not allowed to create a faculty.");
+    }
+
+    const institutionSnapshot = await getDoc(
+      doc(db, "institutions", institutionId),
+    );
+    if (
+      !institutionSnapshot.exists() ||
+      institutionSnapshot.data().userId !== userId
+    ) {
+      throw new Error("Institution not found.");
+    }
+
+    const faculty = this.validateFacultyData(facultyData);
+    const reference = await addDoc(collection(db, "faculties"), {
+      ...faculty,
+      institutionId,
+      createdBy: userId,
+      createdAt: Timestamp.now(),
+      updatedAt: Timestamp.now(),
+    });
+
+    return { id: reference.id, ...faculty, institutionId };
+  },
+
+  async updateFaculty(userId, facultyId, facultyData) {
+    if (!userId || auth.currentUser?.uid !== userId || !facultyId) {
+      throw new Error("You are not allowed to update this faculty.");
+    }
+
+    const facultyRef = doc(db, "faculties", facultyId);
+    const facultySnapshot = await getDoc(facultyRef);
+    const institutionId = facultySnapshot.data()?.institutionId;
+    if (
+      !facultySnapshot.exists() ||
+      !institutionId ||
+      !(await ownsInstitution(institutionId, userId))
+    ) {
+      throw new Error("Faculty not found.");
+    }
+
+    const faculty = this.validateFacultyData(facultyData);
+    await updateDoc(facultyRef, { ...faculty, updatedAt: Timestamp.now() });
+    return { id: facultyId, ...faculty, institutionId };
+  },
+
+  async deleteFaculty(userId, facultyId) {
+    if (!userId || auth.currentUser?.uid !== userId || !facultyId) {
+      throw new Error("You are not allowed to delete this faculty.");
+    }
+
+    const facultyRef = doc(db, "faculties", facultyId);
+    const facultySnapshot = await getDoc(facultyRef);
+    const institutionId = facultySnapshot.data()?.institutionId;
+    if (
+      !facultySnapshot.exists() ||
+      !institutionId ||
+      !(await ownsInstitution(institutionId, userId))
+    ) {
+      throw new Error("Faculty not found.");
+    }
+
+    await deleteDoc(facultyRef);
+  },
+
+  validateFacultyData(facultyData) {
+    const name =
+      typeof facultyData?.name === "string" ? facultyData.name.trim() : "";
+    const code =
+      typeof facultyData?.code === "string" ? facultyData.code.trim() : "";
+    const description =
+      typeof facultyData?.description === "string"
+        ? facultyData.description.trim()
+        : "";
+
+    if (!name || name.length > 120) {
+      throw new Error(
+        "Faculty name is required and must be 120 characters or fewer.",
+      );
+    }
+    if (code.length > 30) {
+      throw new Error("Faculty code must be 30 characters or fewer.");
+    }
+    if (description.length > 1000) {
+      throw new Error("Faculty description must be 1000 characters or fewer.");
+    }
+
+    return { name, code, description };
+  },
+
   /**
    * Create new course - REAL DATA ONLY
    */
   async createCourse(courseData, institutionId) {
     try {
-      if (!institutionId || institutionId === 'undefined') {
-        throw new Error('Invalid institution ID');
+      if (!institutionId || institutionId === "undefined") {
+        throw new Error("Invalid institution ID");
       }
 
-      const courseRef = await addDoc(collection(db, 'courses'), {
+      const courseRef = await addDoc(collection(db, "courses"), {
         ...courseData,
         institutionId,
-        status: 'active',
+        status: "active",
         createdAt: Timestamp.now(),
         updatedAt: Timestamp.now(),
         createdBy: auth.currentUser?.uid,
@@ -849,20 +1124,20 @@ export const institutionService = {
       // Create notification for course creation
       await this.createNotification({
         institutionId,
-        type: 'course_created',
-        title: 'New Course Created',
+        type: "course_created",
+        title: "New Course Created",
         message: `Course "${courseData.title}" has been created successfully.`,
         link: `/institute/courses/${courseRef.id}`,
-        priority: 'medium',
+        priority: "medium",
       });
 
       return {
         success: true,
         courseId: courseRef.id,
-        message: 'Course created successfully',
+        message: "Course created successfully",
       };
     } catch (error) {
-      console.error('Error creating course:', error);
+      console.error("Error creating course:", error);
       throw error;
     }
   },
@@ -870,14 +1145,14 @@ export const institutionService = {
   /**
    * Update application status - REAL DATA ONLY
    */
-  async updateApplicationStatus(applicationId, status, notes = '') {
+  async updateApplicationStatus(applicationId, status, notes = "") {
     try {
-      const appRef = doc(db, 'applications', applicationId);
+      const appRef = doc(db, "applications", applicationId);
 
       // Get current application data
       const appDoc = await getDoc(appRef);
       if (!appDoc.exists()) {
-        throw new Error('Application not found');
+        throw new Error("Application not found");
       }
 
       const appData = appDoc.data();
@@ -894,11 +1169,11 @@ export const institutionService = {
       if (appData.studentId) {
         await this.createNotification({
           userId: appData.studentId,
-          type: 'application_update',
-          title: 'Application Status Updated',
-          message: `Your application has been ${status}. ${notes ? `Notes: ${notes}` : ''}`,
+          type: "application_update",
+          title: "Application Status Updated",
+          message: `Your application has been ${status}. ${notes ? `Notes: ${notes}` : ""}`,
           link: `/student/applications/${applicationId}`,
-          priority: 'high',
+          priority: "high",
         });
       }
 
@@ -913,7 +1188,7 @@ export const institutionService = {
         },
       };
     } catch (error) {
-      console.error('Error updating application status:', error);
+      console.error("Error updating application status:", error);
       throw error;
     }
   },
@@ -934,15 +1209,18 @@ export const institutionService = {
         notification.createdAt = Timestamp.now();
       }
 
-      const notificationRef = await addDoc(collection(db, 'notifications'), notification);
+      const notificationRef = await addDoc(
+        collection(db, "notifications"),
+        notification,
+      );
 
       return {
         success: true,
-        message: 'Notification created',
+        message: "Notification created",
         notificationId: notificationRef.id,
       };
     } catch (error) {
-      console.error('Error creating notification:', error);
+      console.error("Error creating notification:", error);
       throw error;
     }
   },
@@ -952,7 +1230,7 @@ export const institutionService = {
    */
   async markNotificationAsRead(notificationId) {
     try {
-      const notifRef = doc(db, 'notifications', notificationId);
+      const notifRef = doc(db, "notifications", notificationId);
       await updateDoc(notifRef, {
         read: true,
         readAt: Timestamp.now(),
@@ -960,10 +1238,10 @@ export const institutionService = {
 
       return {
         success: true,
-        message: 'Notification marked as read',
+        message: "Notification marked as read",
       };
     } catch (error) {
-      console.error('Error marking notification as read:', error);
+      console.error("Error marking notification as read:", error);
       throw error;
     }
   },
@@ -973,14 +1251,14 @@ export const institutionService = {
    */
   async markAllNotificationsAsRead(institutionId) {
     try {
-      if (!institutionId || institutionId === 'undefined') {
-        throw new Error('Invalid institution ID');
+      if (!institutionId || institutionId === "undefined") {
+        throw new Error("Invalid institution ID");
       }
 
       const notificationsQuery = query(
-        collection(db, 'notifications'),
-        where('institutionId', '==', institutionId),
-        where('read', '==', false)
+        collection(db, "notifications"),
+        where("institutionId", "==", institutionId),
+        where("read", "==", false),
       );
 
       const snapshot = await getDocs(notificationsQuery);
@@ -1000,7 +1278,7 @@ export const institutionService = {
         message: `Marked ${snapshot.size} notifications as read`,
       };
     } catch (error) {
-      console.error('Error marking all notifications as read:', error);
+      console.error("Error marking all notifications as read:", error);
       throw error;
     }
   },
@@ -1008,35 +1286,37 @@ export const institutionService = {
   /**
    * Upload file - REAL DATA ONLY
    */
-  async uploadFile(file, path = 'institution-documents') {
+  async uploadFile(file, path = "institution-documents") {
     try {
       if (!file) {
-        throw new Error('No file provided');
+        throw new Error("No file provided");
       }
 
       // Validate file type and size (max 10MB)
       const validTypes = [
-        'image/jpeg',
-        'image/png',
-        'image/gif',
-        'application/pdf',
-        'application/msword',
-        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        "image/jpeg",
+        "image/png",
+        "image/gif",
+        "application/pdf",
+        "application/msword",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
       ];
       const maxSize = 10 * 1024 * 1024; // 10MB
 
       if (!validTypes.includes(file.type)) {
-        throw new Error('Invalid file type. Allowed types: JPEG, PNG, GIF, PDF, DOC, DOCX');
+        throw new Error(
+          "Invalid file type. Allowed types: JPEG, PNG, GIF, PDF, DOC, DOCX",
+        );
       }
 
       if (file.size > maxSize) {
-        throw new Error('File size exceeds 10MB limit');
+        throw new Error("File size exceeds 10MB limit");
       }
 
       // Generate unique filename
       const timestamp = Date.now();
       const randomString = Math.random().toString(36).substring(2, 15);
-      const safeFileName = file.name.replace(/[^a-zA-Z0-9.]/g, '_');
+      const safeFileName = file.name.replace(/[^a-zA-Z0-9.]/g, "_");
       const fileName = `${timestamp}_${randomString}_${safeFileName}`;
 
       const storageRef = ref(storage, `${path}/${fileName}`);
@@ -1049,10 +1329,10 @@ export const institutionService = {
         fileName: file.name,
         fileSize: file.size,
         fileType: file.type,
-        message: 'File uploaded successfully',
+        message: "File uploaded successfully",
       };
     } catch (error) {
-      console.error('Error uploading file:', error);
+      console.error("Error uploading file:", error);
       throw error;
     }
   },
@@ -1062,15 +1342,15 @@ export const institutionService = {
    */
   async getActivityLog(institutionId, limitCount = 50) {
     try {
-      if (!institutionId || institutionId === 'undefined') {
-        throw new Error('Invalid institution ID');
+      if (!institutionId || institutionId === "undefined") {
+        throw new Error("Invalid institution ID");
       }
 
       const activitiesQuery = query(
-        collection(db, 'activity_log'),
-        where('institutionId', '==', institutionId),
-        orderBy('timestamp', 'desc'),
-        limit(limitCount)
+        collection(db, "activity_log"),
+        where("institutionId", "==", institutionId),
+        orderBy("timestamp", "desc"),
+        limit(limitCount),
       );
 
       const snapshot = await getDocs(activitiesQuery);
@@ -1078,18 +1358,19 @@ export const institutionService = {
       const activities = await Promise.all(
         snapshot.docs.map(async (docSnap) => {
           const activity = docSnap.data();
-          let userName = 'System';
+          let userName = "System";
 
           if (activity.userId) {
             try {
-              const userDoc = await getDoc(doc(db, 'users', activity.userId));
+              const userDoc = await getDoc(doc(db, "users", activity.userId));
               if (userDoc.exists()) {
                 const userData = userDoc.data();
                 userName =
-                  `${userData.firstName || ''} ${userData.lastName || ''}`.trim() || 'User';
+                  `${userData.firstName || ""} ${userData.lastName || ""}`.trim() ||
+                  "User";
               }
             } catch (err) {
-              console.warn('Error fetching user info:', err);
+              console.warn("Error fetching user info:", err);
             }
           }
 
@@ -1098,13 +1379,13 @@ export const institutionService = {
             ...activity,
             userName,
           };
-        })
+        }),
       );
 
       return activities;
     } catch (error) {
-      console.error('Error fetching activity log:', error);
-      throw new Error('Failed to load activity log');
+      console.error("Error fetching activity log:", error);
+      throw new Error("Failed to load activity log");
     }
   },
 
@@ -1113,8 +1394,8 @@ export const institutionService = {
    */
   async getInstitutionInsights(institutionId) {
     try {
-      if (!institutionId || institutionId === 'undefined') {
-        throw new Error('Invalid institution ID');
+      if (!institutionId || institutionId === "undefined") {
+        throw new Error("Invalid institution ID");
       }
 
       // Get various metrics for insights
@@ -1127,37 +1408,37 @@ export const institutionService = {
         // Top courses by enrollment
         getDocs(
           query(
-            collection(db, 'courses'),
-            where('institutionId', '==', institutionId),
-            where('status', '==', 'active'),
-            orderBy('enrollmentCount', 'desc'),
-            limit(5)
-          )
+            collection(db, "courses"),
+            where("institutionId", "==", institutionId),
+            where("status", "==", "active"),
+            orderBy("enrollmentCount", "desc"),
+            limit(5),
+          ),
         ).catch(() => ({ docs: [] })),
         // Recent enrollments
         getDocs(
           query(
-            collection(db, 'students'),
-            where('institutionId', '==', institutionId),
-            orderBy('enrolledDate', 'desc'),
-            limit(10)
-          )
+            collection(db, "students"),
+            where("institutionId", "==", institutionId),
+            orderBy("enrolledDate", "desc"),
+            limit(10),
+          ),
         ).catch(() => ({ docs: [] })),
         // Popular programs
         getDocs(
           query(
-            collection(db, 'applications'),
-            where('institutionId', '==', institutionId),
-            where('status', '==', 'approved')
-          )
+            collection(db, "applications"),
+            where("institutionId", "==", institutionId),
+            where("status", "==", "approved"),
+          ),
         ).catch(() => ({ forEach: () => {} })),
         // Faculty with active courses
         getDocs(
           query(
-            collection(db, 'faculties'),
-            where('institutionId', '==', institutionId),
-            where('status', '==', 'active')
-          )
+            collection(db, "faculties"),
+            where("institutionId", "==", institutionId),
+            where("status", "==", "active"),
+          ),
         ).catch(() => ({ size: 0 })),
       ]);
 
@@ -1171,19 +1452,19 @@ export const institutionService = {
       const recentEnrollments = await Promise.all(
         recentEnrollmentsSnapshot.docs.map(async (docSnap) => {
           const student = docSnap.data();
-          let studentName = 'Unknown Student';
+          let studentName = "Unknown Student";
 
           if (student.userId) {
             try {
-              const userDoc = await getDoc(doc(db, 'users', student.userId));
+              const userDoc = await getDoc(doc(db, "users", student.userId));
               if (userDoc.exists()) {
                 const userData = userDoc.data();
                 studentName =
-                  `${userData.firstName || ''} ${userData.lastName || ''}`.trim() ||
-                  'Unknown Student';
+                  `${userData.firstName || ""} ${userData.lastName || ""}`.trim() ||
+                  "Unknown Student";
               }
             } catch (err) {
-              console.warn('Error fetching user info:', err);
+              console.warn("Error fetching user info:", err);
             }
           }
 
@@ -1192,7 +1473,7 @@ export const institutionService = {
             ...student,
             studentName,
           };
-        })
+        }),
       );
 
       // Calculate program popularity
@@ -1200,7 +1481,7 @@ export const institutionService = {
       if (popularProgramsSnapshot.forEach) {
         popularProgramsSnapshot.forEach((doc) => {
           const app = doc.data();
-          const program = app.program || 'General';
+          const program = app.program || "General";
           programCounts[program] = (programCounts[program] || 0) + 1;
         });
       }
@@ -1218,8 +1499,8 @@ export const institutionService = {
         totalActiveFaculty: facultyPerformanceSnapshot.size || 0,
       };
     } catch (error) {
-      console.error('Error fetching institution insights:', error);
-      throw new Error('Failed to load institution insights');
+      console.error("Error fetching institution insights:", error);
+      throw new Error("Failed to load institution insights");
     }
   },
 };

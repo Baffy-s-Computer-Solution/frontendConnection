@@ -1,129 +1,204 @@
-/* eslint-disable import/order */
-/* eslint-disable no-unused-vars */
-import { useState, useEffect, useCallback } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { FaArrowDown, FaArrowUp, FaBell, FaBriefcase, FaBuilding, FaChartLine, FaCheckCircle, FaClock, FaDownload, FaEnvelope, FaEye, FaFileAlt, FaGraduationCap, FaHistory, FaSync, FaTimes, FaTimesCircle, FaTrash, FaUserCheck, FaUserPlus, FaUsers } from "react-icons/fa";
 import { useNavigate } from 'react-router-dom';
-import {
-  Card,
-  Row,
-  Col,
-  Button,
-  Spinner,
-  Alert,
-  Badge,
-  ProgressBar,
-  Table,
-  Container,
-} from 'react-bootstrap';
 
-import { useAuth } from '../../context/AuthContext';
 import SocialDashboardSection from '../../components/social/SocialDashboardSection';
+import Button from '../../components/ui/Button';
+import { Card, CardBody, CardHeader } from '../../components/ui/Card';
+import Modal from '../../components/ui/Modal';
+import { useAuth } from '../../context/AuthContext';
+import { useNotification } from '../../context/NotificationContext';
 import adminService from '../../services/adminService';
-import './AdminDashboard.css';
-
-// Icons
-import {
-  FaUsers,
-  FaBuilding,
-  FaBriefcase,
-  FaChartLine,
-  FaUserCheck,
-  FaUserClock,
-  FaExclamationTriangle,
-  FaArrowUp,
-  FaArrowDown,
-  FaSync,
-  FaEye,
-  FaCheckCircle,
-  FaTimesCircle,
-  FaShieldAlt,
-} from 'react-icons/fa';
 
 const AdminDashboard = () => {
   const navigate = useNavigate();
-  const { currentUser, userProfile } = useAuth();
+  const { currentUser, userProfile, isAdmin } = useAuth();
+  const { addSuccessNotification, addErrorNotification } = useNotification();
+
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [error, setError] = useState(null);
-  const [stats, setStats] = useState(null);
-  const [quickStats, setQuickStats] = useState({
+  const [error, setError] = useState('');
+  const [stats, setStats] = useState({
     totalUsers: 0,
+    activeCompanies: 0,
     activeJobs: 0,
     pendingApprovals: 0,
     newRegistrations: 0,
+    totalApplications: 0,
+    totalRevenue: 0,
+    systemHealth: 100,
   });
+  const [statsChange, setStatsChange] = useState({
+    users: 0,
+    companies: 0,
+    jobs: 0,
+    approvals: 0,
+  });
+  const [pendingApprovals, setPendingApprovals] = useState([]);
+  const [recentActivities, setRecentActivities] = useState([]);
+  const [topCompanies, setTopCompanies] = useState([]);
+  const [systemStatus, setSystemStatus] = useState({
+    database: 'online',
+    storage: 'online',
+    api: 'online',
+    email: 'online',
+    lastUpdated: new Date().toISOString(),
+  });
+  const [selectedUser, setSelectedUser] = useState(null);
+  const [showApproveModal, setShowApproveModal] = useState(false);
+  const [showRejectModal, setShowRejectModal] = useState(false);
+  const [rejectReason, setRejectReason] = useState('');
+  const [actionLoading, setActionLoading] = useState(false);
+  const [timeRange, setTimeRange] = useState('week');
+  const [chartData, setChartData] = useState([]);
 
-  const fetchDashboardData = useCallback(async () => {
+  const loadDashboardData = useCallback(async () => {
+    if (!isAdmin) return;
+    setError('');
+    setLoading(true);
+
     try {
-      setLoading(true);
-      setError(null);
+      const [statsRes, pendingRes, activityRes, companiesRes, statusRes] = await Promise.all([
+        adminService.getDashboardStats(currentUser, userProfile),
+        adminService.users.getPendingApprovals(currentUser, userProfile, 5),
+        adminService.getRecentActivities(currentUser, userProfile, 10),
+        adminService.companies.getTopCompanies(currentUser, userProfile, 5),
+        adminService.getSystemStatus(currentUser, userProfile),
+      ]);
 
-      console.log('[AdminDashboard] Fetching dashboard data...');
+      if (statsRes.success) {
+        setStats(statsRes.data.stats || {});
+        setStatsChange(statsRes.data.changes || {});
+        setChartData(statsRes.data.chartData || []);
+      }
 
-      const response = await adminService.getDashboardStats(currentUser, userProfile);
+      if (pendingRes.success) {
+        setPendingApprovals(pendingRes.data.users || []);
+      }
 
-      if (response.success) {
-        setStats(response.data);
+      if (activityRes.success) {
+        setRecentActivities(activityRes.data.activities || []);
+      }
 
-        setQuickStats({
-          totalUsers: response.data.userStats?.total || 0,
-          activeJobs: response.data.summary?.activeJobs || 0,
-          pendingApprovals: response.data.userStats?.pending || 0,
-          newRegistrations: response.data.recentRegistrations || 0,
-        });
-      } else {
-        setError(response.error || 'Failed to load dashboard stats');
+      if (companiesRes.success) {
+        setTopCompanies(companiesRes.data.companies || []);
+      }
+
+      if (statusRes.success) {
+        setSystemStatus(statusRes.data || {});
       }
     } catch (err) {
-      console.error('[AdminDashboard] Error fetching data:', err);
-      setError(err.message || 'An error occurred while loading dashboard data');
+      console.error('Error loading dashboard:', err);
+      setError(err.message || 'Failed to load dashboard data');
+      addErrorNotification('Error', 'Failed to load dashboard data');
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [currentUser, userProfile]);
+  }, [isAdmin, currentUser, userProfile, addErrorNotification]);
 
   useEffect(() => {
-    fetchDashboardData();
-  }, [fetchDashboardData]);
+    loadDashboardData();
+  }, [loadDashboardData]);
+
+  useEffect(() => {
+    if (!isAdmin) return;
+    const interval = setInterval(() => {
+      loadDashboardData();
+    }, 60000); // Refresh every minute
+    return () => clearInterval(interval);
+  }, [isAdmin, loadDashboardData]);
 
   const handleRefresh = () => {
     setRefreshing(true);
-    fetchDashboardData();
+    loadDashboardData();
   };
 
-  const handleApproveUser = async (userId) => {
+  const handleApproveUser = async () => {
+    if (!selectedUser) return;
+    setActionLoading(true);
+
     try {
-      const response = await adminService.users.approveUser(userId, currentUser, userProfile);
+      const response = await adminService.users.approveUser(
+        selectedUser.id,
+        'Approved from dashboard',
+        currentUser,
+        userProfile
+      );
+
       if (response.success) {
-        fetchDashboardData();
+        addSuccessNotification('Success', 'User approved successfully');
+        setShowApproveModal(false);
+        setSelectedUser(null);
+        await loadDashboardData();
       } else {
-        setError(response.error);
+        throw new Error(response.error || 'Failed to approve user');
       }
     } catch (err) {
-      console.error('[AdminDashboard] Error approving user:', err);
-      setError(err.message);
+      console.error('Error approving user:', err);
+      addErrorNotification('Error', err.message || 'Failed to approve user');
+    } finally {
+      setActionLoading(false);
     }
   };
 
-  const handleViewAllPending = () => {
-    navigate('/admin/pending-approvals');
+  const handleRejectUser = async () => {
+    if (!selectedUser || !rejectReason.trim()) return;
+    setActionLoading(true);
+
+    try {
+      const response = await adminService.users.rejectUser(
+        selectedUser.id,
+        rejectReason,
+        currentUser,
+        userProfile
+      );
+
+      if (response.success) {
+        addSuccessNotification('Success', 'User rejected successfully');
+        setShowRejectModal(false);
+        setRejectReason('');
+        setSelectedUser(null);
+        await loadDashboardData();
+      } else {
+        throw new Error(response.error || 'Failed to reject user');
+      }
+    } catch (err) {
+      console.error('Error rejecting user:', err);
+      addErrorNotification('Error', err.message || 'Failed to reject user');
+    } finally {
+      setActionLoading(false);
+    }
   };
 
-  const handleViewAllUsers = () => {
-    navigate('/admin/users');
+  const handleExportReport = async () => {
+    try {
+      const response = await adminService.getDashboardReport(currentUser, userProfile, timeRange);
+
+      if (response.success && response.data) {
+        const blob = new Blob([response.data], { type: 'application/pdf' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `admin-report-${timeRange}-${new Date().toISOString().slice(0, 10)}.pdf`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+        addSuccessNotification('Success', 'Report downloaded successfully');
+      } else {
+        throw new Error(response.error || 'Failed to generate report');
+      }
+    } catch (err) {
+      console.error('Error generating report:', err);
+      addErrorNotification('Error', 'Failed to generate report');
+    }
   };
 
-  const handleViewAllCompanies = () => {
-    navigate('/admin/companies');
-  };
-
-  const handleViewAllJobs = () => {
-    navigate('/admin/jobs');
-  };
-
-  const formatDate = (date) => {
-    if (!date) return 'N/A';
-    return new Date(date).toLocaleDateString('en-US', {
+  const formatDate = (value) => {
+    if (!value) return 'N/A';
+    return new Date(value).toLocaleDateString('en-US', {
+      year: 'numeric',
       month: 'short',
       day: 'numeric',
       hour: '2-digit',
@@ -131,440 +206,603 @@ const AdminDashboard = () => {
     });
   };
 
-  const getStatusBadge = (status) => {
-    switch (status) {
-      case 'active':
-        return <Badge bg="success">Active</Badge>;
-      case 'pending':
-        return <Badge bg="warning">Pending</Badge>;
-      case 'suspended':
-        return <Badge bg="danger">Suspended</Badge>;
-      default:
-        return <Badge bg="secondary">{status}</Badge>;
-    }
+  const formatRelativeTime = (value) => {
+    if (!value) return 'N/A';
+    const diff = Date.now() - new Date(value).getTime();
+    const minutes = Math.floor(diff / 60000);
+    const hours = Math.floor(minutes / 60);
+    const days = Math.floor(hours / 24);
+
+    if (minutes < 1) return 'Just now';
+    if (minutes < 60) return `${minutes}m ago`;
+    if (hours < 24) return `${hours}h ago`;
+    if (days < 7) return `${days}d ago`;
+    return formatDate(value);
   };
 
-  if (loading && !refreshing) {
+  const getUserTypeBadge = (userType) => {
+    const config = {
+      company: { label: 'Company', color: 'bg-amber-100 text-amber-700' },
+      institute: { label: 'Institute', color: 'bg-sky-100 text-sky-700' },
+      entrepreneur: { label: 'Entrepreneur', color: 'bg-emerald-100 text-emerald-700' },
+      youth: { label: 'Youth', color: 'bg-indigo-100 text-indigo-700' },
+      student: { label: 'Student', color: 'bg-slate-100 text-slate-700' },
+      employer: { label: 'Employer', color: 'bg-slate-100 text-slate-700' },
+      mentor: { label: 'Mentor', color: 'bg-purple-100 text-purple-700' },
+      parent: { label: 'Parent', color: 'bg-pink-100 text-pink-700' },
+    };
+    const c = config[userType] || { label: userType, color: 'bg-slate-100 text-slate-700' };
     return (
-      <div className="admin-dashboard-loading">
-        <Spinner animation="border" variant="primary" />
-        <span className="ms-2">Loading Admin Dashboard...</span>
-      </div>
+      <span
+        className={`inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide ${c.color}`}
+      >
+        {c.label}
+      </span>
+    );
+  };
+
+  const statCards = useMemo(
+    () => [
+      {
+        title: 'Total Users',
+        value: stats.totalUsers,
+        change: statsChange.users,
+        accent: 'text-brand-600',
+        bg: 'bg-brand-100',
+        icon: FaUsers,
+        action: '/admin/users',
+      },
+      {
+        title: 'Companies',
+        value: stats.activeCompanies,
+        change: statsChange.companies,
+        accent: 'text-sky-600',
+        bg: 'bg-sky-100',
+        icon: FaBuilding,
+        action: '/admin/companies',
+      },
+      {
+        title: 'Active Jobs',
+        value: stats.activeJobs,
+        change: statsChange.jobs,
+        accent: 'text-amber-600',
+        bg: 'bg-amber-100',
+        icon: FaBriefcase,
+        action: '/admin/jobs',
+      },
+      {
+        title: 'Pending Approvals',
+        value: stats.pendingApprovals,
+        change: statsChange.approvals,
+        accent: 'text-red-600',
+        bg: 'bg-red-100',
+        icon: FaClock,
+        action: '/admin/pending-approvals',
+      },
+    ],
+    [stats, statsChange]
+  );
+
+  if (!isAdmin) {
+    return (
+      <main className="min-h-screen bg-slate-50 px-4 py-6 dark:bg-slate-950">
+        <div className="mx-auto max-w-4xl">
+          <Card>
+            <CardBody>
+              <div className="rounded-lg border border-red-200 bg-red-50 p-6 text-red-700">
+                <FaTimesCircle className="mb-3 h-10 w-10" />
+                <h2 className="text-xl font-semibold">Access Denied</h2>
+                <p className="mt-1 text-sm">
+                  You must be an administrator to access the dashboard.
+                </p>
+              </div>
+            </CardBody>
+          </Card>
+        </div>
+      </main>
     );
   }
 
   return (
-    <Container fluid className="admin-dashboard">
-      {/* Header */}
-      <div className="dashboard-header mb-4">
-        <div className="d-flex justify-content-between align-items-center">
-          <div>
-            <h1 className="dashboard-title">
-              <FaChartLine className="me-2" />
-              Admin Dashboard
-            </h1>
-            <p className="dashboard-subtitle text-muted">
-              Welcome back, {userProfile?.displayName || 'Administrator'}
-            </p>
+    <main className="min-h-screen bg-slate-50 px-4 py-6 dark:bg-slate-950 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-[1600px]">
+        {/* Header */}
+        <header className="mb-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-brand-600">
+                Admin Dashboard
+              </p>
+              <h1 className="mt-2 text-3xl font-bold text-slate-900 dark:text-slate-100">
+                Welcome back, {userProfile?.displayName || 'Administrator'}
+              </h1>
+              <p className="mt-1 text-sm text-slate-500">
+                Here's what's happening across the platform today.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <select
+                value={timeRange}
+                onChange={(e) => setTimeRange(e.target.value)}
+                className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm focus:border-brand-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800"
+              >
+                <option value="day">Today</option>
+                <option value="week">This Week</option>
+                <option value="month">This Month</option>
+                <option value="year">This Year</option>
+              </select>
+              <Button variant="outline" size="sm" onClick={handleExportReport}>
+                <FaDownload className="mr-2" /> Export Report
+              </Button>
+              <Button variant="outline" size="sm" onClick={handleRefresh} disabled={refreshing}>
+                <FaSync className={`mr-2 ${refreshing ? 'animate-spin' : ''}`} />
+                Refresh
+              </Button>
+            </div>
           </div>
-          <Button variant="outline-primary" onClick={handleRefresh} disabled={refreshing}>
-            <FaSync className={refreshing ? 'fa-spin' : ''} />
-            <span className="ms-2">Refresh</span>
-          </Button>
+        </header>
+
+        {error && (
+          <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+            <div className="flex items-center justify-between">
+              <span>{error}</span>
+              <button onClick={() => setError('')} className="text-red-500 hover:text-red-700">
+                <FaTimes />
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Stats Grid */}
+        <div className="mb-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          {statCards.map((item) => {
+            const Icon = item.icon;
+            const isPositive = item.change >= 0;
+            return (
+              <div
+                key={item.title}
+                className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm transition hover:shadow-md dark:border-slate-700 dark:bg-slate-900"
+              >
+                <div className="flex items-start justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-slate-500">{item.title}</p>
+                    <h2 className={`mt-2 text-3xl font-bold ${item.accent}`}>
+                      {loading ? '—' : item.value.toLocaleString()}
+                    </h2>
+                  </div>
+                  <span
+                    className={`flex h-11 w-11 items-center justify-center rounded-lg ${item.bg}`}
+                  >
+                    <Icon className={`h-5 w-5 ${item.accent}`} />
+                  </span>
+                </div>
+                <div className="mt-3 flex items-center justify-between">
+                  <div
+                    className={`flex items-center gap-1 text-xs font-semibold ${
+                      isPositive ? 'text-emerald-600' : 'text-red-600'
+                    }`}
+                  >
+                    {isPositive ? <FaArrowUp /> : <FaArrowDown />}
+                    {Math.abs(item.change)}%
+                    <span className="font-normal text-slate-400">vs last period</span>
+                  </div>
+                  <button
+                    onClick={() => navigate(item.action)}
+                    className="text-xs font-semibold text-brand-600 hover:text-brand-700"
+                  >
+                    View →
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Main Grid */}
+        <div className="mb-6 grid gap-6 xl:grid-cols-[2fr_1fr]">
+          <div className="space-y-6">
+            {/* Platform Conversation */}
+            <SocialDashboardSection
+              audience="admin"
+              title="Platform Conversation"
+              subtitle="Monitor community activity and keep the platform aligned with real user momentum."
+            />
+
+            {/* Pending Approvals */}
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <FaClock className="text-amber-600" />
+                    <h2 className="text-base font-semibold text-slate-900 dark:text-slate-100">
+                      Pending Approvals
+                    </h2>
+                  </div>
+                  <span className="rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-700">
+                    {pendingApprovals.length}
+                  </span>
+                </div>
+              </CardHeader>
+              <CardBody className="p-0">
+                {loading ? (
+                  <div className="flex flex-col items-center justify-center py-12">
+                    <div className="h-8 w-8 animate-spin rounded-full border-4 border-brand-200 border-t-brand-600" />
+                    <p className="mt-3 text-sm text-slate-500">Loading...</p>
+                  </div>
+                ) : pendingApprovals.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-12">
+                    <FaCheckCircle className="mb-3 h-10 w-10 text-emerald-400" />
+                    <p className="text-sm text-slate-500">No pending approvals</p>
+                  </div>
+                ) : (
+                  <div className="divide-y divide-slate-200 dark:divide-slate-700">
+                    {pendingApprovals.slice(0, 5).map((user) => (
+                      <div
+                        key={user.id}
+                        className="flex flex-col gap-3 p-4 md:flex-row md:items-center md:justify-between"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-brand-100 text-brand-700">
+                            <FaUserPlus />
+                          </div>
+                          <div>
+                            <p className="font-medium text-slate-800 dark:text-slate-100">
+                              {user.displayName || 'Unknown User'}
+                            </p>
+                            <p className="flex items-center gap-1 text-xs text-slate-500">
+                              <FaEnvelope className="h-3 w-3" />
+                              {user.email}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {getUserTypeBadge(user.userType)}
+                          <button
+                            onClick={() => {
+                              setSelectedUser(user);
+                              setShowApproveModal(true);
+                            }}
+                            className="rounded-lg border border-emerald-200 px-3 py-1.5 text-xs font-semibold text-emerald-600 transition hover:bg-emerald-50"
+                          >
+                            Approve
+                          </button>
+                          <button
+                            onClick={() => {
+                              setSelectedUser(user);
+                              setShowRejectModal(true);
+                            }}
+                            className="rounded-lg border border-red-200 px-3 py-1.5 text-xs font-semibold text-red-600 transition hover:bg-red-50"
+                          >
+                            Reject
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                    {pendingApprovals.length > 5 && (
+                      <div className="p-4 text-center">
+                        <button
+                          onClick={() => navigate('/admin/pending-approvals')}
+                          className="text-sm font-semibold text-brand-600 hover:text-brand-700"
+                        >
+                          View all {pendingApprovals.length} pending approvals →
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </CardBody>
+            </Card>
+
+            {/* Recent Activities */}
+            <Card>
+              <CardHeader>
+                <div className="flex items-center gap-2">
+                  <FaHistory className="text-slate-500" />
+                  <h2 className="text-base font-semibold text-slate-900 dark:text-slate-100">
+                    Recent System Activities
+                  </h2>
+                </div>
+              </CardHeader>
+              <CardBody className="p-0">
+                {loading ? (
+                  <div className="flex flex-col items-center justify-center py-12">
+                    <div className="h-8 w-8 animate-spin rounded-full border-4 border-brand-200 border-t-brand-600" />
+                  </div>
+                ) : recentActivities.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-12">
+                    <FaHistory className="mb-3 h-10 w-10 text-slate-300" />
+                    <p className="text-sm text-slate-500">No recent activity</p>
+                  </div>
+                ) : (
+                  <div className="divide-y divide-slate-200 dark:divide-slate-700">
+                    {recentActivities.slice(0, 6).map((activity) => (
+                      <div key={activity.id} className="flex items-start gap-3 p-4">
+                        <span className="mt-1.5 flex h-2 w-2 flex-shrink-0 rounded-full bg-brand-500" />
+                        <div className="flex-1">
+                          <p className="text-sm text-slate-700 dark:text-slate-200">
+                            {activity.description}
+                          </p>
+                          <p className="mt-0.5 text-xs text-slate-500">
+                            {formatRelativeTime(activity.timestamp)}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardBody>
+            </Card>
+          </div>
+
+          {/* Sidebar */}
+          <aside className="space-y-6">
+            {/* Quick Actions */}
+            <Card>
+              <CardHeader>
+                <h2 className="text-base font-semibold text-slate-900 dark:text-slate-100">
+                  Quick Actions
+                </h2>
+              </CardHeader>
+              <CardBody>
+                <div className="grid gap-2">
+                  <Button
+                    variant="outline"
+                    onClick={() => navigate('/admin/pending-approvals')}
+                    className="justify-start"
+                  >
+                    <FaUserCheck className="mr-2" /> Review Approvals
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => navigate('/admin/companies')}
+                    className="justify-start"
+                  >
+                    <FaBuilding className="mr-2" /> Manage Companies
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => navigate('/admin/jobs')}
+                    className="justify-start"
+                  >
+                    <FaBriefcase className="mr-2" /> Review Jobs
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => navigate('/admin/users')}
+                    className="justify-start"
+                  >
+                    <FaUsers className="mr-2" /> User Management
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => navigate('/admin/admissions')}
+                    className="justify-start"
+                  >
+                    <FaGraduationCap className="mr-2" /> Admissions
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => navigate('/admin/audit')}
+                    className="justify-start"
+                  >
+                    <FaHistory className="mr-2" /> Audit Logs
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => navigate('/admin/reports')}
+                    className="justify-start"
+                  >
+                    <FaFileAlt className="mr-2" /> System Reports
+                  </Button>
+                </div>
+              </CardBody>
+            </Card>
+
+            {/* System Status */}
+            <Card>
+              <CardHeader>
+                <h2 className="text-base font-semibold text-slate-900 dark:text-slate-100">
+                  System Status
+                </h2>
+              </CardHeader>
+              <CardBody>
+                <div className="space-y-3 text-sm">
+                  {[
+                    { label: 'Database', status: systemStatus.database },
+                    { label: 'Storage', status: systemStatus.storage },
+                    { label: 'API', status: systemStatus.api },
+                    { label: 'Email Service', status: systemStatus.email },
+                  ].map((item) => (
+                    <div key={item.label} className="flex items-center justify-between">
+                      <span className="text-slate-600 dark:text-slate-300">{item.label}</span>
+                      <span
+                        className={`rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide ${
+                          item.status === 'online'
+                            ? 'bg-emerald-100 text-emerald-700'
+                            : 'bg-red-100 text-red-700'
+                        }`}
+                      >
+                        {item.status || 'unknown'}
+                      </span>
+                    </div>
+                  ))}
+                  <div className="flex items-center justify-between border-t border-slate-200 pt-3 dark:border-slate-700">
+                    <span className="text-slate-600 dark:text-slate-300">Last Updated</span>
+                    <span className="text-xs text-slate-500">
+                      {formatRelativeTime(systemStatus.lastUpdated)}
+                    </span>
+                  </div>
+                </div>
+              </CardBody>
+            </Card>
+
+            {/* Top Companies */}
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <h2 className="text-base font-semibold text-slate-900 dark:text-slate-100">
+                    Top Companies
+                  </h2>
+                  <button
+                    onClick={() => navigate('/admin/companies')}
+                    className="text-xs font-semibold text-brand-600 hover:text-brand-700"
+                  >
+                    View All
+                  </button>
+                </div>
+              </CardHeader>
+              <CardBody className="p-0">
+                {topCompanies.length === 0 ? (
+                  <div className="p-6 text-center text-sm text-slate-500">
+                    No company data available
+                  </div>
+                ) : (
+                  <div className="divide-y divide-slate-200 dark:divide-slate-700">
+                    {topCompanies.map((company, idx) => (
+                      <div key={company.id} className="flex items-center gap-3 p-3">
+                        <span className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-100 text-xs font-bold text-slate-600 dark:bg-slate-800">
+                          {idx + 1}
+                        </span>
+                        <div className="flex-1 min-w-0">
+                          <p className="truncate text-sm font-medium text-slate-800 dark:text-slate-100">
+                            {company.companyName || company.name}
+                          </p>
+                          <p className="text-xs text-slate-500">
+                            {company.activeJobs || 0} active jobs
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardBody>
+            </Card>
+
+            {/* Chart placeholder */}
+            <Card>
+              <CardHeader>
+                <div className="flex items-center gap-2">
+                  <FaChartLine className="text-brand-600" />
+                  <h2 className="text-base font-semibold text-slate-900 dark:text-slate-100">
+                    Growth Trends
+                  </h2>
+                </div>
+              </CardHeader>
+              <CardBody>
+                <div className="space-y-3">
+                  {chartData.length === 0 ? (
+                    <p className="text-center text-sm text-slate-500">No chart data available</p>
+                  ) : (
+                    chartData.slice(0, 5).map((point, idx) => (
+                      <div key={idx}>
+                        <div className="mb-1 flex items-center justify-between text-xs">
+                          <span className="text-slate-600 dark:text-slate-300">
+                            {point.label}
+                          </span>
+                          <span className="font-semibold text-slate-800 dark:text-slate-100">
+                            {point.value}
+                          </span>
+                        </div>
+                        <div className="h-2 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
+                          <div
+                            className="h-full rounded-full bg-brand-500 transition-all"
+                            style={{
+                              width: `${Math.min(100, (point.value / (stats.totalUsers || 1)) * 100)}%`,
+                            }}
+                          />
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </CardBody>
+            </Card>
+          </aside>
         </div>
       </div>
 
-      {/* Error Alert */}
-      {error && (
-        <Alert variant="danger" onClose={() => setError(null)} dismissible>
-          <FaExclamationTriangle className="me-2" />
-          {error}
-        </Alert>
-      )}
+      {/* Approve Modal */}
+      <Modal
+        isOpen={showApproveModal}
+        onClose={() => {
+          setShowApproveModal(false);
+          setSelectedUser(null);
+        }}
+        title="Approve User"
+      >
+        <p className="text-sm text-slate-600 dark:text-slate-300">
+          Are you sure you want to approve{' '}
+          <strong>{selectedUser?.displayName || selectedUser?.email}</strong>?
+        </p>
+        <div className="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-700">
+          The user will be notified and gain access to the platform.
+        </div>
+        <div className="mt-6 flex justify-end gap-2">
+          <Button
+            variant="outline"
+            onClick={() => {
+              setShowApproveModal(false);
+              setSelectedUser(null);
+            }}
+          >
+            Cancel
+          </Button>
+          <Button variant="primary" onClick={handleApproveUser} disabled={actionLoading}>
+            {actionLoading ? 'Approving...' : 'Approve User'}
+          </Button>
+        </div>
+      </Modal>
 
-      <div className="mb-4">
-        <SocialDashboardSection
-          audience="admin"
-          title="Platform Conversation"
-          subtitle="See what users, companies, mentors, and institutions are sharing across the ecosystem in real time."
-        />
-      </div>
-
-      {/* Quick Stats Cards */}
-      <Row className="mb-4">
-        <Col xl={3} lg={6} md={6} sm={12} className="mb-4">
-          <Card className="stat-card users-card h-100">
-            <Card.Body>
-              <div className="d-flex justify-content-between align-items-center">
-                <div>
-                  <h6 className="stat-label text-muted">Total Users</h6>
-                  <h2 className="stat-value">{quickStats.totalUsers}</h2>
-                  <div className="stat-change text-success">
-                    <FaArrowUp className="me-1" />
-                    <span>{quickStats.newRegistrations} new this week</span>
-                  </div>
-                </div>
-                <div className="stat-icon">
-                  <FaUsers />
-                </div>
-              </div>
-              <Button
-                variant="outline-primary"
-                size="sm"
-                className="mt-3 w-100"
-                onClick={handleViewAllUsers}
-              >
-                <FaEye className="me-1" />
-                View All Users
-              </Button>
-            </Card.Body>
-          </Card>
-        </Col>
-
-        <Col xl={3} lg={6} md={6} sm={12} className="mb-4">
-          <Card className="stat-card companies-card h-100">
-            <Card.Body>
-              <div className="d-flex justify-content-between align-items-center">
-                <div>
-                  <h6 className="stat-label text-muted">Companies</h6>
-                  <h2 className="stat-value">{stats?.summary?.activeCompanies || 0}</h2>
-                  <div className="stat-change text-info">
-                    <span>{stats?.userStats?.byType?.company || 0} registered</span>
-                  </div>
-                </div>
-                <div className="stat-icon">
-                  <FaBuilding />
-                </div>
-              </div>
-              <Button
-                variant="outline-info"
-                size="sm"
-                className="mt-3 w-100"
-                onClick={handleViewAllCompanies}
-              >
-                <FaEye className="me-1" />
-                Manage Companies
-              </Button>
-            </Card.Body>
-          </Card>
-        </Col>
-
-        <Col xl={3} lg={6} md={6} sm={12} className="mb-4">
-          <Card className="stat-card jobs-card h-100">
-            <Card.Body>
-              <div className="d-flex justify-content-between align-items-center">
-                <div>
-                  <h6 className="stat-label text-muted">Active Jobs</h6>
-                  <h2 className="stat-value">{quickStats.activeJobs}</h2>
-                  <div className="stat-change text-warning">
-                    <span>Need approval: {stats?.collectionCounts?.jobs || 0}</span>
-                  </div>
-                </div>
-                <div className="stat-icon">
-                  <FaBriefcase />
-                </div>
-              </div>
-              <Button
-                variant="outline-warning"
-                size="sm"
-                className="mt-3 w-100"
-                onClick={handleViewAllJobs}
-              >
-                <FaEye className="me-1" />
-                Review Jobs
-              </Button>
-            </Card.Body>
-          </Card>
-        </Col>
-
-        <Col xl={3} lg={6} md={6} sm={12} className="mb-4">
-          <Card className="stat-card pending-card h-100">
-            <Card.Body>
-              <div className="d-flex justify-content-between align-items-center">
-                <div>
-                  <h6 className="stat-label text-muted">Pending Approvals</h6>
-                  <h2 className="stat-value">{quickStats.pendingApprovals}</h2>
-                  <div className="stat-change text-danger">
-                    <FaExclamationTriangle className="me-1" />
-                    <span>Action Required</span>
-                  </div>
-                </div>
-                <div className="stat-icon">
-                  <FaUserClock />
-                </div>
-              </div>
-              <Button
-                variant="outline-danger"
-                size="sm"
-                className="mt-3 w-100"
-                onClick={handleViewAllPending}
-              >
-                <FaEye className="me-1" />
-                Review Now
-              </Button>
-            </Card.Body>
-          </Card>
-        </Col>
-      </Row>
-
-      {/* Main Content */}
-      <Row>
-        {/* Left Column - Pending Approvals */}
-        <Col lg={8} className="mb-4">
-          <Card className="mb-4">
-            <Card.Header className="d-flex justify-content-between align-items-center">
-              <h5 className="mb-0">
-                <FaUserClock className="me-2 text-warning" />
-                Pending Approvals
-              </h5>
-              <Badge bg="warning" pill>
-                {stats?.pendingApprovals?.length || 0}
-              </Badge>
-            </Card.Header>
-            <Card.Body>
-              {stats?.pendingApprovals?.length > 0 ? (
-                <div className="table-responsive">
-                  <Table hover className="mb-0">
-                    <thead>
-                      <tr>
-                        <th>User</th>
-                        <th>Type</th>
-                        <th>Registered</th>
-                        <th>Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {stats.pendingApprovals.map((user) => (
-                        <tr key={user.id}>
-                          <td>
-                            <div className="d-flex align-items-center">
-                              <div>
-                                <strong>{user.displayName || user.email}</strong>
-                                <div className="text-muted small">{user.email}</div>
-                              </div>
-                            </div>
-                          </td>
-                          <td>
-                            <Badge bg="info">{user.userType || 'N/A'}</Badge>
-                          </td>
-                          <td>
-                            <span className="small">{formatDate(user.createdAt)}</span>
-                          </td>
-                          <td>
-                            <div className="btn-group btn-group-sm">
-                              <Button
-                                variant="outline-success"
-                                size="sm"
-                                onClick={() => handleApproveUser(user.id)}
-                              >
-                                <FaCheckCircle className="me-1" />
-                                Approve
-                              </Button>
-                              <Button
-                                variant="outline-danger"
-                                size="sm"
-                                onClick={() => navigate(`/admin/users/${user.id}`)}
-                              >
-                                <FaTimesCircle className="me-1" />
-                                Reject
-                              </Button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </Table>
-                </div>
-              ) : (
-                <Alert variant="success" className="mb-0">
-                  <FaUserCheck className="me-2" />
-                  No pending approvals! All users are approved.
-                </Alert>
-              )}
-              <div className="text-center mt-3">
-                <Button variant="outline-primary" onClick={handleViewAllPending}>
-                  View All Pending Approvals
-                </Button>
-              </div>
-            </Card.Body>
-          </Card>
-
-          {/* Recent Activities */}
-          <Card>
-            <Card.Header>
-              <h5 className="mb-0">
-                <FaChartLine className="me-2 text-info" />
-                Recent System Activities
-              </h5>
-            </Card.Header>
-            <Card.Body>
-              {stats?.recentActivities?.length > 0 ? (
-                <div className="activity-timeline">
-                  {stats.recentActivities.map((activity) => (
-                    <div key={activity.id} className="activity-item">
-                      <div className="activity-icon">
-                        <FaChartLine className="text-primary" />
-                      </div>
-                      <div className="activity-content">
-                        <div className="activity-title">{activity.description || 'Activity'}</div>
-                        <div className="activity-meta">
-                          <span className="text-muted">{formatDate(activity.timestamp)}</span>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <Alert variant="info" className="mb-0">
-                  No recent activities found.
-                </Alert>
-              )}
-            </Card.Body>
-          </Card>
-        </Col>
-
-        {/* Right Column - User Breakdown & Quick Actions */}
-        <Col lg={4} className="mb-4">
-          {/* User Breakdown */}
-          <Card className="mb-4">
-            <Card.Header>
-              <h5 className="mb-0">
-                <FaUsers className="me-2 text-primary" />
-                User Breakdown
-              </h5>
-            </Card.Header>
-            <Card.Body>
-              {stats?.userStats?.byType && Object.keys(stats.userStats.byType).length > 0 ? (
-                <>
-                  {Object.entries(stats.userStats.byType).map(([type, count]) => {
-                    const percentage =
-                      stats.userStats.total > 0 ? (count / stats.userStats.total) * 100 : 0;
-                    return (
-                      <div key={type} className="user-type-item mb-3">
-                        <div className="d-flex justify-content-between mb-1">
-                          <span className="text-capitalize">{type}</span>
-                          <span className="fw-bold">{count}</span>
-                        </div>
-                        <ProgressBar
-                          now={percentage}
-                          variant="primary"
-                          className="user-progress"
-                          label={`${Math.round(percentage)}%`}
-                        />
-                      </div>
-                    );
-                  })}
-                  <div className="text-center mt-3">
-                    <small className="text-muted">Total Users: {stats.userStats.total}</small>
-                  </div>
-                </>
-              ) : (
-                <Alert variant="info" className="mb-0">
-                  No user data available.
-                </Alert>
-              )}
-            </Card.Body>
-          </Card>
-
-          {/* Quick Actions */}
-          <Card>
-            <Card.Header>
-              <h5 className="mb-0">
-                <FaBriefcase className="me-2 text-success" />
-                Quick Actions
-              </h5>
-            </Card.Header>
-            <Card.Body>
-              <div className="quick-actions-grid">
-                <Button
-                  variant="outline-primary"
-                  className="action-btn"
-                  onClick={() => navigate('/admin/users')}
-                >
-                  <FaUsers className="me-2" />
-                  Manage Users
-                </Button>
-
-                <Button
-                  variant="outline-info"
-                  className="action-btn"
-                  onClick={() => navigate('/admin/companies')}
-                >
-                  <FaBuilding className="me-2" />
-                  Manage Companies
-                </Button>
-
-                <Button
-                  variant="outline-warning"
-                  className="action-btn"
-                  onClick={() => navigate('/admin/jobs')}
-                >
-                  <FaBriefcase className="me-2" />
-                  Review Jobs
-                </Button>
-
-                <Button
-                  variant="outline-danger"
-                  className="action-btn"
-                  onClick={() => navigate('/admin/pending-approvals')}
-                >
-                  <FaUserClock className="me-2" />
-                  Pending Approvals
-                </Button>
-
-                <Button
-                  variant="outline-success"
-                  className="action-btn"
-                  onClick={() => navigate('/admin/admins')}
-                >
-                  <FaShieldAlt className="me-2" />
-                  Manage Admins
-                </Button>
-
-                <Button
-                  variant="outline-success"
-                  className="action-btn"
-                  onClick={() => navigate('/admin/settings')}
-                >
-                  <FaChartLine className="me-2" />
-                  System Settings
-                </Button>
-              </div>
-            </Card.Body>
-          </Card>
-
-          {/* System Status */}
-          <Card className="mt-4">
-            <Card.Header>
-              <h5 className="mb-0">
-                <FaChartLine className="me-2 text-secondary" />
-                System Status
-              </h5>
-            </Card.Header>
-            <Card.Body>
-              <div className="system-status">
-                <div className="status-item mb-2">
-                  <span className="status-label">Database</span>
-                  <Badge bg={error ? 'danger' : 'success'}>{error ? 'Degraded' : 'Online'}</Badge>
-                </div>
-                <div className="status-item mb-2">
-                  <span className="status-label">Last Updated</span>
-                  <span className="status-value">
-                    {stats?.timestamp ? formatDate(stats.timestamp) : 'N/A'}
-                  </span>
-                </div>
-                <div className="status-item">
-                  <span className="status-label">Signals</span>
-                  <Badge bg="info">
-                    {stats?.recentActivities?.length || 0} recent activity events
-                  </Badge>
-                </div>
-              </div>
-            </Card.Body>
-          </Card>
-        </Col>
-      </Row>
-    </Container>
+      {/* Reject Modal */}
+      <Modal
+        isOpen={showRejectModal}
+        onClose={() => {
+          setShowRejectModal(false);
+          setRejectReason('');
+          setSelectedUser(null);
+        }}
+        title="Reject User"
+      >
+        <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-700">
+          This will notify the user that their registration was not approved.
+        </div>
+        <p className="mt-4 text-sm text-slate-600 dark:text-slate-300">
+          Are you sure you want to reject{' '}
+          <strong>{selectedUser?.displayName || selectedUser?.email}</strong>?
+        </p>
+        <div className="mt-4">
+          <label className="text-sm font-medium text-slate-700 dark:text-slate-200">
+            Reason for rejection *
+          </label>
+          <textarea
+            value={rejectReason}
+            onChange={(e) => setRejectReason(e.target.value)}
+            rows={4}
+            placeholder="Provide a clear reason for rejection..."
+            className="mt-1 w-full rounded-lg border border-slate-200 p-3 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200 dark:border-slate-700 dark:bg-slate-800"
+          />
+        </div>
+        <div className="mt-6 flex justify-end gap-2">
+          <Button
+            variant="outline"
+            onClick={() => {
+              setShowRejectModal(false);
+              setRejectReason('');
+              setSelectedUser(null);
+            }}
+          >
+            Cancel
+          </Button>
+          <Button
+            variant="danger"
+            onClick={handleRejectUser}
+            disabled={actionLoading || !rejectReason.trim()}
+          >
+            {actionLoading ? 'Rejecting...' : 'Reject User'}
+          </Button>
+        </div>
+      </Modal>
+    </main>
   );
 };
 

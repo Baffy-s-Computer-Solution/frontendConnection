@@ -18,28 +18,28 @@ import {
   Modal,
   ProgressBar,
   Dropdown,
-} from 'react-bootstrap';
+} from '../../components/ui/tailwindOnly';
 import {
   Search,
   Filter,
-  Person,
-  Building,
+  UserRound,
+  Building2,
   Star,
   Eye,
-  Calendar,
+  CalendarDays,
   FileText,
   Download,
   Phone,
-  CheckCircle,
+  CheckCircle2,
   XCircle,
-  Clock,
-  GeoAlt, // Fixed: Changed from MapPin to GeoAlt
-  Briefcase, // Added: For job title
-} from 'react-bootstrap-icons';
+  Clock3,
+  MapPin,
+  BriefcaseBusiness,
+  UserRound as Person,
+} from 'lucide-react';
 import { collection, getDocs, query, where, doc, getDoc } from 'firebase/firestore';
 
 import { db } from '../../config/firebase';
-import './CompanyCandidates.css';
 
 const CompanyCandidates = () => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -943,3 +943,6 @@ const CompanyCandidates = () => {
 };
 
 export default CompanyCandidates;
+
+
+

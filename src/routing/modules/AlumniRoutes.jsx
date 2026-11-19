@@ -1,5 +1,5 @@
 import { lazy } from 'react';
-import { Route } from 'react-router-dom';
+import { Navigate, Route } from 'react-router-dom';
 
 import ProtectedRoute from '../../components/layout/ProtectedRoute';
 
@@ -10,8 +10,21 @@ const AlumniMentorship = lazy(() => import('../../pages/alumni/AlumniMentorship'
 const AlumniDonations = lazy(() => import('../../pages/alumni/AlumniDonations'));
 const AlumniEvents = lazy(() => import('../../pages/alumni/AlumniEvents'));
 const AlumniStories = lazy(() => import('../../pages/alumni/AlumniStories'));
+const AlumniDirectory = lazy(() => import('../../pages/alumni/AlumniDirectory'));
+const AlumniMentorshipProgram = lazy(() => import('../../pages/alumni/AlumniMentorshipProgram'));
+const AlumniCareerBoard = lazy(() => import('../../pages/alumni/AlumniCareerBoard'));
+const AlumniSettings = lazy(() => import('../../pages/alumni/AlumniSettings'));
 
 export const getAlumniRoutes = () => [
+  <Route
+    key="alumni-root"
+    path="/alumni"
+    element={
+      <ProtectedRoute allowedUserTypes={['alumni', 'admin']}>
+        <Navigate to="/alumni/dashboard" replace />
+      </ProtectedRoute>
+    }
+  />,
   <Route
     key="alumni-alumni-dashboard"
     path="/alumni/dashboard"
@@ -75,6 +88,10 @@ export const getAlumniRoutes = () => [
       </ProtectedRoute>
     }
   />,
+  <Route key="alumni-directory" path="/alumni/directory" element={<ProtectedRoute allowedUserTypes={['alumni', 'admin']}><AlumniDirectory /></ProtectedRoute>} />,
+  <Route key="alumni-mentorship-program" path="/alumni/mentorship-program" element={<ProtectedRoute allowedUserTypes={['alumni', 'admin']}><AlumniMentorshipProgram /></ProtectedRoute>} />,
+  <Route key="alumni-career-board" path="/alumni/careers" element={<ProtectedRoute allowedUserTypes={['alumni', 'admin']}><AlumniCareerBoard /></ProtectedRoute>} />,
+  <Route key="alumni-settings" path="/alumni/settings" element={<ProtectedRoute allowedUserTypes={['alumni', 'admin']}><AlumniSettings /></ProtectedRoute>} />,
 ];
 
 export default getAlumniRoutes;

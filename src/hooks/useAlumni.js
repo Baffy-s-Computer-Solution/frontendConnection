@@ -30,6 +30,26 @@ export const useAlumni = () => {
       return;
     }
 
+    const storedProfile = typeof window !== 'undefined' ? JSON.parse(localStorage.getItem('userProfile') || '{}') : {};
+    const userRole = user?.role || user?.userType || storedProfile?.userType || storedProfile?.role;
+
+    if (userRole !== 'alumni' && userRole !== 'admin') {
+      setOverview(null);
+      setModels([]);
+      setInsights([]);
+      setHistory([]);
+      setPredictions([]);
+      setRecommendations([]);
+      setEngagementMetrics(null);
+      setNetworkSuggestions([]);
+      setDonationImpact(null);
+      setUpcomingEvents([]);
+      setSuccessStories([]);
+      setInitialized(true);
+      setLoading(false);
+      return;
+    }
+
     if (!user?.uid) {
       console.warn('No user UID available for fetching alumni data');
       return;

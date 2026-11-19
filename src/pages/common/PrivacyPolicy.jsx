@@ -1,8 +1,20 @@
-import { motion } from 'framer-motion';
-import { Shield, Lock, Eye, Database, Mail, Clock } from 'lucide-react';
-import './CommonPages.css';
+import { Link } from 'react-router-dom';
+import { ShieldCheck } from 'lucide-react';
 
-const PrivacyPolicy = () => {
+const PrivacyPolicy = () => (
+  <main className="min-h-screen bg-slate-50 px-4 py-16 text-slate-900 dark:bg-slate-950 dark:text-white">
+    <article className="mx-auto max-w-3xl rounded-2xl border border-slate-200 bg-white p-8 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:p-12">
+      <ShieldCheck className="mb-5 h-10 w-10 text-indigo-600" aria-hidden="true" />
+      <p className="mb-2 text-sm font-semibold uppercase tracking-widest text-indigo-600">Career Connect Lesotho</p>
+      <h1 className="mb-4 text-3xl font-bold">Privacy notice</h1>
+      <p className="mb-6 text-slate-600 dark:text-slate-300">A complete privacy policy has not yet been published for this service. This page does not describe or promise specific data practices.</p>
+      <p className="mb-8 text-slate-600 dark:text-slate-300">For questions about account information or privacy, contact the platform team before sharing sensitive information.</p>
+      <div className="flex flex-wrap gap-3"><Link className="rounded-lg bg-indigo-600 px-4 py-2 font-medium text-white hover:bg-indigo-700" to="/contact">Contact the platform team</Link><Link className="rounded-lg border border-slate-300 px-4 py-2 font-medium dark:border-slate-700" to="/">Return home</Link></div>
+    </article>
+  </main>
+);
+
+const LegacyPrivacyPolicy = () => {
   const lastUpdated = 'March 1, 2026';
 
   const sections = [
@@ -40,7 +52,7 @@ const PrivacyPolicy = () => {
       icon: Clock,
       title: 'Data Retention',
       content:
-        'We retain your information as long as your account is active or as needed to provide services. You can request data deletion at any time.',
+        'We retain your information as your account is active or as needed to provide services. You can request data deletion at any time.',
     },
   ];
 

@@ -1,64 +1,16 @@
-/* eslint-disable react-hooks/exhaustive-deps */
-import { useState, useEffect } from 'react';
-import {
-  Container,
-  Paper,
-  Typography,
-  TextField,
-  Button,
-  Box,
-  Alert,
-  CircularProgress,
-  Link,
-  InputAdornment,
-  IconButton,
-  LinearProgress,
-} from '@mui/material';
-import { styled } from '@mui/material/styles';
+import { useEffect, useState } from 'react';
+import { CheckCircle2, CircleAlert, LockKeyhole, RefreshCw } from 'lucide-react';
 import { confirmPasswordReset, verifyPasswordResetCode } from 'firebase/auth';
-import { useNavigate, useLocation } from 'react-router-dom';
-import {
-  Lock as LockIcon,
-  Visibility as VisibilityIcon,
-  VisibilityOff as VisibilityOffIcon,
-  CheckCircle as CheckCircleIcon,
-  Error as ErrorIcon,
-} from '@mui/icons-material';
-
+import { useLocation, useNavigate } from 'react-router-dom';
+import Input from '../ui/Input';
+import Button from '../ui/Button';
 import { auth } from '../../config/firebase';
 
-const StyledPaper = styled(Paper)(({ theme }) => ({
-  marginTop: theme.spacing(8),
-  padding: theme.spacing(4),
-  display: 'flex',
-  flexDirection: 'column',
-  alignItems: 'center',
-  borderRadius: theme.spacing(2),
-  boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
-}));
+const strengthClasses = { weak: 'w-1/3 bg-danger', medium: 'w-2/3 bg-warning', strong: 'w-full bg-success' };
 
-const PasswordStrengthBar = styled(LinearProgress)(({ theme, strength }) => ({
-  height: 8,
-  borderRadius: 4,
-  marginTop: theme.spacing(1),
-  backgroundColor: theme.palette.grey[200],
-  '& .MuiLinearProgress-bar': {
-    backgroundColor:
-      strength === 'weak'
-        ? theme.palette.error.main
-        : strength === 'medium'
-          ? theme.palette.warning.main
-          : strength === 'strong'
-            ? theme.palette.success.main
-            : theme.palette.primary.main,
-  },
-}));
-
-const ResetPassword = () => {
+export default function ResetPassword() {
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [verifying, setVerifying] = useState(true);
   const [error, setError] = useState('');
@@ -66,341 +18,46 @@ const ResetPassword = () => {
   const [fieldErrors, setFieldErrors] = useState({});
   const [passwordStrength, setPasswordStrength] = useState('');
   const [email, setEmail] = useState('');
-
   const navigate = useNavigate();
   const location = useLocation();
-
-  // Get the oobCode (one-time code) from URL
   const queryParams = new URLSearchParams(location.search);
   const oobCode = queryParams.get('oobCode');
   const mode = queryParams.get('mode');
 
-  useEffect(() => {
-    verifyCode();
-  }, [oobCode]);
+  useEffect(() => { verifyCode(); }, [oobCode]);
 
   const verifyCode = async () => {
-    if (!oobCode || mode !== 'resetPassword') {
-      setError('Invalid or missing reset code');
-      setVerifying(false);
-      return;
-    }
-
-    try {
-      const email = await verifyPasswordResetCode(auth, oobCode);
-      setEmail(email);
-      setVerifying(false);
-    } catch (err) {
-      console.error('Code verification error:', err);
-
-      switch (err.code) {
-        case 'auth/expired-action-code':
-          setError('The reset link has expired. Please request a new one.');
-          break;
-        case 'auth/invalid-action-code':
-          setError('The reset link is invalid. Please request a new one.');
-          break;
-        case 'auth/user-disabled':
-          setError('This account has been disabled.');
-          break;
-        case 'auth/user-not-found':
-          setError('No account found for this reset link.');
-          break;
-        default:
-          setError('Failed to verify reset code. Please try again.');
-      }
-
-      setVerifying(false);
-    }
+    if (!oobCode || mode !== 'resetPassword') { setError('Invalid or missing reset code'); setVerifying(false); return; }
+    try { setEmail(await verifyPasswordResetCode(auth, oobCode)); } catch (verificationError) {
+      if (verificationError.code === 'auth/expired-action-code') setError('The reset link has expired. Please request a new one.');
+      else if (verificationError.code === 'auth/invalid-action-code') setError('The reset link is invalid. Please request a new one.');
+      else if (verificationError.code === 'auth/user-disabled') setError('This account has been disabled.');
+      else if (verificationError.code === 'auth/user-not-found') setError('No account found for this reset link.');
+      else setError('Failed to verify reset code. Please try again.');
+    } finally { setVerifying(false); }
   };
 
-  const validatePassword = (password) => {
-    const errors = [];
-
-    if (password.length < 8) {
-      errors.push('At least 8 characters');
-    }
-    if (!/[A-Z]/.test(password)) {
-      errors.push('One uppercase letter');
-    }
-    if (!/[a-z]/.test(password)) {
-      errors.push('One lowercase letter');
-    }
-    if (!/[0-9]/.test(password)) {
-      errors.push('One number');
-    }
-    if (!/[!@#$%^&*]/.test(password)) {
-      errors.push('One special character (!@#$%^&*)');
-    }
-
-    return errors;
+  const passwordErrors = (password) => [password.length < 8 && 'At least 8 characters', !/[A-Z]/.test(password) && 'One uppercase letter', !/[a-z]/.test(password) && 'One lowercase letter', !/[0-9]/.test(password) && 'One number', !/[!@#$%^&*]/.test(password) && 'One special character (!@#$%^&*)'].filter(Boolean);
+  const calculateStrength = (password) => { if (!password) return ''; let score = 0; if (password.length >= 8) score += 1; if (password.length >= 12) score += 1; if (/[A-Z]/.test(password)) score += 1; if (/[a-z]/.test(password)) score += 1; if (/[0-9]/.test(password)) score += 1; if (/[!@#$%^&*]/.test(password)) score += 1; return score <= 2 ? 'weak' : score <= 4 ? 'medium' : 'strong'; };
+  const handlePasswordChange = (event) => { const password = event.target.value; setNewPassword(password); setPasswordStrength(calculateStrength(password)); setFieldErrors((current) => ({ ...current, newPassword: '', confirmPassword: confirmPassword && password !== confirmPassword ? 'Passwords do not match' : '' })); };
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    const nextErrors = {};
+    const requirements = passwordErrors(newPassword);
+    if (!newPassword) nextErrors.newPassword = 'Password is required'; else if (requirements.length) nextErrors.newPassword = requirements.join(', ');
+    if (!confirmPassword) nextErrors.confirmPassword = 'Please confirm your password'; else if (newPassword !== confirmPassword) nextErrors.confirmPassword = 'Passwords do not match';
+    setFieldErrors(nextErrors);
+    if (Object.keys(nextErrors).length) return;
+    setLoading(true); setError('');
+    try { await confirmPasswordReset(auth, oobCode, newPassword); setSuccess(true); } catch (resetError) {
+      if (resetError.code === 'auth/expired-action-code') setError('The reset link has expired. Please request a new one.');
+      else if (resetError.code === 'auth/invalid-action-code') setError('The reset link is invalid. Please request a new one.');
+      else if (resetError.code === 'auth/weak-password') setError('Password is too weak. Please choose a stronger password.');
+      else setError('Failed to reset password. Please try again.');
+    } finally { setLoading(false); }
   };
 
-  const calculatePasswordStrength = (password) => {
-    if (!password) return '';
+  if (verifying) return <main className="flex min-h-screen items-center justify-center bg-slate-50 px-4 dark:bg-slate-950"><section className="w-full max-w-lg rounded-2xl border bg-white p-10 text-center shadow-pop dark:bg-slate-900"><RefreshCw className="mx-auto h-14 w-14 animate-spin text-brand-600" aria-label="Verifying" /><h1 className="mt-6 text-xl font-semibold text-slate-900 dark:text-slate-100">Verifying reset link...</h1></section></main>;
 
-    let score = 0;
-
-    if (password.length >= 8) score++;
-    if (password.length >= 12) score++;
-    if (/[A-Z]/.test(password)) score++;
-    if (/[a-z]/.test(password)) score++;
-    if (/[0-9]/.test(password)) score++;
-    if (/[!@#$%^&*]/.test(password)) score++;
-
-    if (score <= 2) return 'weak';
-    if (score <= 4) return 'medium';
-    return 'strong';
-  };
-
-  const validateForm = () => {
-    const errors = {};
-    const passwordErrors = validatePassword(newPassword);
-
-    if (!newPassword) {
-      errors.newPassword = 'Password is required';
-    } else if (passwordErrors.length > 0) {
-      errors.newPassword = passwordErrors.join(', ');
-    }
-
-    if (!confirmPassword) {
-      errors.confirmPassword = 'Please confirm your password';
-    } else if (newPassword !== confirmPassword) {
-      errors.confirmPassword = 'Passwords do not match';
-    }
-
-    setFieldErrors(errors);
-    return Object.keys(errors).length === 0;
-  };
-
-  const handlePasswordChange = (e) => {
-    const password = e.target.value;
-    setNewPassword(password);
-    setPasswordStrength(calculatePasswordStrength(password));
-
-    // Clear field error
-    setFieldErrors({ ...fieldErrors, newPassword: '' });
-
-    // Check if passwords match
-    if (confirmPassword && password !== confirmPassword) {
-      setFieldErrors((prev) => ({ ...prev, confirmPassword: 'Passwords do not match' }));
-    } else if (confirmPassword) {
-      setFieldErrors((prev) => ({ ...prev, confirmPassword: '' }));
-    }
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-
-    if (!validateForm()) {
-      return;
-    }
-
-    setLoading(true);
-    setError('');
-
-    try {
-      await confirmPasswordReset(auth, oobCode, newPassword);
-      setSuccess(true);
-
-      // Log successful password reset (for audit)
-      console.log('Password reset successful for:', email);
-    } catch (err) {
-      console.error('Password reset error:', err);
-
-      switch (err.code) {
-        case 'auth/expired-action-code':
-          setError('The reset link has expired. Please request a new one.');
-          break;
-        case 'auth/invalid-action-code':
-          setError('The reset link is invalid. Please request a new one.');
-          break;
-        case 'auth/weak-password':
-          setError('Password is too weak. Please choose a stronger password.');
-          break;
-        default:
-          setError('Failed to reset password. Please try again.');
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  if (verifying) {
-    return (
-      <Container component="main" maxWidth="sm">
-        <StyledPaper>
-          <CircularProgress size={60} thickness={4} />
-          <Typography variant="h6" sx={{ mt: 3 }}>
-            Verifying reset link...
-          </Typography>
-        </StyledPaper>
-      </Container>
-    );
-  }
-
-  return (
-    <Container component="main" maxWidth="sm">
-      <StyledPaper>
-        <Typography component="h1" variant="h4" gutterBottom fontWeight="600">
-          {success ? 'Password Reset Complete' : 'Create New Password'}
-        </Typography>
-
-        {error && (
-          <Alert
-            severity="error"
-            sx={{ width: '100%', mb: 2 }}
-            onClose={() => setError('')}
-            icon={<ErrorIcon />}
-          >
-            {error}
-          </Alert>
-        )}
-
-        {success ? (
-          <Box sx={{ width: '100%', textAlign: 'center' }}>
-            <CheckCircleIcon color="success" sx={{ fontSize: 64, mb: 2 }} />
-
-            <Alert severity="success" sx={{ mb: 3 }}>
-              Your password has been successfully reset!
-            </Alert>
-
-            <Typography variant="body2" paragraph>
-              You can now log in with your new password.
-            </Typography>
-
-            <Box sx={{ mt: 3 }}>
-              <Button
-                variant="contained"
-                size="large"
-                onClick={() => navigate('/login')}
-                sx={{ px: 4 }}
-              >
-                Go to Login
-              </Button>
-            </Box>
-          </Box>
-        ) : (
-          <Box component="form" onSubmit={handleSubmit} sx={{ width: '100%' }}>
-            {email && (
-              <Alert severity="info" sx={{ mb: 3 }}>
-                Resetting password for: <strong>{email}</strong>
-              </Alert>
-            )}
-
-            <TextField
-              margin="normal"
-              required
-              fullWidth
-              name="newPassword"
-              label="New Password"
-              type={showPassword ? 'text' : 'password'}
-              id="newPassword"
-              autoComplete="new-password"
-              value={newPassword}
-              onChange={handlePasswordChange}
-              error={!!fieldErrors.newPassword}
-              helperText={fieldErrors.newPassword}
-              disabled={loading}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <LockIcon color="action" />
-                  </InputAdornment>
-                ),
-                endAdornment: (
-                  <InputAdornment position="end">
-                    <IconButton onClick={() => setShowPassword(!showPassword)} edge="end">
-                      {showPassword ? <VisibilityOffIcon /> : <VisibilityIcon />}
-                    </IconButton>
-                  </InputAdornment>
-                ),
-              }}
-            />
-
-            {newPassword && (
-              <Box sx={{ mt: 1, mb: 2 }}>
-                <Typography variant="caption" color="text.secondary">
-                  Password Strength: {passwordStrength}
-                </Typography>
-                <PasswordStrengthBar
-                  variant="determinate"
-                  value={
-                    passwordStrength === 'weak'
-                      ? 33
-                      : passwordStrength === 'medium'
-                        ? 66
-                        : passwordStrength === 'strong'
-                          ? 100
-                          : 0
-                  }
-                  strength={passwordStrength}
-                />
-              </Box>
-            )}
-
-            <TextField
-              margin="normal"
-              required
-              fullWidth
-              name="confirmPassword"
-              label="Confirm New Password"
-              type={showConfirmPassword ? 'text' : 'password'}
-              id="confirmPassword"
-              autoComplete="new-password"
-              value={confirmPassword}
-              onChange={(e) => {
-                setConfirmPassword(e.target.value);
-                setFieldErrors({ ...fieldErrors, confirmPassword: '' });
-              }}
-              error={!!fieldErrors.confirmPassword}
-              helperText={fieldErrors.confirmPassword}
-              disabled={loading}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <LockIcon color="action" />
-                  </InputAdornment>
-                ),
-                endAdornment: (
-                  <InputAdornment position="end">
-                    <IconButton
-                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                      edge="end"
-                    >
-                      {showConfirmPassword ? <VisibilityOffIcon /> : <VisibilityIcon />}
-                    </IconButton>
-                  </InputAdornment>
-                ),
-              }}
-            />
-
-            <Button
-              type="submit"
-              fullWidth
-              variant="contained"
-              size="large"
-              disabled={loading}
-              sx={{ mt: 3, mb: 2, py: 1.5 }}
-            >
-              {loading ? <CircularProgress size={24} /> : 'Reset Password'}
-            </Button>
-
-            <Box sx={{ textAlign: 'center' }}>
-              <Link
-                component="button"
-                variant="body2"
-                onClick={() => navigate('/login')}
-                sx={{ cursor: 'pointer' }}
-              >
-                ← Back to Login
-              </Link>
-            </Box>
-          </Box>
-        )}
-      </StyledPaper>
-    </Container>
-  );
-};
-
-export default ResetPassword;
+  return <main className="flex min-h-screen items-center justify-center bg-slate-50 px-4 py-12 dark:bg-slate-950"><section className="w-full max-w-lg rounded-2xl border bg-white p-6 shadow-pop dark:bg-slate-900 sm:p-10"><div className="text-center"><div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-brand-50 text-brand-600 dark:bg-brand-950 dark:text-brand-300"><LockKeyhole className="h-7 w-7" /></div><h1 className="mt-5 text-3xl font-semibold tracking-tight text-slate-900 dark:text-slate-100">{success ? 'Password Reset Complete' : 'Create New Password'}</h1></div>{error && <div className="mt-5 flex items-start gap-3 rounded-lg border border-danger/20 bg-danger-light p-4 text-sm text-danger-dark" role="alert"><CircleAlert className="mt-0.5 h-5 w-5 shrink-0" /><span className="flex-1">{error}</span><button type="button" onClick={() => setError('')} aria-label="Dismiss error">&times;</button></div>}{success ? <div className="mt-6 text-center"><div className="rounded-lg border border-success/20 bg-success-light p-4 text-sm text-success-dark"><CheckCircle2 className="mx-auto mb-2 h-6 w-6" />Your password has been successfully reset!</div><p className="mt-4 text-sm text-slate-500">You can now log in with your new password.</p><Button variant="primary" size="lg" className="mt-6" onClick={() => navigate('/login')}>Go to Login</Button></div> : <form className="mt-6 space-y-5" onSubmit={handleSubmit}>{email && <div className="rounded-lg border border-info/20 bg-info-light p-4 text-sm text-info-dark">Resetting password for: <strong>{email}</strong></div>}<Input id="newPassword" label="New Password" type="password" showPasswordToggle autoComplete="new-password" value={newPassword} onChange={handlePasswordChange} error={fieldErrors.newPassword} disabled={loading} leadingIcon={LockKeyhole} required />{newPassword && <div><div className="flex justify-between text-xs text-slate-500"><span>Password strength</span><span className="font-medium capitalize">{passwordStrength}</span></div><div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800"><div className={`h-full rounded-full transition-all ${strengthClasses[passwordStrength] || 'w-0'}`} /></div></div>}<Input id="confirmPassword" label="Confirm New Password" type="password" showPasswordToggle autoComplete="new-password" value={confirmPassword} onChange={(event) => { setConfirmPassword(event.target.value); setFieldErrors((current) => ({ ...current, confirmPassword: '' })); }} error={fieldErrors.confirmPassword} disabled={loading} leadingIcon={LockKeyhole} required /><Button type="submit" fullWidth variant="primary" size="lg" loading={loading}>{loading ? 'Resetting...' : 'Reset Password'}</Button><div className="text-center"><button type="button" onClick={() => navigate('/login')} className="text-sm font-medium text-brand-600 hover:text-brand-700">&larr; Back to Login</button></div></form>}</section></main>;
+}

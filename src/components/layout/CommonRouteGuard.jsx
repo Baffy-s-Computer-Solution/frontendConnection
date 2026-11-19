@@ -1,5 +1,5 @@
 import { Navigate, useLocation } from 'react-router-dom';
-import { Spinner, Container, Alert } from 'react-bootstrap';
+import { Spinner, Container, Alert } from '../ui/tailwindCompat';
 import { useAuth } from '../../context/AuthContext';
 
 /**

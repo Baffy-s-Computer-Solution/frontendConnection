@@ -13,6 +13,10 @@ const buildHeaders = async (options = {}) => {
 
 const request = async (path, options = {}) => {
   try {
+    if (!auth.currentUser) {
+      return { success: false, skipped: true, message: 'Authentication required' };
+    }
+
     const headers = await buildHeaders(options);
     const response = await fetch(`${API_BASE_URL}${path}`, {
       ...options,

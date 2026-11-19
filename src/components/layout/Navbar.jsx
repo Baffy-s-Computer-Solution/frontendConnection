@@ -30,16 +30,16 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const StyledAppBar = styled(AppBar)(({ theme, transparent }) => ({
-  backgroundColor: transparent ? 'transparent' : theme.palette.background.paper,
-  color: theme.palette.text.primary,
-  boxShadow: transparent ? 'none' : theme.shadows[1],
-  backdropFilter: transparent ? 'none' : 'blur(8px)',
+  backgroundColor: transparent ? 'rgba(26, 24, 21, 0.7)' : 'rgba(26, 24, 21, 0.88)',
+  color: '#f3ece1',
+  boxShadow: transparent ? 'none' : '0 12px 32px -12px rgba(0, 0, 0, 0.5)',
+  backdropFilter: transparent ? 'none' : 'blur(14px)',
   transition: theme.transitions.create(['background-color', 'box-shadow', 'backdrop-filter']),
-  borderBottom: transparent ? 'none' : `1px solid ${theme.palette.divider}`,
+  borderBottom: transparent ? 'none' : '1px solid rgba(224, 168, 112, 0.28)',
 }));
 
 const NavButton = styled(Button)(({ theme, active }) => ({
-  color: active ? theme.palette.primary.main : theme.palette.text.primary,
+  color: active ? '#f2c390' : '#f3ece1',
   fontWeight: active ? 600 : 400,
   position: 'relative',
   '&::after': {
@@ -50,7 +50,7 @@ const NavButton = styled(Button)(({ theme, active }) => ({
     transform: 'translateX(-50%)',
     width: active ? '70%' : 0,
     height: 3,
-    backgroundColor: theme.palette.primary.main,
+    backgroundColor: '#e0a870',
     transition: theme.transitions.create('width'),
     borderRadius: theme.spacing(0.5),
   },

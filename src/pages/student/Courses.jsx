@@ -1,4 +1,4 @@
-import { Container, Row, Col, Card, Button, Form, InputGroup } from 'react-bootstrap';
+import { Container, Row, Col, Card, Button, Form, InputGroup } from '../../components/ui/tailwindCompat';
 
 const Courses = () => {
   const allCourses = [
@@ -141,3 +141,6 @@ const Courses = () => {
 };
 
 export default Courses;
+
+
+

@@ -1,5 +1,6 @@
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { normalizeUserType } from '../../utils/authRoleUtils';
 import { LoadingSpinner } from './LoadingSpinner';
 
 const DashboardRedirect = () => {
@@ -27,7 +28,7 @@ const DashboardRedirect = () => {
     system: '/system/dashboard',
   };
 
-  const userType = userProfile.userType;
+  const userType = normalizeUserType(userProfile.userType || userProfile.role || 'student');
   const isAdmin = userProfile.isAdmin || userType === 'admin';
 
   // If admin, redirect to admin dashboard

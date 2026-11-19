@@ -2,7 +2,9 @@ import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 
 import { authAPI, testConnection } from '../../services/api';
-import '../../pages/auth/Auth.css';
+import Input from '../ui/Input';
+import Button from '../ui/Button';
+import { CheckCircle2, CircleAlert, Loader2, Server, UserRound, Building2, Mail, LockKeyhole } from 'lucide-react';
 
 const Register = () => {
   const [formData, setFormData] = useState({
@@ -174,157 +176,143 @@ const Register = () => {
   };
 
   return (
-    <div className="auth-container">
-      <div className="auth-card">
-        <div className="auth-header">
-          <h1>Career Connect Lesotho</h1>
-          <h2>Create Your Account</h2>
-          <p>Join Career Connect Lesotho today</p>
+    <main className="flex min-h-screen items-center justify-center bg-slate-50 px-4 py-12 dark:bg-slate-950">
+      <section className="w-full max-w-lg rounded-2xl border bg-white p-6 shadow-pop dark:bg-slate-900 sm:p-10">
+        <div className="text-center">
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-brand-50 text-brand-600 dark:bg-brand-950 dark:text-brand-300"><UserRound className="h-7 w-7" /></div>
+          <h1 className="mt-5 text-2xl font-semibold text-slate-900 dark:text-slate-100">Career Connect Lesotho</h1>
+          <h2 className="mt-2 text-xl font-semibold text-slate-900 dark:text-slate-100">Create Your Account</h2>
+          <p className="mt-2 text-sm text-slate-500">Join Career Connect Lesotho today</p>
 
           {/* Server Status Indicator */}
-          <div className={`server-status ${serverStatus}`}>
-            {serverStatus === 'connected' && '✅ Server Connected'}
-            {serverStatus === 'checking' && '⏳ Checking Server...'}
-            {serverStatus === 'disconnected' && '❌ Server Disconnected'}
+          <div className={`mt-4 inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-medium ${serverStatus === 'connected' ? 'bg-success-light text-success-dark' : serverStatus === 'checking' ? 'bg-warning-light text-warning-dark' : 'bg-danger-light text-danger-dark'}`}>
+            {serverStatus === 'connected' && <CheckCircle2 className="h-4 w-4" />}
+            {serverStatus === 'checking' && <Loader2 className="h-4 w-4 animate-spin" />}
+            {serverStatus === 'disconnected' && <CircleAlert className="h-4 w-4" />}
+            {serverStatus === 'connected' ? 'Server Connected' : serverStatus === 'checking' ? 'Checking Server...' : 'Server Disconnected'}
           </div>
         </div>
 
-        {successMessage && <div className="success-message">{successMessage}</div>}
+        {successMessage && <div className="mt-6 rounded-lg border border-success/20 bg-success-light p-4 text-sm text-success-dark">{successMessage}</div>}
 
         {errors.server && (
-          <div className="error-message server-error">
+          <div className="mt-6 rounded-lg border border-danger/20 bg-danger-light p-4 text-sm text-danger-dark">
             <p>{errors.server}</p>
-            <button onClick={checkServerConnection} className="retry-btn">
+            <button type="button" onClick={checkServerConnection} className="mt-3 font-medium underline underline-offset-2">
               Retry Connection
             </button>
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="auth-form">
+        <form onSubmit={handleSubmit} className="mt-8 space-y-5">
           {/* User Type Selection */}
-          <div className="form-group">
-            <label className="form-label">I am a:</label>
-            <div className="user-type-selector">
+          <div>
+            <label className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300">I am a:</label>
+            <div className="grid grid-cols-2 gap-2">
               <button
                 type="button"
-                className={`user-type-btn ${formData.userType === 'student' ? 'active' : ''}`}
+                className={`inline-flex items-center justify-center gap-2 rounded-lg border px-4 py-2.5 text-sm font-medium transition ${formData.userType === 'student' ? 'border-brand-600 bg-brand-50 text-brand-700 dark:bg-brand-950 dark:text-brand-200' : 'text-slate-600 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-800'}`}
                 onClick={() => setFormData((prev) => ({ ...prev, userType: 'student' }))}
               >
-                Student
+                <><UserRound className="h-4 w-4" />Student</>
               </button>
               <button
                 type="button"
-                className={`user-type-btn ${formData.userType === 'company' ? 'active' : ''}`}
+                className={`inline-flex items-center justify-center gap-2 rounded-lg border px-4 py-2.5 text-sm font-medium transition ${formData.userType === 'company' ? 'border-brand-600 bg-brand-50 text-brand-700 dark:bg-brand-950 dark:text-brand-200' : 'text-slate-600 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-800'}`}
                 onClick={() => setFormData((prev) => ({ ...prev, userType: 'company' }))}
               >
-                Company
+                <><Building2 className="h-4 w-4" />Company</>
               </button>
             </div>
           </div>
 
           {/* Full Name */}
-          <div className="form-group">
-            <label htmlFor="fullName" className="form-label">
-              Full Name
-            </label>
-            <input
+          <Input
+              id="fullName"
+              label="Full Name"
               type="text"
               id="fullName"
               name="fullName"
               value={formData.fullName}
               onChange={handleChange}
-              className={`form-input ${errors.fullName ? 'error' : ''}`}
               placeholder="Enter your full name"
               disabled={isLoading}
+              error={errors.fullName}
+              leadingIcon={UserRound}
             />
-            {errors.fullName && <span className="error-message">{errors.fullName}</span>}
-          </div>
 
           {/* Email */}
-          <div className="form-group">
-            <label htmlFor="email" className="form-label">
-              Email Address
-            </label>
-            <input
+          <Input
+              id="email"
+              label="Email Address"
               type="email"
               id="email"
               name="email"
               value={formData.email}
               onChange={handleChange}
-              className={`form-input ${errors.email ? 'error' : ''}`}
               placeholder="Enter your email address"
               disabled={isLoading}
+              error={errors.email}
+              leadingIcon={Mail}
             />
-            {errors.email && <span className="error-message">{errors.email}</span>}
-          </div>
 
           {/* Password */}
-          <div className="form-group">
-            <label htmlFor="password" className="form-label">
-              Password
-            </label>
-            <input
+          <Input
+              id="password"
+              label="Password"
               type="password"
+              showPasswordToggle
               id="password"
               name="password"
               value={formData.password}
               onChange={handleChange}
-              className={`form-input ${errors.password ? 'error' : ''}`}
               placeholder="Create a password (min. 6 characters)"
               disabled={isLoading}
+              error={errors.password}
+              leadingIcon={LockKeyhole}
             />
-            {errors.password && <span className="error-message">{errors.password}</span>}
-          </div>
 
           {/* Confirm Password */}
-          <div className="form-group">
-            <label htmlFor="confirmPassword" className="form-label">
-              Confirm Password
-            </label>
-            <input
+          <Input
+              id="confirmPassword"
+              label="Confirm Password"
               type="password"
+              showPasswordToggle
               id="confirmPassword"
               name="confirmPassword"
               value={formData.confirmPassword}
               onChange={handleChange}
-              className={`form-input ${errors.confirmPassword ? 'error' : ''}`}
               placeholder="Confirm your password"
               disabled={isLoading}
+              error={errors.confirmPassword}
+              leadingIcon={LockKeyhole}
             />
-            {errors.confirmPassword && (
-              <span className="error-message">{errors.confirmPassword}</span>
-            )}
-          </div>
 
           {/* Submit Error */}
-          {errors.submit && <div className="error-message submit-error">{errors.submit}</div>}
+          {errors.submit && <div className="rounded-lg border border-danger/20 bg-danger-light p-4 text-sm text-danger-dark">{errors.submit}</div>}
 
           {/* Submit Button */}
-          <button
+          <Button
             type="submit"
-            className="submit-btn"
+            className="w-full"
+            variant="primary"
+            size="lg"
+            loading={isLoading}
             disabled={isLoading || serverStatus !== 'connected'}
           >
-            {isLoading ? (
-              <>
-                <span className="loading-spinner"></span>
-                Creating Account...
-              </>
-            ) : (
-              'Create Account'
-            )}
-          </button>
+            {isLoading ? 'Creating Account...' : 'Create Account'}
+          </Button>
         </form>
 
-        <div className="auth-footer">
+        <div className="mt-6 border-t pt-5 text-center text-sm text-slate-500">
           <p>
-            Already have an account? <Link to="/login">Sign in</Link>
+            Already have an account? <Link to="/login" className="font-semibold text-brand-600 hover:text-brand-700">Sign in</Link>
           </p>
         </div>
 
         {/* Debug Info - Remove in production */}
         {process.env.NODE_ENV === 'development' && (
-          <div className="debug-info">
+          <div className="mt-6 rounded-lg bg-slate-100 p-3 text-xs text-slate-500 dark:bg-slate-800">
             <details>
               <summary>Debug Info</summary>
               <p>API Base URL: {process.env.REACT_APP_API_URL || 'http://localhost:5000/api'}</p>
@@ -333,8 +321,8 @@ const Register = () => {
             </details>
           </div>
         )}
-      </div>
-    </div>
+      </section>
+    </main>
   );
 };
 

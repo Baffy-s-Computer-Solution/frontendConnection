@@ -186,3 +186,14 @@ export const validators = {
     return file.size <= maxSize;
   },
 };
+
+export const validateEmail = (value) => validators.email(value);
+export const validatePhone = (value) => validators.phone(value);
+export const validateRequired = (value) => validators.required(value);
+export const validateMaxLength = (value, max) => validators.maxLength(value || '', max);
+export const validateMinLength = (value, min) => validators.minLength(value || '', min);
+export const validateNumberRange = (value, min = -Infinity, max = Infinity) => {
+  const number = Number(value);
+  if (Number.isNaN(number)) return false;
+  return number >= min && number <= max;
+};

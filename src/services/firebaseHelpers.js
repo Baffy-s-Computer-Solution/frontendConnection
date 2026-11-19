@@ -1,9 +1,24 @@
 /* eslint-disable no-undef */
-import { collection, addDoc, Timestamp } from 'firebase/firestore';
+import { addDoc, collection, doc, setDoc, updateDoc, Timestamp } from 'firebase/firestore';
 
 import { db } from '../config/firebase';
 
 export const FirebaseHelpers = {
+  addDocument: async (collectionName, data) => {
+    const reference = await addDoc(collection(db, collectionName), data);
+    return { id: reference.id };
+  },
+
+  updateDocument: async (collectionName, documentId, data) => {
+    await updateDoc(doc(db, collectionName, documentId), data);
+    return true;
+  },
+
+  setDocument: async (collectionName, documentId, data) => {
+    await setDoc(doc(db, collectionName, documentId), data, { merge: true });
+    return true;
+  },
+
   // Log activity
   logActivity: async (type, description, userId = 'system', metadata = {}) => {
     try {
@@ -158,3 +173,5 @@ export const FirebaseHelpers = {
     }
   },
 };
+
+export default FirebaseHelpers;

@@ -1,4 +1,4 @@
-﻿/* eslint-disable no-case-declarations */
+/* eslint-disable no-case-declarations */
 /* eslint-disable no-unused-vars */
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import PropTypes from 'prop-types';
@@ -33,7 +33,6 @@ import FilterPanel from '../../../components/youth/funding/FilterPanel';
 import SaveOpportunityButton from '../../../components/youth/funding/SaveOpportunityButton';
 import ShareOpportunityButton from '../../../components/youth/funding/ShareOpportunityButton';
 import ApplyModal from '../../../components/youth/funding/ApplyModal';
-import './FundingOpportunities.css';
 
 /**
  * FundingOpportunities Component

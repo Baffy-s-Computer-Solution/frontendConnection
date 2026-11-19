@@ -1,5 +1,4 @@
 // components/layout/DashboardContainer.jsx
-import './DashboardContainer.css';
 
 const DashboardContainer = ({ children, title, subtitle }) => {
   return (

@@ -14,19 +14,20 @@ import {
   Timestamp,
   updateDoc,
   where,
-} from 'firebase/firestore';
+  writeBatch,
+} from "firebase/firestore";
 
-import { db } from '../config/firebase';
-
-import { cloudinaryService } from './cloudinaryService';
+import { auth, db } from "../config/firebase";
+import API_BASE_URL from "./apiConfig";
+import { cloudinaryService } from "./cloudinaryService";
 
 class MentorService {
   constructor() {
-    this.collection = 'mentors';
-    this.applicationsCollection = 'mentorApplications';
-    this.sessionsCollection = 'mentorSessions';
-    this.earningsCollection = 'mentorEarnings';
-    this.reviewsCollection = 'mentorReviews';
+    this.collection = "mentors";
+    this.applicationsCollection = "mentorApplications";
+    this.sessionsCollection = "mentorSessions";
+    this.earningsCollection = "mentorEarnings";
+    this.reviewsCollection = "mentorReviews";
   }
 
   // ==================== PROFILE MANAGEMENT ====================
@@ -39,7 +40,7 @@ class MentorService {
       const mentorProfile = {
         userId,
         ...profileData,
-        status: 'pending', // pending, approved, rejected, inactive
+        status: "pending", // pending, approved, rejected, inactive
         isVerified: false,
         rating: 0,
         totalSessions: 0,
@@ -47,7 +48,7 @@ class MentorService {
         totalEarnings: 0,
         availability: profileData.availability || [],
         expertise: profileData.expertise || [],
-        languages: profileData.languages || ['English'],
+        languages: profileData.languages || ["English"],
         certifications: profileData.certifications || [],
         education: profileData.education || [],
         workExperience: profileData.workExperience || [],
@@ -61,7 +62,7 @@ class MentorService {
       await setDoc(mentorRef, mentorProfile);
       return { success: true, data: mentorProfile };
     } catch (error) {
-      console.error('Error creating mentor profile:', error);
+      console.error("Error creating mentor profile:", error);
       throw error;
     }
   }
@@ -72,11 +73,14 @@ class MentorService {
       const mentorDoc = await getDoc(mentorRef);
 
       if (mentorDoc.exists()) {
-        return { success: true, data: { id: mentorDoc.id, ...mentorDoc.data() } };
+        return {
+          success: true,
+          data: { id: mentorDoc.id, ...mentorDoc.data() },
+        };
       }
-      return { success: false, error: 'Mentor profile not found' };
+      return { success: false, error: "Mentor profile not found" };
     } catch (error) {
-      console.error('Error getting mentor profile:', error);
+      console.error("Error getting mentor profile:", error);
       throw error;
     }
   }
@@ -94,36 +98,59 @@ class MentorService {
       const updated = await getDoc(mentorRef);
       return { success: true, data: { id: updated.id, ...updated.data() } };
     } catch (error) {
-      console.error('Error updating mentor profile:', error);
+      console.error("Error updating mentor profile:", error);
       throw error;
     }
   }
 
   async uploadProfilePhoto(userId, file) {
-    try {
-      const photoUrl = await cloudinaryService.uploadImage(file, {
-        folder: 'mentors/profile',
-        publicId: `mentor_${userId}`,
-        transformation: {
-          width: 400,
-          height: 400,
-          crop: 'fill',
-          gravity: 'face',
-        },
-      });
-
-      await this.updateMentorProfile(userId, { profilePhoto: photoUrl });
-      return { success: true, photoUrl };
-    } catch (error) {
-      console.error('Error uploading profile photo:', error);
-      throw error;
+    if (!userId) throw new Error("User ID is required");
+    if (!file || !file.type.startsWith("image/")) {
+      throw new Error("Please select a valid image file.");
     }
+    if (file.size > 5 * 1024 * 1024) {
+      throw new Error("Profile images must be smaller than 5MB.");
+    }
+
+    if (!auth.currentUser) {
+      throw new Error("You must be signed in to upload a profile photo.");
+    }
+
+    const formData = new FormData();
+    formData.append("file", file);
+    const token = await auth.currentUser.getIdToken();
+    const response = await fetch(
+      `${API_BASE_URL}/api/mentorship/profile/photo`,
+      {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      },
+    );
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok || !result.success || !result.photoUrl) {
+      throw new Error(
+        result.error || "Cloudinary could not upload the profile photo.",
+      );
+    }
+
+    await this.updateMentorProfile(userId, {
+      profilePhoto: result.photoUrl,
+      photoURL: result.photoUrl,
+    });
+
+    return {
+      success: true,
+      photoUrl: result.photoUrl,
+      publicId: result.publicId,
+      storageType: "cloudinary",
+    };
   }
 
   async uploadCertification(userId, file, certData) {
     try {
       const fileUrl = await cloudinaryService.uploadFile(file, {
-        folder: 'mentors/certifications',
+        folder: "mentors/certifications",
         publicId: `cert_${userId}_${Date.now()}`,
       });
 
@@ -140,7 +167,7 @@ class MentorService {
 
       return { success: true, certification };
     } catch (error) {
-      console.error('Error uploading certification:', error);
+      console.error("Error uploading certification:", error);
       throw error;
     }
   }
@@ -159,22 +186,28 @@ class MentorService {
    */
   async getMentors(filters = {}) {
     try {
-      const status = filters.status || 'approved';
-      let q = query(collection(db, this.collection), where('status', '==', status));
+      const status = filters.status || "approved";
+      let q = query(
+        collection(db, this.collection),
+        where("status", "==", status),
+      );
 
       // Apply expertise filter
       if (filters.expertise && filters.expertise.length > 0) {
-        q = query(q, where('expertise', 'array-contains-any', filters.expertise));
+        q = query(
+          q,
+          where("expertise", "array-contains-any", filters.expertise),
+        );
       }
 
       // Apply language filter
       if (filters.language) {
-        q = query(q, where('languages', 'array-contains', filters.language));
+        q = query(q, where("languages", "array-contains", filters.language));
       }
 
       // Apply minimum rating filter
       if (filters.minRating) {
-        q = query(q, where('rating', '>=', filters.minRating));
+        q = query(q, where("rating", ">=", filters.minRating));
       }
 
       // Apply limit
@@ -196,7 +229,9 @@ class MentorService {
             mentor.name?.toLowerCase().includes(searchLower) ||
             mentor.title?.toLowerCase().includes(searchLower) ||
             mentor.bio?.toLowerCase().includes(searchLower) ||
-            mentor.expertise?.some((exp) => exp.toLowerCase().includes(searchLower))
+            mentor.expertise?.some((exp) =>
+              exp.toLowerCase().includes(searchLower),
+            ),
         );
       }
 
@@ -211,7 +246,7 @@ class MentorService {
         },
       };
     } catch (error) {
-      console.error('Error getting mentors:', error);
+      console.error("Error getting mentors:", error);
       return {
         success: false,
         data: [],
@@ -237,10 +272,15 @@ class MentorService {
 
   async getMentorshipRequests(mentorId = null) {
     try {
-      let q = query(collection(db, 'mentorship_requests'), orderBy('createdAt', 'desc'));
-      if (mentorId) {
-        q = query(q, where('alumniId', '==', mentorId), orderBy('createdAt', 'desc'));
-      }
+      let q = query(
+        collection(db, "mentorship_requests"),
+        orderBy("createdAt", "desc"),
+      );
+      if (mentorId)
+        q = query(
+          collection(db, "mentorship_requests"),
+          where("mentorId", "==", mentorId),
+        );
 
       const snapshot = await getDocs(q);
       const requests = snapshot.docs.map((requestDoc) => ({
@@ -248,10 +288,79 @@ class MentorService {
         ...requestDoc.data(),
       }));
 
-      return requests;
+      return requests.sort(
+        (a, b) =>
+          (b.createdAt?.toMillis?.() || 0) - (a.createdAt?.toMillis?.() || 0),
+      );
     } catch (error) {
-      console.error('Error getting mentorship requests:', error);
+      console.error("Error getting mentorship requests:", error);
       return [];
+    }
+  }
+
+  async updateMentorshipRequest(requestId, status, mentorId) {
+    if (!requestId || !["accepted", "rejected"].includes(status)) {
+      return { success: false, error: "Invalid mentorship request update" };
+    }
+    try {
+      const requestRef = doc(db, "mentorship_requests", requestId);
+      const requestSnapshot = await getDoc(requestRef);
+      if (!requestSnapshot.exists())
+        return { success: false, error: "Request no longer exists" };
+      const request = requestSnapshot.data();
+      if (mentorId && request.mentorId !== mentorId)
+        return {
+          success: false,
+          error: "Not authorized to update this request",
+        };
+      if (request.status !== "pending")
+        return {
+          success: false,
+          error: "This request has already been handled",
+        };
+      const menteeId = request.studentId || request.alumniId;
+      if (status === "accepted" && !menteeId) {
+        return {
+          success: false,
+          error: "This request has no student or alumni account to link.",
+        };
+      }
+      const batch = writeBatch(db);
+      batch.update(requestRef, {
+        status,
+        reviewedAt: Timestamp.now(),
+        updatedAt: Timestamp.now(),
+      });
+      if (status === "accepted") {
+        const menteeName = request.studentName || request.alumniName || "";
+        batch.set(
+          doc(db, "mentorships", requestId),
+          {
+            requestId,
+            mentorId: request.mentorId,
+            menteeId,
+            ...(request.alumniId ? { alumniId: request.alumniId } : {}),
+            ...(request.studentId
+              ? { studentId: request.studentId, studentName: menteeName }
+              : {}),
+            mentorName: request.mentorName || "",
+            mentorPhoto: request.mentorPhoto || "",
+            menteeName,
+            studentEmail: request.studentEmail || "",
+            topic: request.topic || "",
+            message: request.message || "",
+            status: "active",
+            createdAt: request.createdAt || Timestamp.now(),
+            updatedAt: Timestamp.now(),
+          },
+          { merge: true },
+        );
+      }
+      await batch.commit();
+      return { success: true, data: { id: requestId, ...request, status } };
+    } catch (error) {
+      console.error("Error updating mentorship request:", error);
+      return { success: false, error: error.message };
     }
   }
 
@@ -264,8 +373,8 @@ class MentorService {
 
       const session = {
         ...sessionData,
-        status: 'scheduled',
-        paymentStatus: 'pending',
+        status: "scheduled",
+        paymentStatus: "pending",
         meetingLink: null,
         recordingUrl: null,
         notes: null,
@@ -283,9 +392,13 @@ class MentorService {
         lastActive: timestamp,
       });
 
-      return { success: true, sessionId: docRef.id, data: { id: docRef.id, ...session } };
+      return {
+        success: true,
+        sessionId: docRef.id,
+        data: { id: docRef.id, ...session },
+      };
     } catch (error) {
-      console.error('Error creating session:', error);
+      console.error("Error creating session:", error);
       throw error;
     }
   }
@@ -294,24 +407,24 @@ class MentorService {
     try {
       let q = query(
         collection(db, this.sessionsCollection),
-        where('mentorId', '==', mentorId),
-        orderBy('scheduledAt', 'desc')
+        where("mentorId", "==", mentorId),
+        orderBy("scheduledAt", "desc"),
       );
 
       if (filters.status) {
-        q = query(q, where('status', '==', filters.status));
+        q = query(q, where("status", "==", filters.status));
       }
 
       if (filters.studentId) {
-        q = query(q, where('studentId', '==', filters.studentId));
+        q = query(q, where("studentId", "==", filters.studentId));
       }
 
       if (filters.startDate) {
-        q = query(q, where('scheduledAt', '>=', filters.startDate));
+        q = query(q, where("scheduledAt", ">=", filters.startDate));
       }
 
       if (filters.endDate) {
-        q = query(q, where('scheduledAt', '<=', filters.endDate));
+        q = query(q, where("scheduledAt", "<=", filters.endDate));
       }
 
       if (filters.limit) {
@@ -326,7 +439,7 @@ class MentorService {
 
       return { success: true, data: sessions };
     } catch (error) {
-      console.error('Error getting mentor sessions:', error);
+      console.error("Error getting mentor sessions:", error);
       throw error;
     }
   }
@@ -338,26 +451,29 @@ class MentorService {
    */
   async getSessions(mentorId = null, filters = {}) {
     try {
-      let q = query(collection(db, this.sessionsCollection), orderBy('scheduledAt', 'desc'));
+      let q = query(
+        collection(db, this.sessionsCollection),
+        orderBy("scheduledAt", "desc"),
+      );
 
       if (mentorId) {
-        q = query(q, where('mentorId', '==', mentorId));
+        q = query(q, where("mentorId", "==", mentorId));
       }
 
       if (filters.status) {
-        q = query(q, where('status', '==', filters.status));
+        q = query(q, where("status", "==", filters.status));
       }
 
       if (filters.studentId) {
-        q = query(q, where('studentId', '==', filters.studentId));
+        q = query(q, where("studentId", "==", filters.studentId));
       }
 
       if (filters.startDate) {
-        q = query(q, where('scheduledAt', '>=', filters.startDate));
+        q = query(q, where("scheduledAt", ">=", filters.startDate));
       }
 
       if (filters.endDate) {
-        q = query(q, where('scheduledAt', '<=', filters.endDate));
+        q = query(q, where("scheduledAt", "<=", filters.endDate));
       }
 
       if (filters.limit) {
@@ -372,7 +488,7 @@ class MentorService {
 
       return { success: true, data: sessions };
     } catch (error) {
-      console.error('Error getting sessions:', error);
+      console.error("Error getting sessions:", error);
       return { success: false, data: [], error: error.message };
     }
   }
@@ -383,11 +499,14 @@ class MentorService {
       const sessionDoc = await getDoc(sessionRef);
 
       if (sessionDoc.exists()) {
-        return { success: true, data: { id: sessionDoc.id, ...sessionDoc.data() } };
+        return {
+          success: true,
+          data: { id: sessionDoc.id, ...sessionDoc.data() },
+        };
       }
-      return { success: false, error: 'Session not found' };
+      return { success: false, error: "Session not found" };
     } catch (error) {
-      console.error('Error getting session:', error);
+      console.error("Error getting session:", error);
       throw error;
     }
   }
@@ -405,7 +524,7 @@ class MentorService {
       const updated = await getDoc(sessionRef);
       return { success: true, data: { id: updated.id, ...updated.data() } };
     } catch (error) {
-      console.error('Error updating session:', error);
+      console.error("Error updating session:", error);
       throw error;
     }
   }
@@ -419,11 +538,11 @@ class MentorService {
       const now = Timestamp.now();
       const q = query(
         collection(db, this.sessionsCollection),
-        where('mentorId', '==', mentorId),
-        where('scheduledAt', '>=', now),
-        where('status', '==', 'scheduled'),
-        orderBy('scheduledAt', 'asc'),
-        limit(limitCount)
+        where("mentorId", "==", mentorId),
+        where("scheduledAt", ">=", now),
+        where("status", "==", "scheduled"),
+        orderBy("scheduledAt", "asc"),
+        limit(limitCount),
       );
 
       const snapshot = await getDocs(q);
@@ -434,7 +553,7 @@ class MentorService {
 
       return { success: true, data: sessions };
     } catch (error) {
-      console.error('Error getting upcoming sessions:', error);
+      console.error("Error getting upcoming sessions:", error);
       return { success: false, data: [], error: error.message };
     }
   }
@@ -448,11 +567,11 @@ class MentorService {
       const now = Timestamp.now();
       const q = query(
         collection(db, this.sessionsCollection),
-        where('mentorId', '==', mentorId),
-        where('scheduledAt', '<=', now),
-        where('status', 'in', ['completed', 'cancelled', 'no_show']),
-        orderBy('scheduledAt', 'desc'),
-        limit(limitCount)
+        where("mentorId", "==", mentorId),
+        where("scheduledAt", "<=", now),
+        where("status", "in", ["completed", "cancelled", "no_show"]),
+        orderBy("scheduledAt", "desc"),
+        limit(limitCount),
       );
 
       const snapshot = await getDocs(q);
@@ -463,22 +582,22 @@ class MentorService {
 
       return { success: true, data: sessions };
     } catch (error) {
-      console.error('Error getting past sessions:', error);
+      console.error("Error getting past sessions:", error);
       return { success: false, data: [], error: error.message };
     }
   }
 
-  async cancelSession(sessionId, reason = '') {
+  async cancelSession(sessionId, reason = "") {
     try {
       const sessionRef = doc(db, this.sessionsCollection, sessionId);
       const sessionDoc = await getDoc(sessionRef);
 
       if (!sessionDoc.exists()) {
-        return { success: false, error: 'Session not found' };
+        return { success: false, error: "Session not found" };
       }
 
       await updateDoc(sessionRef, {
-        status: 'cancelled',
+        status: "cancelled",
         cancellationReason: reason,
         cancelledAt: Timestamp.now(),
         updatedAt: Timestamp.now(),
@@ -486,24 +605,24 @@ class MentorService {
 
       return { success: true };
     } catch (error) {
-      console.error('Error cancelling session:', error);
+      console.error("Error cancelling session:", error);
       return { success: false, error: error.message };
     }
   }
 
-  async completeSession(sessionId, notes = '') {
+  async completeSession(sessionId, notes = "") {
     try {
       const sessionRef = doc(db, this.sessionsCollection, sessionId);
       const sessionDoc = await getDoc(sessionRef);
 
       if (!sessionDoc.exists()) {
-        return { success: false, error: 'Session not found' };
+        return { success: false, error: "Session not found" };
       }
 
       const sessionData = sessionDoc.data();
 
       await updateDoc(sessionRef, {
-        status: 'completed',
+        status: "completed",
         notes: notes,
         completedAt: Timestamp.now(),
         updatedAt: Timestamp.now(),
@@ -516,7 +635,7 @@ class MentorService {
 
       return { success: true };
     } catch (error) {
-      console.error('Error completing session:', error);
+      console.error("Error completing session:", error);
       return { success: false, error: error.message };
     }
   }
@@ -527,7 +646,7 @@ class MentorService {
       await this.updateSession(sessionId, { meetingLink });
       return { success: true, meetingLink };
     } catch (error) {
-      console.error('Error generating meeting link:', error);
+      console.error("Error generating meeting link:", error);
       throw error;
     }
   }
@@ -535,34 +654,34 @@ class MentorService {
   async uploadSessionRecording(sessionId, file) {
     try {
       const recordingUrl = await cloudinaryService.uploadVideo(file, {
-        folder: 'mentors/sessions',
+        folder: "mentors/sessions",
         publicId: `session_${sessionId}`,
       });
 
       await this.updateSession(sessionId, { recordingUrl });
       return { success: true, recordingUrl };
     } catch (error) {
-      console.error('Error uploading recording:', error);
+      console.error("Error uploading recording:", error);
       throw error;
     }
   }
 
   // ==================== EARNINGS MANAGEMENT ====================
 
-  async getEarnings(mentorId, period = 'monthly') {
+  async getEarnings(mentorId, period = "monthly") {
     try {
       const earningsRef = collection(db, this.earningsCollection);
       let startDate;
 
       const now = new Date();
       switch (period) {
-        case 'weekly':
+        case "weekly":
           startDate = new Date(now.setDate(now.getDate() - 7));
           break;
-        case 'monthly':
+        case "monthly":
           startDate = new Date(now.setMonth(now.getMonth() - 1));
           break;
-        case 'yearly':
+        case "yearly":
           startDate = new Date(now.setFullYear(now.getFullYear() - 1));
           break;
         default:
@@ -571,9 +690,9 @@ class MentorService {
 
       const q = query(
         earningsRef,
-        where('mentorId', '==', mentorId),
-        where('createdAt', '>=', Timestamp.fromDate(startDate)),
-        orderBy('createdAt', 'desc')
+        where("mentorId", "==", mentorId),
+        where("createdAt", ">=", Timestamp.fromDate(startDate)),
+        orderBy("createdAt", "desc"),
       );
 
       const snapshot = await getDocs(q);
@@ -585,14 +704,14 @@ class MentorService {
       const totals = earnings.reduce(
         (acc, curr) => {
           acc.total += curr.amount;
-          if (curr.status === 'completed') {
+          if (curr.status === "completed") {
             acc.completed += curr.amount;
-          } else if (curr.status === 'pending') {
+          } else if (curr.status === "pending") {
             acc.pending += curr.amount;
           }
           return acc;
         },
-        { total: 0, completed: 0, pending: 0 }
+        { total: 0, completed: 0, pending: 0 },
       );
 
       return {
@@ -603,21 +722,21 @@ class MentorService {
         },
       };
     } catch (error) {
-      console.error('Error getting earnings:', error);
+      console.error("Error getting earnings:", error);
       throw error;
     }
   }
 
   async createPayout(mentorId, amount, paymentMethod) {
     try {
-      const payoutRef = collection(db, 'mentorPayouts');
+      const payoutRef = collection(db, "mentorPayouts");
       const timestamp = Timestamp.now();
 
       const payout = {
         mentorId,
         amount,
         paymentMethod,
-        status: 'processing',
+        status: "processing",
         processedAt: null,
         createdAt: timestamp,
         updatedAt: timestamp,
@@ -626,7 +745,7 @@ class MentorService {
       const docRef = await addDoc(payoutRef, payout);
       return { success: true, payoutId: docRef.id };
     } catch (error) {
-      console.error('Error creating payout:', error);
+      console.error("Error creating payout:", error);
       throw error;
     }
   }
@@ -637,9 +756,9 @@ class MentorService {
     try {
       const q = query(
         collection(db, this.reviewsCollection),
-        where('mentorId', '==', mentorId),
-        orderBy('createdAt', 'desc'),
-        limit(limitCount)
+        where("mentorId", "==", mentorId),
+        orderBy("createdAt", "desc"),
+        limit(limitCount),
       );
 
       const snapshot = await getDocs(q);
@@ -648,7 +767,9 @@ class MentorService {
         ...doc.data(),
       }));
 
-      const avgRating = reviews.reduce((acc, curr) => acc + curr.rating, 0) / reviews.length || 0;
+      const avgRating =
+        reviews.reduce((acc, curr) => acc + curr.rating, 0) / reviews.length ||
+        0;
 
       return {
         success: true,
@@ -659,7 +780,7 @@ class MentorService {
         },
       };
     } catch (error) {
-      console.error('Error getting mentor reviews:', error);
+      console.error("Error getting mentor reviews:", error);
       throw error;
     }
   }
@@ -679,7 +800,10 @@ class MentorService {
       };
 
       await addDoc(collection(db, this.reviewsCollection), review);
-      await this.updateSession(sessionId, { feedback: { rating, comment }, rating });
+      await this.updateSession(sessionId, {
+        feedback: { rating, comment },
+        rating,
+      });
 
       const reviews = await this.getMentorReviews(mentorId);
       const newAvgRating = reviews.data.averageRating;
@@ -688,7 +812,7 @@ class MentorService {
 
       return { success: true };
     } catch (error) {
-      console.error('Error submitting feedback:', error);
+      console.error("Error submitting feedback:", error);
       throw error;
     }
   }
@@ -700,7 +824,7 @@ class MentorService {
       await this.updateMentorProfile(mentorId, { availability });
       return { success: true };
     } catch (error) {
-      console.error('Error setting availability:', error);
+      console.error("Error setting availability:", error);
       throw error;
     }
   }
@@ -709,13 +833,15 @@ class MentorService {
     try {
       const mentor = await this.getMentorProfile(mentorId);
       if (!mentor.success) {
-        throw new Error('Mentor not found');
+        throw new Error("Mentor not found");
       }
 
       const availability = mentor.data.availability || [];
       const dayOfWeek = new Date(date).getDay();
 
-      const daySlots = availability.filter((slot) => slot.dayOfWeek === dayOfWeek);
+      const daySlots = availability.filter(
+        (slot) => slot.dayOfWeek === dayOfWeek,
+      );
 
       const startOfDay = new Date(date);
       startOfDay.setHours(0, 0, 0, 0);
@@ -726,18 +852,20 @@ class MentorService {
       const bookedSessions = await this.getMentorSessions(mentorId, {
         startDate: Timestamp.fromDate(startOfDay),
         endDate: Timestamp.fromDate(endOfDay),
-        status: 'scheduled',
+        status: "scheduled",
       });
 
       const bookedTimes = bookedSessions.data.map((session) =>
-        session.scheduledAt.toDate().getHours()
+        session.scheduledAt.toDate().getHours(),
       );
 
-      const availableSlots = daySlots.filter((slot) => !bookedTimes.includes(slot.hour));
+      const availableSlots = daySlots.filter(
+        (slot) => !bookedTimes.includes(slot.hour),
+      );
 
       return { success: true, data: availableSlots };
     } catch (error) {
-      console.error('Error getting available slots:', error);
+      console.error("Error getting available slots:", error);
       throw error;
     }
   }
@@ -753,7 +881,7 @@ class MentorService {
     try {
       const mentorProfile = await this.getMentorProfile(mentorId);
       if (!mentorProfile.success) {
-        throw new Error('Mentor not found');
+        throw new Error("Mentor not found");
       }
 
       const sessions = await this.getMentorSessions(mentorId);
@@ -761,9 +889,15 @@ class MentorService {
       const earnings = await this.getEarnings(mentorId);
 
       const totalSessions = sessions.data.length;
-      const completedSessions = sessions.data.filter((s) => s.status === 'completed').length;
-      const upcomingSessions = sessions.data.filter((s) => s.status === 'scheduled').length;
-      const cancelledSessions = sessions.data.filter((s) => s.status === 'cancelled').length;
+      const completedSessions = sessions.data.filter(
+        (s) => s.status === "completed",
+      ).length;
+      const upcomingSessions = sessions.data.filter(
+        (s) => s.status === "scheduled",
+      ).length;
+      const cancelledSessions = sessions.data.filter(
+        (s) => s.status === "cancelled",
+      ).length;
 
       return {
         success: true,
@@ -772,7 +906,9 @@ class MentorService {
           completedSessions,
           upcomingSessions,
           cancelledSessions,
-          completionRate: totalSessions ? (completedSessions / totalSessions) * 100 : 0,
+          completionRate: totalSessions
+            ? (completedSessions / totalSessions) * 100
+            : 0,
           averageRating: reviews.data.averageRating,
           totalReviews: reviews.data.totalReviews,
           totalEarnings: earnings.data.summary.total,
@@ -780,27 +916,27 @@ class MentorService {
         },
       };
     } catch (error) {
-      console.error('Error getting mentor stats:', error);
+      console.error("Error getting mentor stats:", error);
       return { success: false, error: error.message };
     }
   }
 
-  async getAnalytics(mentorId, period = '30d') {
+  async getAnalytics(mentorId, period = "30d") {
     try {
       const endDate = new Date();
       let startDate = new Date();
 
       switch (period) {
-        case '7d':
+        case "7d":
           startDate.setDate(startDate.getDate() - 7);
           break;
-        case '30d':
+        case "30d":
           startDate.setDate(startDate.getDate() - 30);
           break;
-        case '90d':
+        case "90d":
           startDate.setDate(startDate.getDate() - 90);
           break;
-        case '1y':
+        case "1y":
           startDate.setFullYear(startDate.getFullYear() - 1);
           break;
         default:
@@ -816,21 +952,34 @@ class MentorService {
       const reviews = await this.getMentorReviews(mentorId, 100);
 
       const totalSessions = sessions.data.length;
-      const completedSessions = sessions.data.filter((s) => s.status === 'completed').length;
-      const cancelledSessions = sessions.data.filter((s) => s.status === 'cancelled').length;
-      const completionRate = totalSessions ? (completedSessions / totalSessions) * 100 : 0;
+      const completedSessions = sessions.data.filter(
+        (s) => s.status === "completed",
+      ).length;
+      const cancelledSessions = sessions.data.filter(
+        (s) => s.status === "cancelled",
+      ).length;
+      const completionRate = totalSessions
+        ? (completedSessions / totalSessions) * 100
+        : 0;
 
       const sessionsByMonth = sessions.data.reduce((acc, session) => {
-        const month = session.scheduledAt.toDate().toLocaleString('default', { month: 'short' });
+        const month = session.scheduledAt
+          .toDate()
+          .toLocaleString("default", { month: "short" });
         acc[month] = (acc[month] || 0) + 1;
         return acc;
       }, {});
 
-      const earningsByMonth = earnings.data.transactions.reduce((acc, transaction) => {
-        const month = transaction.createdAt.toDate().toLocaleString('default', { month: 'short' });
-        acc[month] = (acc[month] || 0) + transaction.amount;
-        return acc;
-      }, {});
+      const earningsByMonth = earnings.data.transactions.reduce(
+        (acc, transaction) => {
+          const month = transaction.createdAt
+            .toDate()
+            .toLocaleString("default", { month: "short" });
+          acc[month] = (acc[month] || 0) + transaction.amount;
+          return acc;
+        },
+        {},
+      );
 
       return {
         success: true,
@@ -855,7 +1004,7 @@ class MentorService {
         },
       };
     } catch (error) {
-      console.error('Error getting analytics:', error);
+      console.error("Error getting analytics:", error);
       throw error;
     }
   }
@@ -870,7 +1019,7 @@ class MentorService {
       const application = {
         userId,
         ...applicationData,
-        status: 'submitted',
+        status: "submitted",
         reviewedBy: null,
         reviewedAt: null,
         feedback: null,
@@ -882,12 +1031,12 @@ class MentorService {
 
       await this.updateMentorProfile(userId, {
         applicationId: docRef.id,
-        status: 'under_review',
+        status: "under_review",
       });
 
       return { success: true, applicationId: docRef.id };
     } catch (error) {
-      console.error('Error submitting application:', error);
+      console.error("Error submitting application:", error);
       throw error;
     }
   }
@@ -896,9 +1045,9 @@ class MentorService {
     try {
       const q = query(
         collection(db, this.applicationsCollection),
-        where('userId', '==', userId),
-        orderBy('submittedAt', 'desc'),
-        limit(1)
+        where("userId", "==", userId),
+        orderBy("submittedAt", "desc"),
+        limit(1),
       );
 
       const snapshot = await getDocs(q);
@@ -906,9 +1055,9 @@ class MentorService {
         const doc = snapshot.docs[0];
         return { success: true, data: { id: doc.id, ...doc.data() } };
       }
-      return { success: false, error: 'No application found' };
+      return { success: false, error: "No application found" };
     } catch (error) {
-      console.error('Error getting application status:', error);
+      console.error("Error getting application status:", error);
       throw error;
     }
   }
@@ -919,27 +1068,36 @@ export const mentorService = new MentorService();
 
 // Export individual functions for backward compatibility with Context imports
 export const getMentors = (filters) => mentorService.getMentors(filters);
-export const getSessions = (mentorId, filters) => mentorService.getSessions(mentorId, filters);
-export const getMentorProfile = (userId) => mentorService.getMentorProfile(userId);
-export const getMentorById = (mentorId) => mentorService.getMentorById(mentorId);
+export const getSessions = (mentorId, filters) =>
+  mentorService.getSessions(mentorId, filters);
+export const getMentorProfile = (userId) =>
+  mentorService.getMentorProfile(userId);
+export const getMentorById = (mentorId) =>
+  mentorService.getMentorById(mentorId);
 export const updateMentorProfile = (userId, updates) =>
   mentorService.updateMentorProfile(userId, updates);
-export const createSession = (sessionData) => mentorService.createSession(sessionData);
+export const createSession = (sessionData) =>
+  mentorService.createSession(sessionData);
 export const getMentorSessions = (mentorId, filters) =>
   mentorService.getMentorSessions(mentorId, filters);
-export const getSessionById = (sessionId) => mentorService.getSessionById(sessionId);
+export const getSessionById = (sessionId) =>
+  mentorService.getSessionById(sessionId);
 export const updateSession = (sessionId, updates) =>
   mentorService.updateSession(sessionId, updates);
-export const cancelSession = (sessionId, reason) => mentorService.cancelSession(sessionId, reason);
+export const cancelSession = (sessionId, reason) =>
+  mentorService.cancelSession(sessionId, reason);
 export const completeSession = (sessionId, notes) =>
   mentorService.completeSession(sessionId, notes);
 export const getUpcomingSessions = (mentorId, limit) =>
   mentorService.getUpcomingSessions(mentorId, limit);
-export const getPastSessions = (mentorId, limit) => mentorService.getPastSessions(mentorId, limit);
-export const getMentorStats = (mentorId) => mentorService.getMentorStats(mentorId);
+export const getPastSessions = (mentorId, limit) =>
+  mentorService.getPastSessions(mentorId, limit);
+export const getMentorStats = (mentorId) =>
+  mentorService.getMentorStats(mentorId);
 export const getMentorReviews = (mentorId, limit) =>
   mentorService.getMentorReviews(mentorId, limit);
-export const getEarnings = (mentorId, period) => mentorService.getEarnings(mentorId, period);
+export const getEarnings = (mentorId, period) =>
+  mentorService.getEarnings(mentorId, period);
 export const setAvailability = (mentorId, availability) =>
   mentorService.setAvailability(mentorId, availability);
 export const getAvailableSlots = (mentorId, date) =>

@@ -1,2 +1,1 @@
-import ManageFaculties from './ManageFaculties';
-export default ManageFaculties;
+export { default } from "./ManageFaculties.jsx";
