@@ -372,7 +372,7 @@ const Layout = ({ children }) => {
         </>
       )}
 
-      <main className={`dashboard-content transition-[margin] lg:ml-64 ${sidebarCollapsed ? 'lg:ml-20' : ''}`}>
+      <main data-user-role={userType} className={`dashboard-content transition-[margin] lg:ml-64 ${sidebarCollapsed ? 'lg:ml-20' : ''}`}>
         <div className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-8">{children}</div>
       </main>
     </div>

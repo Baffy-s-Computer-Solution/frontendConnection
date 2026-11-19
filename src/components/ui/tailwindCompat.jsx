@@ -1,3 +1,4 @@
+import { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { cn } from '../../lib/cn';
 import ButtonBase from './Button';
 import BadgeBase from './Badge';
@@ -224,20 +225,90 @@ export const Pagination = Object.assign(
   }
 );
 
+const DropdownContext = createContext(null);
+
 export const Dropdown = Object.assign(
-  ({ children, className, ...props }) => <div className={cn('relative inline-block', className)} {...props}>{children}</div>,
+  function Dropdown({ children, className, show, onToggle, ...props }) {
+    const [internalOpen, setInternalOpen] = useState(false);
+    const rootRef = useRef(null);
+    const controlled = typeof show === 'boolean';
+    const open = controlled ? show : internalOpen;
+
+    const toggle = () => {
+      const nextOpen = !open;
+      if (!controlled) setInternalOpen(nextOpen);
+      onToggle?.(nextOpen);
+    };
+
+    useEffect(() => {
+      if (!open || controlled) return undefined;
+      const closeOnOutsideClick = (event) => {
+        if (!rootRef.current?.contains(event.target)) setInternalOpen(false);
+      };
+      const closeOnEscape = (event) => {
+        if (event.key === 'Escape') setInternalOpen(false);
+      };
+      document.addEventListener('pointerdown', closeOnOutsideClick);
+      document.addEventListener('keydown', closeOnEscape);
+      return () => {
+        document.removeEventListener('pointerdown', closeOnOutsideClick);
+        document.removeEventListener('keydown', closeOnEscape);
+      };
+    }, [open, controlled]);
+
+    return (
+        <DropdownContext.Provider value={{ open, toggle, close: () => { if (!controlled) setInternalOpen(false); onToggle?.(false); } }}>
+        <div ref={rootRef} className={cn('relative inline-block', className)} {...props}>
+          {children}
+        </div>
+      </DropdownContext.Provider>
+    );
+  },
   {
-    Toggle: ({ children, className, ...props }) => (
-      <button type="button" className={cn('inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 shadow-sm transition hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800', className)} {...props}>
-        {children}
-      </button>
-    ),
-    Menu: ({ children, className, ...props }) => (
-      <div className={cn('absolute right-0 z-20 mt-2 min-w-[180px] rounded-xl border border-slate-200 bg-white p-1 shadow-xl dark:border-slate-700 dark:bg-slate-900', className)} {...props}>{children}</div>
-    ),
-    Item: ({ children, className, ...props }) => (
-      <button type="button" className={cn('block w-full rounded-md px-3 py-2 text-left text-sm text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800', className)} {...props}>{children}</button>
-    ),
+    Toggle: function DropdownToggle({ children, className, onClick, ...props }) {
+      const dropdown = useContext(DropdownContext);
+      return (
+        <button
+          type="button"
+          aria-haspopup="menu"
+          aria-expanded={Boolean(dropdown?.open)}
+          onClick={(event) => {
+            dropdown?.toggle();
+            onClick?.(event);
+          }}
+          className={cn('inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 shadow-sm transition hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800', className)}
+          {...props}
+        >
+          {children}
+        </button>
+      );
+    },
+    Menu: function DropdownMenu({ children, className, ...props }) {
+      const dropdown = useContext(DropdownContext);
+      if (!dropdown?.open) return null;
+      return (
+        <div role="menu" className={cn('absolute right-0 z-20 mt-2 min-w-[180px] rounded-xl border border-slate-200 bg-white p-1 shadow-xl dark:border-slate-700 dark:bg-slate-900', className)} {...props}>
+          {children}
+        </div>
+      );
+    },
+    Item: function DropdownItem({ children, className, onClick, ...props }) {
+      const dropdown = useContext(DropdownContext);
+      return (
+        <button
+          type="button"
+          role="menuitem"
+          onClick={(event) => {
+            dropdown?.close();
+            onClick?.(event);
+          }}
+          className={cn('block w-full rounded-md px-3 py-2 text-left text-sm text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800', className)}
+          {...props}
+        >
+          {children}
+        </button>
+      );
+    },
     Divider: ({ className, ...props }) => (
       <div role="separator" className={cn('my-1 border-t border-slate-200 dark:border-slate-700', className)} {...props} />
     ),
