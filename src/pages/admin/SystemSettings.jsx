@@ -144,7 +144,11 @@ const Table = ({ children }) => (
 /* ---------------- Component ---------------- */
 
 const SystemSettings = () => {
-  const { currentUser, userProfile } = useAuth();
+  const { currentUser, userProfile, isSuperAdmin } = useAuth();
+  const hasSuperAdminAccess =
+    isSuperAdmin === true ||
+    userProfile?.isSuperAdmin === true ||
+    ['super_admin', 'superadmin'].includes(String(userProfile?.userType || userProfile?.role || '').toLowerCase());
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState('general');
@@ -420,8 +424,21 @@ const SystemSettings = () => {
   };
 
   const handleBackup = async () => {
+    const { smtpPassword, ...safeEmailSettings } = settings.email || {};
+    const safeApiSettings = {
+      ...(settings.api || {}),
+      webhookSecret: '',
+      apiKeys: (settings.api?.apiKeys || []).map(({ key, ...apiKey }) => ({
+        ...apiKey,
+        keyMasked: key ? `${String(key).slice(0, 6)}...` : '',
+      })),
+    };
     const backupData = {
-      settings,
+      settings: {
+        ...settings,
+        email: safeEmailSettings,
+        api: safeApiSettings,
+      },
       timestamp: new Date().toISOString(),
       version: '1.0.0',
       source: 'admin-system-settings',
@@ -523,6 +540,16 @@ const SystemSettings = () => {
   const handleSettingChange = (section, field, value) => {
     setSettings((prev) => ({ ...prev, [section]: { ...prev[section], [field]: value } }));
   };
+
+  if (!hasSuperAdminAccess) {
+    return (
+      <AdminPageShell title="System Settings" description="Configure and manage system-wide settings" icon={FaCog}>
+        <Alert variant="danger">
+          Access denied. Only super administrators can view or change system settings.
+        </Alert>
+      </AdminPageShell>
+    );
+  }
 
   if (loading) {
     return (
@@ -895,7 +922,11 @@ const SystemSettings = () => {
                               <tr key={apiKey.id}>
                                 <td className="px-3 py-2">{apiKey.name}</td>
                                 <td className="px-3 py-2">
-                                  <code className="text-xs bg-gray-100 px-2 py-1 rounded block max-w-[200px] truncate">{apiKey.key}</code>
+                                  <code className="text-xs bg-gray-100 px-2 py-1 rounded block max-w-[200px] truncate">
+                                    {apiKeyVisible
+                                      ? apiKey.key
+                                      : `${String(apiKey.key || '').slice(0, 6)}${apiKey.key ? '...' : ''}`}
+                                  </code>
                                 </td>
                                 <td className="px-3 py-2">
                                   {apiKey.permissions.map((perm) => (

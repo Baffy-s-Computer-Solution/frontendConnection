@@ -37,6 +37,7 @@ export const ROUTES = {
     JOBS: '/admin/jobs',
     PENDING_APPROVALS: '/admin/pending-approvals',
     ANALYTICS: '/admin/analytics',
+    TESTIMONIALS: '/admin/testimonials',
     SYSTEM_SETTINGS: '/admin/system-settings',
     PROFILE: '/admin/profile',
     SETTINGS: '/admin/settings',
@@ -56,6 +57,7 @@ export const ROUTES = {
   // Student Routes
   STUDENT: {
     BASE: '/student',
+    ASSESSMENTS: '/student/assessments',
     DASHBOARD: '/student/dashboard',
     PROFILE: '/student/profile',
     APPLICATIONS: '/student/applications',

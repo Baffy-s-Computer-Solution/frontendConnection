@@ -12,6 +12,7 @@ import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, storage } from '../config/firebase';
 
 import { cloudinaryService } from './cloudinaryService';
+import { apiRequest } from './apiClient';
 
 class ProfileService {
   constructor() {
@@ -234,6 +235,30 @@ class ProfileService {
         throw new Error(`Image size must be less than ${maxSize / (1024 * 1024)}MB`);
       }
 
+      if (this.auth.currentUser?.uid !== userId) {
+        throw new Error('You can only update your own profile photo.');
+      }
+      const optimizedFile = optimize ? await this.optimizeImageForUpload(file) : file;
+      const formData = new FormData();
+      formData.append('file', optimizedFile);
+      const uploaded = await apiRequest('/api/media/profile-photo', { method: 'POST', body: formData });
+      await this.updateProfile(userId, {
+        profilePhoto: uploaded.photoURL,
+        profilePhotoCloudinaryId: uploaded.publicId,
+        profilePhotoThumbnail: uploaded.photoURL,
+        profilePhotoUpdated: new Date().toISOString(),
+      }, { silent: true });
+
+      return {
+        success: true,
+        url: uploaded.photoURL,
+        storageType: 'cloudinary',
+        thumbnailUrl: uploaded.photoURL,
+        publicId: uploaded.publicId,
+        message: 'Profile photo uploaded successfully',
+        metadata: { fileSize: file.size, fileType: file.type, optimized: optimize, uploadedAt: new Date().toISOString() },
+      };
+
       let uploadResult;
       let storageType = 'none';
 
@@ -343,6 +368,9 @@ class ProfileService {
         throw new Error('File size must be less than 10MB');
       }
 
+      // Never create a public Cloudinary or compatibility-storage URL for a resume.
+      throw new Error('Resume uploads are paused until private, authenticated file delivery is enabled.');
+
       // Try Cloudinary first for documents
       let uploadResult;
       try {
@@ -400,6 +428,8 @@ class ProfileService {
     try {
       if (!file) throw new Error('No file provided');
       if (!documentType) throw new Error('Document type is required');
+
+      throw new Error('Document uploads are paused until private, authenticated file delivery is enabled.');
 
       const timestamp = Date.now();
       const safeFileName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');

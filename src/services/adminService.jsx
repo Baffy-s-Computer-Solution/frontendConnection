@@ -19,6 +19,7 @@ import {
 import { auth, db } from '../config/firebase';
 import { canonicalUserStatus } from '../utils/userStatus';
 import API_BASE_URL from './apiConfig';
+import { apiRequest } from './apiClient';
 
 // Helper functions
 const getAdminId = (currentUser) => currentUser?.uid || 'system';
@@ -1270,33 +1271,15 @@ export const adminService = {
   },
   // ==================== ADMIN MANAGEMENT ====================
   admins: {
-    getAllAdmins: async () => {
+    getAllAdmins: async (filters = {}, page = 1, limit = 20) => {
       try {
-        const usersRef = collection(db, 'users');
-        const snapshot = await safeGetDocs(usersRef);
-
-        const admins = snapshot.docs
-          .map((adminDoc) => ({
-            id: adminDoc.id,
-            ...adminDoc.data(),
-            createdAt: safeDate(adminDoc.data().createdAt),
-            updatedAt: safeDate(adminDoc.data().updatedAt),
-          }))
-          .filter(
-            (user) =>
-              user.userType === 'admin' ||
-              user.role === 'admin' ||
-              user.role === 'super_admin' ||
-              user.isAdmin === true
-          );
-
-        admins.sort((a, b) => {
-          const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-          const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-          return timeB - timeA;
-        });
-
-        return { success: true, data: admins };
+        const params = new URLSearchParams({ page: String(page), limit: String(limit) });
+        if (filters.search) params.set('search', filters.search);
+        if (filters.status && filters.status !== 'all') params.set('status', filters.status);
+        if (filters.role && filters.role !== 'all') params.set('role', filters.role);
+        const data = await apiRequest(`/api/admin/admins?${params}`);
+        const admins = Array.isArray(data) ? data : data.admins || [];
+        return { success: true, data: { admins, totalPages: data.totalPages || 1, stats: data.stats } };
       } catch (error) {
         return { success: false, error: error.message, data: [] };
       }
@@ -1311,28 +1294,13 @@ export const adminService = {
           return { success: false, error: 'Email is required' };
         }
 
-        const newRef = await addDoc(collection(db, 'users'), {
+        const data = await apiRequest('/api/admin/admins', { method: 'POST', body: {
           email: normalizedEmail,
-          displayName: payload?.displayName || normalizedEmail.split('@')[0],
-          userType: 'admin',
-          role: payload?.adminLevel === 'super_admin' ? 'super_admin' : 'admin',
-          adminLevel: payload?.adminLevel === 'super_admin' ? 'super_admin' : 'admin',
-          status: payload?.status || 'active',
+          displayName: payload?.displayName,
+          adminLevel: payload?.adminLevel || payload?.role || 'admin',
           permissions: payload?.permissions || [],
-          isAdmin: true,
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
-          createdBy: getAdminId(currentUser),
-        });
-
-        await logAction(
-          'admin_created',
-          { adminId: newRef.id, email: normalizedEmail },
-          currentUser,
-          userProfile
-        );
-
-        return { success: true, data: { id: newRef.id }, message: 'Admin created successfully' };
+        } });
+        return { success: true, data, message: 'Admin access granted successfully' };
       } catch (error) {
         return { success: false, error: error.message };
       }
@@ -1340,16 +1308,12 @@ export const adminService = {
 
     updateAdmin: async (adminId, updates, currentUser, userProfile) => {
       try {
-        const adminRef = doc(db, 'users', adminId);
-        const merged = { ...updates, updatedAt: serverTimestamp() };
-
-        if (updates.adminLevel) {
-          merged.role = updates.adminLevel === 'super_admin' ? 'super_admin' : 'admin';
-          merged.adminLevel = updates.adminLevel === 'super_admin' ? 'super_admin' : 'admin';
-        }
-
-        await updateDoc(adminRef, merged);
-        await logAction('admin_updated', { adminId, updates: merged }, currentUser, userProfile);
+        await apiRequest(`/api/admin/admins/${encodeURIComponent(adminId)}`, { method: 'PUT', body: {
+          displayName: updates.displayName,
+          adminLevel: updates.adminLevel || updates.role,
+          status: updates.status,
+          permissions: updates.permissions,
+        } });
         return { success: true, message: 'Admin updated successfully' };
       } catch (error) {
         return { success: false, error: error.message };
@@ -1358,14 +1322,7 @@ export const adminService = {
 
     deactivateAdmin: async (adminId, currentUser, userProfile) => {
       try {
-        const adminRef = doc(db, 'users', adminId);
-        await updateDoc(adminRef, {
-          status: 'suspended',
-          isActive: false,
-          updatedAt: serverTimestamp(),
-          suspendedBy: getAdminId(currentUser),
-        });
-        await logAction('admin_deactivated', { adminId }, currentUser, userProfile);
+        await apiRequest(`/api/admin/admins/${encodeURIComponent(adminId)}`, { method: 'DELETE' });
         return { success: true, message: 'Admin deactivated successfully' };
       } catch (error) {
         return { success: false, error: error.message };
@@ -1394,7 +1351,11 @@ const addAdminServiceCompatibility = () => {
       const applications = await getCollectionRecords('applications', {}, 1, 10000);
       const stats = { totalUsers: users.total, activeCompanies: companies.records.filter((item) => ['active', 'approved'].includes(item.status)).length, activeJobs: jobs.records.filter((item) => item.status === 'active').length, pendingApprovals: users.records.filter((item) => canonicalUserStatus(item.status) === 'pending').length, totalApplications: applications.total };
       await logAction('dashboard_stats_viewed', { stats }, currentUser, userProfile);
-      return safeResult({ stats, changes: {}, chartData: [] });
+      return safeResult({
+        stats,
+        changes: { users: 0, companies: 0, jobs: 0, approvals: 0 },
+        chartData: [],
+      });
     } catch (error) { return safeResult({ stats: {}, changes: {}, chartData: [] }, error); }
   };
 
@@ -1456,7 +1417,42 @@ const addAdminServiceCompatibility = () => {
 
   adminService.audit.getAuditLogDetails = async (id) => { try { const data = await getOne('admin_actions', id); return data ? safeResult(data) : safeResult({}, new Error('Audit log not found')); } catch (error) { return safeResult({}, error); } }; adminService.audit.clearAuditLogs = async (filters = {}, currentUser, userProfile) => { try { const result = await getCollectionRecords('admin_actions', filters, 1, 500); await Promise.all(result.records.map((item) => deleteDoc(doc(db, 'admin_actions', item.id)))); await logAction('audit_clear', { count: result.records.length }, currentUser, userProfile); return safeResult({ count: result.records.length }); } catch (error) { return safeResult({}, error); } }; adminService.audit.exportAuditLogs = async (filters = {}) => { try { return safeResult(await exportCollection('admin_actions', filters)); } catch (error) { return safeResult([], error); } };
 
-  const admins = adminService.admins; const existingGetAllAdmins = admins.getAllAdmins; admins.getAllAdmins = async (filters = {}, page = 1, limit = 20) => { try { const base = await existingGetAllAdmins(); const records = (base?.data || base || []).filter((item) => !filters.search || JSON.stringify(item).toLowerCase().includes(String(filters.search).toLowerCase())).filter((item) => !filters.status || filters.status === 'all' || item.status === filters.status); const safeLimit = Math.max(1, Number(limit) || 20); const safePage = Math.max(1, Number(page) || 1); return safeResult({ admins: records.slice((safePage - 1) * safeLimit, safePage * safeLimit), page: safePage, limit: safeLimit, total: records.length, totalPages: Math.max(1, Math.ceil(records.length / safeLimit)), stats: { total: records.length, admins: records.filter((item) => item.adminLevel !== 'super_admin').length, superAdmins: records.filter((item) => item.adminLevel === 'super_admin').length, suspended: records.filter((item) => item.status === 'suspended').length } }); } catch (error) { return safeResult({ admins: [], page, limit, total: 0, totalPages: 1 }, error); } }; admins.getAdminDetails = async (id) => { try { const data = await getOne('users', id); return data ? safeResult(data) : safeResult({}, new Error('Admin not found')); } catch (error) { return safeResult({}, error); } }; admins.updateAdmin = admins.updateAdmin || (async (id, updates, currentUser, userProfile) => safeResult(await updateRecord('users', id, updates, currentUser, userProfile, 'admin_update'))); admins.suspendAdmin = async (id, reason, currentUser, userProfile) => { try { return safeResult(await updateRecord('users', id, { status: 'suspended', isActive: false, suspensionReason: reason }, currentUser, userProfile, 'admin_suspend')); } catch (error) { return safeResult({}, error); } }; admins.activateAdmin = async (id, currentUser, userProfile) => { try { return safeResult(await updateRecord('users', id, { status: 'active', isActive: true }, currentUser, userProfile, 'admin_activate')); } catch (error) { return safeResult({}, error); } }; admins.revokeAdminAccess = async (id, currentUser, userProfile) => { try { return safeResult(await updateRecord('users', id, { isAdmin: false, role: 'user', adminLevel: null, status: 'active' }, currentUser, userProfile, 'admin_revoke')); } catch (error) { return safeResult({}, error); } }; admins.deleteAdmin = async (id, currentUser, userProfile) => admins.suspendAdmin(id, 'Deleted by administrator', currentUser, userProfile); admins.exportAdmins = async (filters = {}) => { const result = await admins.getAllAdmins(filters, 1, 10000); return safeResult(result.data?.admins || []); };
+  const admins = adminService.admins;
+  admins.approveExistingTestimonials = async () => {
+    try { const data = await apiRequest('/api/admin/testimonials/approve-existing', { method: 'POST', body: {} }); return { success: true, data }; }
+    catch (error) { return { success: false, error: error.message }; }
+  };
+  admins.getAdminDetails = async (id) => {
+    try {
+      const result = await apiRequest(`/api/admin/admins/${encodeURIComponent(id)}`);
+      return { success: true, data: result };
+    } catch (error) { return { success: false, error: error.message }; }
+  };
+  admins.suspendAdmin = async (id, reason) => admins.updateAdmin(id, { status: 'suspended', suspensionReason: reason });
+  admins.activateAdmin = async (id) => admins.updateAdmin(id, { status: 'active' });
+  admins.revokeAdminAccess = async (id, reason) => {
+    try { const data = await apiRequest(`/api/admin/admins/${encodeURIComponent(id)}/revoke`, { method: 'POST', body: { reason } }); return { success: true, data }; }
+    catch (error) { return { success: false, error: error.message }; }
+  };
+  admins.deleteAdmin = async (id, reason) => {
+    try { const data = await apiRequest(`/api/admin/admins/${encodeURIComponent(id)}`, { method: 'DELETE', body: { reason } }); return { success: true, data }; }
+    catch (error) { return { success: false, error: error.message }; }
+  };
+  admins.exportAdmins = async (filters = {}, format = 'csv') => {
+    try {
+      const data = await apiRequest(`/api/admin/admins?${new URLSearchParams({ ...filters, page: '1', limit: '100' })}`);
+      const records = data.admins || (Array.isArray(data) ? data : []);
+      if (format === 'csv') {
+        const quote = (value) => `"${String(value ?? '').replaceAll('"', '""')}"`;
+        return { success: true, data: [
+          ['Name', 'Email', 'Role', 'Status', 'Created'].map(quote).join(','),
+          ...records.map((item) => [item.displayName, item.email, item.role, item.status, item.createdAt].map(quote).join(',')),
+        ].join('\n') };
+      }
+      return { success: true, data: JSON.stringify(records, null, 2) };
+    }
+    catch (error) { return { success: false, error: error.message }; }
+  };
 
   adminService.admissions = { getAllApplications: applications.getAllApplications, getApplicationDetails: applications.getApplicationDetails, approveApplication: async (id, currentUser, userProfile) => { try { return safeResult(await updateRecord('applications', id, { status: 'approved' }, currentUser, userProfile, 'admission_approve')); } catch (error) { return safeResult({}, error); } }, rejectApplication: async (id, reason, currentUser, userProfile) => { try { return safeResult(await updateRecord('applications', id, { status: 'rejected', rejectionReason: reason }, currentUser, userProfile, 'admission_reject')); } catch (error) { return safeResult({}, error); } }, deleteApplication: applications.deleteApplication, bulkApproveApplications: async (ids, currentUser, userProfile) => runBulkMutation(ids, (id) => adminService.admissions.approveApplication(id, currentUser, userProfile)), bulkRejectApplications: async (ids, reason, currentUser, userProfile) => runBulkMutation(ids, (id) => adminService.admissions.rejectApplication(id, reason, currentUser, userProfile),), exportApplications: applications.exportApplications };
 

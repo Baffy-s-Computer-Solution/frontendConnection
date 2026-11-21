@@ -60,6 +60,13 @@ describe('ApplyJob', () => {
         title: 'Frontend Developer',
         companyName: 'Career Connect',
         status: 'active',
+        location: {
+          zipCode: '100',
+          street: 'Kingsway',
+          city: 'Maseru',
+          state: 'Maseru District',
+          country: 'Lesotho',
+        },
       },
     });
     mocks.getStudentProfile.mockResolvedValue({
@@ -83,6 +90,7 @@ describe('ApplyJob', () => {
     renderApplicationPage();
 
     await screen.findByRole('heading', { name: 'Frontend Developer' });
+    expect(screen.getByText('Kingsway, Maseru, Maseru District, 100, Lesotho')).toBeInTheDocument();
     expect(screen.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '1');
 
     fireEvent.click(screen.getByRole('button', { name: /continue to your resume/i }));

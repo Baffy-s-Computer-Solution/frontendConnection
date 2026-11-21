@@ -47,31 +47,9 @@ export const institutionService = {
       const snapshot = await getDocs(institutionQuery);
 
       if (snapshot.empty) {
-        console.log("No institution found for user, creating default...");
-        // Create a default institution profile if none exists
-        const defaultInstitution = {
-          userId: userId,
-          name: "New Institution",
-          email: "",
-          phone: "",
-          address: "",
-          type: "university",
-          status: "active",
-          logo: "",
-          description: "",
-          createdAt: Timestamp.now(),
-          updatedAt: Timestamp.now(),
-        };
-
-        const newInstitutionRef = await addDoc(
-          collection(db, "institutions"),
-          defaultInstitution,
+        throw new Error(
+          "No approved institution is linked to this account. Submit an institution onboarding request and wait for platform review.",
         );
-
-        return {
-          id: newInstitutionRef.id,
-          ...defaultInstitution,
-        };
       }
 
       const institutionDoc = snapshot.docs[0];
@@ -83,7 +61,7 @@ export const institutionService = {
       };
     } catch (error) {
       console.error("Error fetching institution profile:", error);
-      throw new Error("Failed to load institution profile");
+      throw error;
     }
   },
 

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
-import { FaAward, FaBars, FaBell, FaBriefcase, FaBuilding, FaCalendarAlt, FaChartLine, FaChevronLeft, FaChevronRight, FaChalkboardTeacher, FaCog, FaComments, FaFileAlt, FaGraduationCap, FaHome, FaMoon, FaPlus, FaRocket, FaSchool, FaSearch, FaShieldAlt, FaSignOutAlt, FaSun, FaUser, FaUsers, FaUserShield, FaVideo } from "react-icons/fa";
+import { FaAward, FaBars, FaBell, FaBriefcase, FaBuilding, FaCalendarAlt, FaChartLine, FaChevronLeft, FaChevronRight, FaChalkboardTeacher, FaCog, FaComments, FaFileAlt, FaGraduationCap, FaHome, FaMoon, FaPlus, FaRocket, FaSchool, FaSearch, FaShieldAlt, FaSignOutAlt, FaSun, FaUser, FaUsers, FaUserShield, FaVideo, FaQuoteRight } from "react-icons/fa";
 
 import { useAuth } from "../../context/AuthContext";
 import { useTheme } from "../../context/ThemeContext";
@@ -19,6 +19,7 @@ const ROLE_NAVIGATION = {
       icon: FaUsers,
     },
     { label: "Analytics", path: ROUTES.ADMIN.ANALYTICS, icon: FaChartLine },
+    { label: "Testimonials", path: ROUTES.ADMIN.TESTIMONIALS, icon: FaQuoteRight },
     { label: "Admissions", path: ROUTES.ADMIN.ADMISSIONS, icon: FaSchool },
     { label: "Search users", path: ROUTES.ADMIN.SEARCH.USERS, icon: FaSearch },
     {
@@ -54,6 +55,7 @@ const ROLE_NAVIGATION = {
       path: ROUTES.STUDENT.APPLICATIONS,
       icon: FaFileAlt,
     },
+    { label: "Assessments", path: ROUTES.STUDENT.ASSESSMENTS, icon: FaAward },
     { label: "Documents", path: ROUTES.STUDENT.DOCUMENTS, icon: FaFileAlt },
     { label: "Courses", path: ROUTES.STUDENT.COURSES, icon: FaGraduationCap },
     {
@@ -83,7 +85,6 @@ const ROLE_NAVIGATION = {
     { label: "Documents", path: ROUTES.COMPANY.DOCUMENTS, icon: FaFileAlt },
     { label: "Chat", path: ROUTES.COMPANY.CHAT, icon: FaComments },
     { label: "Followers", path: ROUTES.COMPANY.FOLLOWERS, icon: FaUsers },
-    { label: "Friends", path: "/company/friends", icon: FaUsers },
     { label: "AI matching", path: ROUTES.COMPANY.AI_MATCHING, icon: FaRocket },
     {
       label: "Video interviews",

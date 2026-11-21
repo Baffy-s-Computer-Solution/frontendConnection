@@ -8,7 +8,7 @@
   "author": "Career Connect Lesotho Team",
   "repository": {
     "type": "git",
-    "url": "https://github.com/Baffy-s-Computer-Solution/frontendConnection.git"
+    "url": "https://github.com/yourusername/career-connect-lesotho-frontend.git"
   },
   "engines": {
     "node": ">=18.0.0",

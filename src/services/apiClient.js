@@ -37,8 +37,11 @@ export async function apiRequest(path, options = {}) {
 
   const result = response.status === 204 ? null : await response.json().catch(() => null);
   if (!response.ok) {
-    const message =
-      typeof result?.message === 'string' ? result.message : 'The request could not be completed.';
+    const message = typeof result?.message === 'string'
+      ? result.message
+      : typeof result?.error === 'string'
+        ? result.error
+        : 'The request could not be completed.';
     throw new ApiClientError(message, response.status, result?.code);
   }
 

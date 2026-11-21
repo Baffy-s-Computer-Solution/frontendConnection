@@ -1,12 +1,17 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   ArrowUpRight,
   Globe2,
+  Home,
   Mail,
   MessageCircle,
   Phone,
   Send,
 } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { useAuth } from '../../context/AuthContext';
+import { getDashboardPathByUserType, normalizeUserType } from '../../utils/authRoleUtils';
+import API_BASE_URL from '../../services/apiConfig';
 
 const CONTACT_EMAIL = 'khoalibafokeng@gmail.com';
 const CONTACT_PHONE = '+266 632 10786';
@@ -49,39 +54,80 @@ const CONTACT_OPTIONS = [
 ];
 
 const Contact = () => {
+  const { currentUser, userProfile } = useAuth();
   const [formData, setFormData] = useState({
     name: '',
     email: '',
     subject: '',
     message: '',
   });
-  const [emailDraft, setEmailDraft] = useState('');
+  const [sending, setSending] = useState(false);
+  const [sendError, setSendError] = useState('');
+  const [sent, setSent] = useState(false);
+
+  useEffect(() => {
+    if (!currentUser) return;
+    const name = userProfile?.displayName || userProfile?.fullName || userProfile?.companyName || currentUser.displayName || '';
+    const email = currentUser.email || userProfile?.email || '';
+    setFormData((current) => ({
+      ...current,
+      name: current.name || name,
+      email: current.email || email,
+    }));
+  }, [currentUser, userProfile]);
 
   const handleChange = (event) => {
     const { name, value } = event.target;
     setFormData((current) => ({ ...current, [name]: value }));
-    setEmailDraft('');
+    setSent(false);
+    setSendError('');
   };
 
-  const handleSubmit = (event) => {
+  const handleSubmit = async (event) => {
     event.preventDefault();
-    const subject = formData.subject.trim() || 'Career Connect Lesotho enquiry';
-    const body = [
-      `Name: ${formData.name.trim()}`,
-      `Reply email: ${formData.email.trim()}`,
-      '',
-      formData.message.trim(),
-    ].join('\n');
-
-    setEmailDraft(
-      `mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
-    );
+    setSending(true);
+    setSendError('');
+    setSent(false);
+    try {
+      const headers = { 'Content-Type': 'application/json', Accept: 'application/json' };
+      if (currentUser) headers.Authorization = `Bearer ${await currentUser.getIdToken()}`;
+      const response = await fetch(`${API_BASE_URL}/api/contact`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          name: formData.name.trim(),
+          email: formData.email.trim(),
+          subject: formData.subject.trim(),
+          message: formData.message.trim(),
+        }),
+      });
+      const result = await response.json().catch(() => null);
+      if (!response.ok || result?.success !== true) {
+        throw new Error(result?.message || 'We could not send your message. Please try again.');
+      }
+      setSent(true);
+      setFormData((current) => ({ ...current, subject: '', message: '' }));
+    } catch (error) {
+      setSendError(error.message || 'We could not send your message. Please try again.');
+    } finally {
+      setSending(false);
+    }
   };
+
+  const role = normalizeUserType(userProfile?.userType || userProfile?.role);
+  const dashboardPath = currentUser && ['student', 'mentor', 'company', 'admin', 'super_admin'].includes(role)
+    ? getDashboardPathByUserType(role)
+    : null;
 
   return (
     <main className="common-page">
       <section className="page-hero">
         <div className="hero-content">
+          {dashboardPath && (
+            <Link to={dashboardPath} aria-label="Return to dashboard" title="Return to dashboard" className="mb-5 inline-flex h-10 w-10 items-center justify-center rounded-xl border border-white/30 bg-white/10 text-white transition hover:bg-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white">
+              <Home className="h-5 w-5" aria-hidden="true" />
+            </Link>
+          )}
           <span className="section-kicker justify-center">
             <MessageCircle aria-hidden="true" />
             We&apos;re here to help
@@ -132,8 +178,8 @@ const Contact = () => {
                   Write us a message
                 </h2>
                 <p className="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-400">
-                  This form prepares an email in your own email app. Your message is not sent until
-                  you review and send that email.
+                  Send a message directly to the Career Connect Lesotho support team. We&apos;ll reply
+                  to the email address you provide.
                 </p>
               </div>
 
@@ -149,6 +195,7 @@ const Contact = () => {
                       value={formData.name}
                       onChange={handleChange}
                       autoComplete="name"
+                      maxLength={100}
                       required
                       className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
                     />
@@ -164,6 +211,7 @@ const Contact = () => {
                       value={formData.email}
                       onChange={handleChange}
                       autoComplete="email"
+                      maxLength={254}
                       required
                       className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
                     />
@@ -179,6 +227,7 @@ const Contact = () => {
                     name="subject"
                     value={formData.subject}
                     onChange={handleChange}
+                    maxLength={140}
                     required
                     className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
                   />
@@ -195,32 +244,32 @@ const Contact = () => {
                     onChange={handleChange}
                     required
                     rows={6}
+                    maxLength={5000}
                     className="w-full resize-y rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm leading-6 text-slate-900 outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
                   />
                 </div>
 
                 <button
                   type="submit"
-                  className="inline-flex items-center gap-2 rounded-xl bg-brand-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-brand-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2"
+                  disabled={sending}
+                  className="inline-flex items-center gap-2 rounded-xl bg-brand-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-brand-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 disabled:cursor-wait disabled:opacity-60"
                 >
-                  Prepare email
+                  {sending ? 'Sending…' : 'Send message'}
                   <Send className="h-4 w-4" aria-hidden="true" />
                 </button>
               </form>
 
-              {emailDraft && (
+              {sendError && (
+                <div className="mt-5 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800 dark:border-red-800 dark:bg-red-950/30 dark:text-red-200" role="alert">
+                  {sendError}
+                </div>
+              )}
+              {sent && (
                 <div
                   className="mt-5 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900 dark:border-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-200"
                   role="status"
                 >
-                  <p>Your email draft is ready. Open it to review and send your message.</p>
-                  <a
-                    href={emailDraft}
-                    className="mt-3 inline-flex items-center gap-2 font-semibold underline underline-offset-2"
-                  >
-                    Open email draft
-                    <ArrowUpRight className="h-4 w-4" aria-hidden="true" />
-                  </a>
+                  <p>Your message was sent successfully to the Career Connect Lesotho team.</p>
                 </div>
               )}
             </section>

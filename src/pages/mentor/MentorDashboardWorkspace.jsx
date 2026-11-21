@@ -14,12 +14,14 @@ import {
   Settings,
   Star,
   Users,
+  UserPlus,
   Video,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { mentorService } from "../../services/mentorService";
 import { useAuth } from "../../hooks/useAuth";
 import SocialDashboardSection from "../../components/social/SocialDashboardSection";
+import TestimonialComposer from "../../components/social/TestimonialComposer";
 
 const links = [
   {
@@ -45,6 +47,12 @@ const links = [
     href: "/mentor/earnings",
     icon: DollarSign,
     hint: "Track payouts and income",
+  },
+  {
+    label: "Referrals",
+    href: "/mentor/referrals",
+    icon: UserPlus,
+    hint: "Share your referral link and track sign-ups",
   },
 ];
 
@@ -167,7 +175,8 @@ export default function MentorDashboardWorkspace() {
               glance.
             </p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
+            <TestimonialComposer userType="mentor" profile={profile} />
             <button
               type="button"
               onClick={load}
@@ -203,28 +212,28 @@ export default function MentorDashboardWorkspace() {
 
       <section
         aria-label="Mentor workspace shortcuts"
-        className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4"
+        className="grid grid-cols-2 gap-2.5 sm:grid-cols-2 sm:gap-3 xl:grid-cols-4"
       >
         {links.map(({ label, href, icon: Icon, hint }) => (
           <Link
             key={href}
             to={href}
-            className="group flex items-center gap-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:border-indigo-300 hover:shadow-md dark:border-slate-800 dark:bg-slate-900"
+            className="group flex min-w-0 items-center gap-2.5 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm transition hover:-translate-y-0.5 hover:border-indigo-300 hover:shadow-md dark:border-slate-800 dark:bg-slate-900 sm:gap-4 sm:p-4"
           >
-            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-300">
-              <Icon size={20} />
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-300 sm:h-11 sm:w-11">
+              <Icon size={18} />
             </span>
             <span className="min-w-0 flex-1">
-              <span className="block font-semibold text-slate-900 dark:text-white">
+              <span className="block truncate text-xs font-semibold text-slate-900 dark:text-white sm:text-sm">
                 {label}
               </span>
-              <span className="mt-1 block truncate text-xs text-slate-500 dark:text-slate-400">
+              <span className="mt-1 hidden truncate text-xs text-slate-500 dark:text-slate-400 sm:block">
                 {hint}
               </span>
             </span>
             <ArrowUpRight
-              size={16}
-              className="text-slate-400 transition group-hover:text-indigo-600"
+              size={14}
+              className="hidden shrink-0 text-slate-400 transition group-hover:text-indigo-600 sm:block"
             />
           </Link>
         ))}
@@ -232,27 +241,29 @@ export default function MentorDashboardWorkspace() {
 
       <section
         aria-label="Mentor performance"
-        className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4"
+        className="grid grid-cols-2 gap-3 sm:grid-cols-2 sm:gap-4 xl:grid-cols-4"
       >
         {statCards.map(({ title, icon: Icon, value, detail, iconStyle }) => (
           <article
             key={title}
-            className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900"
+            className="flex min-w-0 items-center gap-2.5 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:block sm:p-5"
           >
             <span
-              className={`flex h-11 w-11 items-center justify-center rounded-xl ${iconStyle}`}
+              className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl sm:h-11 sm:w-11 ${iconStyle}`}
             >
-              <Icon size={20} />
+              <Icon size={17} />
             </span>
-            <h2 className="mt-4 text-sm font-medium text-slate-500 dark:text-slate-400">
-              {title}
-            </h2>
-            <p className="mt-1 text-3xl font-bold tracking-tight text-slate-900 dark:text-white">
-              {loading ? "—" : value(summary)}
-            </p>
-            <p className="mt-1 text-xs text-slate-500">
-              {typeof detail === "function" ? detail(summary) : detail}
-            </p>
+            <div className="min-w-0">
+              <h2 className="truncate text-[11px] font-medium text-slate-500 dark:text-slate-400 sm:mt-4 sm:text-sm">
+                {title}
+              </h2>
+              <p className="mt-0.5 truncate text-xl font-bold tracking-tight text-slate-900 dark:text-white sm:mt-1 sm:text-3xl">
+                {loading ? "—" : value(summary)}
+              </p>
+              <p className="mt-0.5 hidden truncate text-xs text-slate-500 sm:mt-1 sm:block">
+                {typeof detail === "function" ? detail(summary) : detail}
+              </p>
+            </div>
           </article>
         ))}
       </section>

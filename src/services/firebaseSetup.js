@@ -1,6 +1,17 @@
-import { collection, doc, setDoc, getDoc } from 'firebase/firestore';
+import {
+  collection,
+  doc,
+  getDoc,
+  getDocs,
+  limit,
+  orderBy,
+  query,
+  serverTimestamp,
+  setDoc,
+  where,
+} from 'firebase/firestore';
 
-import { db } from '../config/firebase';
+import { auth, db } from '../config/firebase';
 
 class FirebaseSetupService {
   static async initializeCollections() {
@@ -9,31 +20,6 @@ class FirebaseSetupService {
 
       // Define required collections and their default structure
       const collections = {
-        testimonials: {
-          defaultDoc: {
-            name: 'System Default',
-            role: 'Platform Admin',
-            content: 'This is a sample testimonial. Add real testimonials from the dashboard.',
-            avatar: 'SA',
-            rating: 5,
-            status: 'approved',
-            featured: true,
-            createdAt: new Date(),
-            isDefault: true,
-          },
-          fields: {
-            name: 'string',
-            role: 'string',
-            content: 'string',
-            avatar: 'string',
-            rating: 'number',
-            status: 'string', // approved, pending, rejected
-            featured: 'boolean',
-            createdAt: 'timestamp',
-            userId: 'string',
-            isDefault: 'boolean',
-          },
-        },
         platformStats: {
           defaultDoc: {
             totalStudents: 12500,
@@ -91,15 +77,22 @@ class FirebaseSetupService {
 
   static async addTestimonial(testimonialData) {
     try {
-      const testimonialsRef = collection(db, 'testimonials');
-      const newTestimonialRef = doc(testimonialsRef);
+      const user = auth.currentUser;
+      const userType = String(testimonialData.userType || '').toLowerCase();
+      if (!user || !['student', 'company', 'mentor'].includes(userType)) {
+        throw new Error('Only signed-in students, companies, and mentors can submit testimonials.');
+      }
+
+      const newTestimonialRef = doc(db, 'testimonials', user.uid);
 
       const testimonial = {
         ...testimonialData,
-        createdAt: new Date(),
-        status: 'pending', // Default to pending for admin approval
-        featured: false,
-        id: newTestimonialRef.id,
+        userId: user.uid,
+        userType,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        approved: false,
+        status: 'pending',
       };
 
       await setDoc(newTestimonialRef, testimonial);
@@ -113,21 +106,17 @@ class FirebaseSetupService {
 
   static async getTestimonials() {
     try {
-      const testimonialsRef = collection(db, 'testimonials');
-      const snapshot = await getDoc(testimonialsRef);
-      const testimonials = [];
-
-      snapshot.forEach((doc) => {
-        testimonials.push({
-          id: doc.id,
-          ...doc.data(),
-        });
-      });
-
-      return testimonials;
+      const testimonialsQuery = query(
+        collection(db, 'testimonials'),
+        where('approved', '==', true),
+        orderBy('createdAt', 'desc'),
+        limit(6)
+      );
+      const snapshot = await getDocs(testimonialsQuery);
+      return snapshot.docs.map((record) => ({ id: record.id, ...record.data() }));
     } catch (error) {
       console.error('❌ Error getting testimonials:', error);
-      return [];
+      throw error;
     }
   }
 

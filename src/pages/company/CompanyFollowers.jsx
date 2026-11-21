@@ -4,7 +4,7 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate, Link } from 'react-router-dom';
-import { FaUsers, FaUserPlus, FaUserCheck, FaUserMinus, FaUserFriends, FaUserCircle, FaEnvelope, FaPhone, FaMapMarkerAlt, FaGraduationCap, FaBriefcase, FaStar, FaRegStar, FaHeart, FaRegHeart, FaBookmark, FaRegBookmark, FaSearch, FaFilter, FaSort, FaSortAmountDown, FaSortAmountUp, FaEllipsisV, FaEye, FaEyeSlash, FaPaperPlane, FaCommentDots, FaRegCommentDots, FaBell, FaRegBell, FaTimes, FaCheck, FaCheckCircle, FaTimesCircle, FaExclamationTriangle, FaInfoCircle, FaSpinner, FaSync, FaPlus, FaMinus, FaChartLine, FaChartBar, FaChartPie, FaPercentage, FaCalendarAlt, FaClock, FaHistory, FaRegClock, FaDownload, FaFileExport, FaFileImport, FaExternalLinkAlt, FaLinkedin, FaTwitter, FaFacebook, FaInstagram, FaGlobe, FaWifi, FaCircle, FaDotCircle, FaRegCircle, FaArrowUp, FaArrowDown, FaArrowLeft, FaArrowRight, FaChevronLeft, FaChevronRight, FaGripVertical, FaGripHorizontal, FaTh, FaThLarge, FaList, FaThList, FaTable, FaColumns, FaCog, FaSlidersH, FaToggleOn, FaToggleOff, FaTags, FaTag, FaHashtag, FaAt, FaShare, FaShareAlt, FaCopy, FaLink, FaRocket, FaBolt, FaFire, FaSnowflake, FaSun, FaMoon, FaMagic, FaBrain, FaRobot, FaLightbulb, FaHandshake, FaHandsHelping, FaHeart as FaHeartSolid, FaCrown, FaGem, FaAward, FaTrophy, FaMedal, FaThumbsUp, FaRegThumbsUp, FaUserTie, FaBuilding, FaRegBuilding, FaUserGraduate, FaBook, FaNewspaper, FaBullhorn, FaBullseye, FaCrosshairs, FaLocationArrow, FaDirections, FaCompass, FaMap, FaMapMarked, FaMapMarkedAlt, FaMapPin, FaGlobeAmericas, FaGlobeEurope, FaGlobeAsia, FaGlobeAfrica, FaMale, FaFemale, FaVenus, FaMars, FaTransgender, FaGenderless, FaBirthdayCake, FaCakeCandles, FaUsersCog, FaUsers as FaUsersSolid, FaRegSmile, FaSmile, FaRegLaugh, FaLaugh, FaGrinStars, FaHeartbeat, FaStarHalfAlt, FaStar as FaStarSolid, FaRegStarHalf, FaFilter as FaFilterSolid, FaUndo, FaRedo, FaTrash, FaTrashAlt, FaEdit, FaSave, FaRegSave, FaFileAlt, FaRegFileAlt, FaFilePdf, FaFileWord, FaFileExcel, FaFileCsv, FaPrint, FaMailBulk, FaEnvelopeOpen, FaEnvelopeOpenText, FaPaperclip, FaImage, FaVideo, FaPoll, FaSmile as FaSmileSolid, FaThumbsDown, FaRegThumbsDown, FaMeh, FaRegMeh, FaFrown, FaRegFrown, FaHeart as FaHeartAlt, FaRegHeart as FaRegHeartAlt } from "react-icons/fa";
+import { FaUsers, FaUserPlus, FaUserCheck, FaUserMinus, FaUserFriends, FaUserCircle, FaEnvelope, FaPhone, FaMapMarkerAlt, FaGraduationCap, FaBriefcase, FaStar, FaRegStar, FaHeart, FaRegHeart, FaBookmark, FaRegBookmark, FaSearch, FaFilter, FaSort, FaSortAmountDown, FaSortAmountUp, FaEllipsisV, FaEye, FaEyeSlash, FaPaperPlane, FaCommentDots, FaRegCommentDots, FaBell, FaRegBell, FaTimes, FaCheck, FaCheckCircle, FaTimesCircle, FaExclamationTriangle, FaInfoCircle, FaSpinner, FaSync, FaPlus, FaMinus, FaChartLine, FaChartBar, FaChartPie, FaPercentage, FaCalendarAlt, FaClock, FaHistory, FaRegClock, FaDownload, FaFileExport, FaFileImport, FaExternalLinkAlt, FaLinkedin, FaTwitter, FaFacebook, FaInstagram, FaGlobe, FaWifi, FaCircle, FaDotCircle, FaRegCircle, FaArrowUp, FaArrowDown, FaArrowLeft, FaArrowRight, FaChevronLeft, FaChevronRight, FaGripVertical, FaGripHorizontal, FaTh, FaThLarge, FaList, FaThList, FaTable, FaColumns, FaCog, FaSlidersH, FaToggleOn, FaToggleOff, FaTags, FaTag, FaHashtag, FaAt, FaShare, FaShareAlt, FaCopy, FaLink, FaRocket, FaBolt, FaFire, FaSnowflake, FaSun, FaMoon, FaMagic, FaBrain, FaRobot, FaLightbulb, FaHandshake, FaHandsHelping, FaHeart as FaHeartSolid, FaCrown, FaGem, FaAward, FaTrophy, FaMedal, FaThumbsUp, FaRegThumbsUp, FaUserTie, FaBuilding, FaRegBuilding, FaUserGraduate, FaBook, FaNewspaper, FaBullhorn, FaBullseye, FaCrosshairs, FaLocationArrow, FaDirections, FaCompass, FaMap, FaMapMarked, FaMapMarkedAlt, FaMapPin, FaGlobeAmericas, FaGlobeEurope, FaGlobeAsia, FaGlobeAfrica, FaMale, FaFemale, FaVenus, FaMars, FaTransgender, FaGenderless, FaBirthdayCake, FaUsersCog, FaUsers as FaUsersSolid, FaRegSmile, FaSmile, FaRegLaugh, FaLaugh, FaGrinStars, FaHeartbeat, FaStarHalfAlt, FaStar as FaStarSolid, FaRegStarHalf, FaFilter as FaFilterSolid, FaUndo, FaRedo, FaTrash, FaTrashAlt, FaEdit, FaSave, FaRegSave, FaFileAlt, FaRegFileAlt, FaFilePdf, FaFileWord, FaFileExcel, FaFileCsv, FaPrint, FaMailBulk, FaEnvelopeOpen, FaEnvelopeOpenText, FaPaperclip, FaImage, FaVideo, FaPoll, FaSmile as FaSmileSolid, FaThumbsDown, FaRegThumbsDown, FaMeh, FaRegMeh, FaFrown, FaRegFrown, FaHeart as FaHeartAlt, FaRegHeart as FaRegHeartAlt } from "react-icons/fa";
 import {
   collection,
   doc,
@@ -17,6 +17,7 @@ import {
   getDocs,
   getDoc,
   addDoc,
+  setDoc,
   updateDoc,
   deleteDoc,
   serverTimestamp,
@@ -142,14 +143,17 @@ const useFollowers = (companyId) => {
       q,
       async (snapshot) => {
         const followersData = await Promise.all(
-          snapshot.docs.map(async (docSnapshot) => {
+            snapshot.docs
+              .filter((docSnapshot) => docSnapshot.data().status !== 'inactive')
+              .map(async (docSnapshot) => {
             const data = docSnapshot.data();
             
             // Fetch follower user details
             let user = null;
-            if (data.userId) {
+            const followerUid = data.userId || data.studentId;
+            if (followerUid) {
               try {
-                const userDoc = await getDoc(doc(db, 'users', data.userId));
+                const userDoc = await getDoc(doc(db, 'users', followerUid));
                 if (userDoc.exists()) {
                   const userData = userDoc.data();
                   user = {
@@ -287,6 +291,7 @@ const FollowerCard = ({
 
   const userName = user?.name || user?.displayName || user?.email?.split('@')[0] || 'Follower';
   const userInitial = userName.charAt(0).toUpperCase();
+  const userRole = String(user?.userType || user?.role || (follower.userId ? 'mentor' : 'student')).toLowerCase();
 
   if (viewMode === 'list') {
     return (
@@ -333,7 +338,7 @@ const FollowerCard = ({
             </span>
           </div>
           <p className="text-sm text-gray-500 dark:text-gray-400 truncate">
-            {user?.headline || user?.title || user?.email || 'Follower'}
+            {userRole} · {user?.headline || user?.title || user?.email || 'Follower'}
           </p>
         </div>
 
@@ -427,7 +432,7 @@ const FollowerCard = ({
           {userName}
         </h4>
         <p className="text-sm text-gray-500 dark:text-gray-400 mb-2 line-clamp-1">
-          {user?.headline || user?.title || 'Follower'}
+          {userRole} · {user?.headline || user?.title || 'Follower'}
         </p>
 
         <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium ${engagementClasses}`}>
@@ -839,9 +844,22 @@ const CompanyFollowers = () => {
     if (!followerToRemove) return;
 
     try {
-      await deleteDoc(doc(db, 'companyFollowers', followerToRemove.id));
       const followerUid = followerToRemove.user?.id || followerToRemove.studentId || followerToRemove.userId;
-      if (followerUid) await updateDoc(doc(db, 'company_chat_followers', `${companyId}_${followerUid}`), { status: 'inactive', updatedAt: serverTimestamp() }).catch(() => {});
+      const followerRef = doc(db, 'companyFollowers', followerToRemove.id);
+      const edgeSnapshot = followerUid
+        ? await getDocs(query(
+          collection(db, 'company_chat_followers'),
+          where('companyId', '==', companyId),
+          limit(500)
+        ))
+        : null;
+      const edgeRef = edgeSnapshot?.docs.find((edge) => edge.data().followerId === followerUid)?.ref;
+      const batch = writeBatch(db);
+      batch.delete(followerRef);
+      if (edgeRef) {
+        batch.update(edgeRef, { status: 'inactive', updatedAt: serverTimestamp() });
+      }
+      await batch.commit();
 
       await supabase
         .from('company_activities')
@@ -1005,7 +1023,7 @@ const CompanyFollowers = () => {
               Followers
             </h1>
             <p className="text-gray-500 dark:text-gray-400 mt-1">
-              Manage and engage with candidates following your company
+              Manage and engage with students and mentors following your company
             </p>
           </div>
 

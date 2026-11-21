@@ -33,6 +33,9 @@ const resolveReference = (reference) => {
 const upload = async (reference, file, metadata = {}) => {
   const target = resolveReference(reference);
   if (!file || !target?.fullPath) throw new Error('A file and Cloudinary path are required.');
+  if (/\b(documents?|resumes?|transcripts?|certificates?|identity|evidence|applications?)\b/i.test(target.fullPath)) {
+    throw new Error('Sensitive documents require authenticated private delivery, which is not configured yet.');
+  }
   const segments = target.fullPath.split('/');
   const fileName = segments.pop();
   const folder = segments.join('/') || 'career-connect/uploads';

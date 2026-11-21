@@ -25,6 +25,7 @@ import Mentorship from '../../pages/student/StudentMentorship';
 import SearchInternships from '../../pages/student/SearchInternships';
 import StudentCourses from '../../pages/student/StudentCoursesLive';
 import FriendsNetwork from '../../pages/FriendsNetwork';
+import StudentAssessments from '../../pages/student/StudentAssessments';
 
 /**
  * Student Routes Module
@@ -73,6 +74,8 @@ export const getStudentRoutes = () => {
         </ProtectedRoute>
       }
     />,
+
+    <Route key="student-assessments" path="/student/assessments" element={<ProtectedRoute allowedUserTypes={['student']}><StudentAssessments /></ProtectedRoute>} />,
 
     // Student Applications
     <Route

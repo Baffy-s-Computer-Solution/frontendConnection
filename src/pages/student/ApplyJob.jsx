@@ -25,6 +25,7 @@ import {
   getStudentProfile,
   uploadResume,
 } from '../../services/studentServices';
+import { formatLocation } from '../../utils/formatters';
 
 const APPLICATION_STEPS = [
   { title: 'Your profile', description: 'Check your details' },
@@ -495,10 +496,10 @@ const ApplyJob = () => {
                       {[
                         ['Full name', fullName],
                         ['Email address', email],
-                        ['Education', studentProfile?.educationLevel || 'Not specified'],
-                        ['Institution', studentProfile?.institution || 'Not specified'],
+                        ['Education', formatLocation(studentProfile?.educationLevel, 'Not specified')],
+                        ['Institution', formatLocation(studentProfile?.institution, 'Not specified')],
                         ['Phone', studentProfile?.phoneNumber || 'Not provided'],
-                        ['Location', studentProfile?.address || 'Not provided'],
+                        ['Location', formatLocation(studentProfile?.address, 'Not provided')],
                       ].map(([label, value]) => (
                         <div
                           key={label}
@@ -752,7 +753,7 @@ const ApplyJob = () => {
                   <div className="rounded-xl bg-slate-50 p-3 dark:bg-slate-800/70">
                     <MapPin className="h-4 w-4 text-brand-600 dark:text-brand-300" aria-hidden="true" />
                     <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">Location</p>
-                    <p className="mt-0.5 text-sm font-semibold">{job.location || 'Remote'}</p>
+                    <p className="mt-0.5 text-sm font-semibold">{formatLocation(job.location, 'Remote')}</p>
                   </div>
                   <div className="rounded-xl bg-slate-50 p-3 dark:bg-slate-800/70">
                     <CircleDollarSign className="h-4 w-4 text-brand-600 dark:text-brand-300" aria-hidden="true" />

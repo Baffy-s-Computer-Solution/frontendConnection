@@ -93,6 +93,7 @@ export const followersService = {
   async addFollower(studentId) {
     try {
       const companyId = getCurrentCompanyId();
+      const followerRef = doc(db, COLLECTIONS.COMPANY_FOLLOWERS, `${companyId}_${studentId}`);
 
       // Check if already following
       const existingRef = collection(db, COLLECTIONS.COMPANY_FOLLOWERS);
@@ -104,28 +105,6 @@ export const followersService = {
 
       const existingSnap = await getDocs(existingQuery);
 
-      if (!existingSnap.empty) {
-        const followerDoc = existingSnap.docs[0];
-        await updateDoc(doc(db, COLLECTIONS.COMPANY_FOLLOWERS, followerDoc.id), {
-          status: 'active',
-          updatedAt: serverTimestamp(),
-          lastEngaged: serverTimestamp(),
-        });
-        await setDoc(doc(db, 'company_chat_followers', `${companyId}_${studentId}`), {
-          companyId,
-          followerId: studentId,
-          status: 'active',
-          createdAt: serverTimestamp(),
-        });
-
-        return {
-          success: true,
-          data: { id: followerDoc.id, action: 'updated' },
-        };
-      }
-
-      // Create new follower
-      const followersRef = collection(db, COLLECTIONS.COMPANY_FOLLOWERS);
       const followerData = {
         companyId,
         studentId,
@@ -137,20 +116,24 @@ export const followersService = {
         source: 'platform',
       };
 
-      const docRef = await addDoc(followersRef, followerData);
-      await setDoc(doc(db, 'company_chat_followers', `${companyId}_${studentId}`), {
-        companyId,
-        followerId: studentId,
-        status: 'active',
-        createdAt: serverTimestamp(),
-      });
+      await setDoc(followerRef, followerData, { merge: true });
+      await Promise.all(
+        existingSnap.docs
+          .filter((record) => record.id !== followerRef.id)
+          .map((record) =>
+            updateDoc(doc(db, COLLECTIONS.COMPANY_FOLLOWERS, record.id), {
+              status: 'inactive',
+              updatedAt: serverTimestamp(),
+            })
+          )
+      );
 
       return {
         success: true,
         data: {
-          id: docRef.id,
+          id: followerRef.id,
           ...followerData,
-          action: 'created',
+          action: existingSnap.empty ? 'created' : 'updated',
         },
       };
     } catch (error) {
@@ -171,8 +154,20 @@ export const followersService = {
 
       const followerSnapshot = await getDoc(followerRef);
       const followerData = followerSnapshot.exists() ? followerSnapshot.data() : null;
-      const followerId = followerData?.studentId || followerData?.userId;
-      if (followerId) await updateDoc(doc(db, 'company_chat_followers', `${followerData.companyId}_${followerId}`), { status: 'inactive', updatedAt: serverTimestamp() }).catch(() => {});
+      const studentId = followerData?.studentId || followerData?.userId;
+      if (studentId) {
+        const canonicalRef = doc(db, COLLECTIONS.COMPANY_FOLLOWERS, `${companyId}_${studentId}`);
+        if (canonicalRef.id !== followerId) {
+          const canonicalSnapshot = await getDoc(canonicalRef);
+          if (canonicalSnapshot.exists()) {
+            await updateDoc(canonicalRef, {
+              status: 'inactive',
+              unfollowedAt: serverTimestamp(),
+              updatedAt: serverTimestamp(),
+            });
+          }
+        }
+      }
 
       return { success: true };
     } catch (error) {

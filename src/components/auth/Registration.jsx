@@ -122,12 +122,6 @@ const Register = () => {
       if (result.success) {
         setSuccessMessage(result.message || 'Registration successful!');
 
-        // Store token in localStorage
-        if (result.data?.token) {
-          localStorage.setItem('authToken', result.data.token);
-          localStorage.setItem('user', JSON.stringify(result.data.user));
-        }
-
         // Reset form
         setFormData({
           userType: 'student',

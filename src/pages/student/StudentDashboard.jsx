@@ -1,12 +1,14 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { useStudent } from '../../context/StudentContext';
 import { useAuth } from '../../context/AuthContext';
 import { useNotification } from '../../context/NotificationContext';
 import SocialDashboardSection from '../../components/social/SocialDashboardSection';
 import { ROUTES } from '../../routing/utils/routeConstants';
 import { subscribeToStudentApplications } from '../../services/studentServices';
-import { CalendarDays, Activity, ClipboardList, Bell, RefreshCw, BellRing, UserRound, BriefcaseBusiness, FileText, Bookmark } from 'lucide-react';
+import { CalendarDays, Activity, ClipboardList, Bell, RefreshCw, BellRing, UserRound, BriefcaseBusiness, FileText, Bookmark, ChevronDown, Zap } from 'lucide-react';
+import { formatLocation } from '../../utils/formatters';
+import TestimonialComposer from '../../components/social/TestimonialComposer';
 
 const getTimeGreeting = (date = new Date()) => {
   const hour = date.getHours();
@@ -16,7 +18,6 @@ const getTimeGreeting = (date = new Date()) => {
 };
 
 const StudentDashboard = () => {
-  const navigate = useNavigate();
   const {
     studentData,
     loading,
@@ -31,6 +32,7 @@ const StudentDashboard = () => {
   const [recommendations, setRecommendations] = useState([]);
   const [dashboardDataLoading, setDashboardDataLoading] = useState(true);
   const [refreshingNotifications, setRefreshingNotifications] = useState(false);
+  const [quickActionsOpen, setQuickActionsOpen] = useState(true);
 
   const displayName = studentData?.firstName || studentData?.fullName || currentUser?.displayName || 'Student';
 
@@ -51,10 +53,10 @@ const StudentDashboard = () => {
   }, [applications, recommendations.length, studentData?.profileCompletion]);
 
   const quickActions = [
-    { id: 1, title: 'Update Profile', description: 'Complete your profile to get better matches', action: () => navigate(ROUTES.STUDENT.PROFILE), accent: 'from-brand-500 to-violet-500', Icon: UserRound },
-    { id: 2, title: 'Browse Jobs', description: 'Find internships and job opportunities', action: () => navigate(ROUTES.STUDENT.JOBS), accent: 'from-pink-500 to-rose-500', Icon: BriefcaseBusiness },
-    { id: 3, title: 'My Applications', description: 'Track your job applications', action: () => navigate('/student/applications'), accent: 'from-sky-500 to-cyan-500', Icon: FileText },
-    { id: 4, title: 'My Documents', description: 'Manage your resume and certificates', action: () => navigate('/student/documents'), accent: 'from-emerald-500 to-teal-500', Icon: Bookmark },
+    { id: 1, title: 'Update profile', to: ROUTES.STUDENT.PROFILE, Icon: UserRound },
+    { id: 2, title: 'Browse opportunities', to: ROUTES.STUDENT.JOBS, Icon: BriefcaseBusiness },
+    { id: 3, title: 'My applications', to: '/student/applications', Icon: FileText },
+    { id: 4, title: 'My documents', to: '/student/documents', Icon: Bookmark },
   ];
 
   useEffect(() => {
@@ -122,14 +124,15 @@ const StudentDashboard = () => {
 
   return (
     <main className="w-full bg-slate-50 px-4 py-6 dark:bg-slate-950 sm:px-6 lg:px-8">
-      <header className="mb-6 rounded-2xl bg-gradient-to-r from-brand-600 to-violet-600 p-6 text-white shadow-card">
+      <header className="mb-5 rounded-2xl bg-gradient-to-r from-brand-600 to-violet-600 p-4 text-white shadow-card sm:mb-6 sm:p-6">
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div>
             <p className="text-sm uppercase tracking-[0.2em] text-brand-100">Student dashboard</p>
-            <h1 className="mt-2 text-3xl font-semibold">{greeting}, {displayName}</h1>
+            <h1 className="mt-2 text-2xl font-semibold sm:text-3xl">{greeting}, {displayName}</h1>
             <p className="mt-2 text-sm text-brand-100">Your live snapshot of applications, progress, and upcoming opportunities.</p>
           </div>
           <div className="flex items-center gap-3">
+            <TestimonialComposer userType="student" profile={studentData} />
             <button type="button" aria-label="Refresh notifications" title="Refresh notifications" aria-busy={refreshingNotifications} disabled={refreshingNotifications} className="rounded-xl bg-white/10 p-3 text-white hover:bg-white/20 disabled:cursor-wait disabled:opacity-70" onClick={refreshDashboardNotifications}><RefreshCw className={`h-5 w-5 ${refreshingNotifications ? 'animate-spin' : ''}`} /></button>
             <Link to="/student/notifications" aria-label="Notifications" title="Notifications" className="relative inline-flex rounded-xl bg-white/10 p-3 text-white hover:bg-white/20">
               <BellRing className="h-5 w-5" />
@@ -139,19 +142,47 @@ const StudentDashboard = () => {
         </div>
       </header>
 
-      <div className="mb-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <section className="mb-5 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-card dark:border-slate-800 dark:bg-slate-900">
+        <button
+          type="button"
+          className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left"
+          aria-expanded={quickActionsOpen}
+          aria-controls="student-quick-actions"
+          onClick={() => setQuickActionsOpen((open) => !open)}
+        >
+          <span className="flex items-center gap-3">
+            <span className="rounded-lg bg-brand-50 p-2 text-brand-700 dark:bg-brand-950 dark:text-brand-200"><Zap className="h-4 w-4" aria-hidden="true" /></span>
+            <span>
+              <span className="block text-sm font-semibold text-slate-900 dark:text-slate-100">Quick actions</span>
+              <span className="block text-xs text-slate-500">{quickActions.length} shortcuts to your student tools</span>
+            </span>
+          </span>
+          <ChevronDown className={`h-5 w-5 text-slate-500 transition-transform ${quickActionsOpen ? 'rotate-180' : ''}`} aria-hidden="true" />
+        </button>
+        {quickActionsOpen && (
+          <nav id="student-quick-actions" aria-label="Student quick actions" className="grid gap-2 border-t border-slate-100 p-3 dark:border-slate-800 sm:grid-cols-2 lg:grid-cols-4">
+            {quickActions.map(({ id, title, to, Icon }) => (
+              <Link key={id} to={to} className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50 hover:text-brand-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand-600 dark:text-slate-200 dark:hover:bg-slate-800">
+                <Icon className="h-4 w-4 shrink-0 text-brand-600" aria-hidden="true" />{title}
+              </Link>
+            ))}
+          </nav>
+        )}
+      </section>
+
+      <div className="mb-5 grid grid-cols-2 gap-3 sm:mb-6 sm:gap-4 xl:grid-cols-4">
         {[
           { title: 'Profile Completion', value: `${stats.profileCompletion}%`, accent: 'text-brand-600', Icon: UserRound },
           { title: 'Applications', value: stats.pendingApplications, accent: 'text-violet-600', Icon: FileText },
           { title: 'Accepted Jobs', value: stats.acceptedApplications, accent: 'text-emerald-600', Icon: BriefcaseBusiness },
           { title: 'Job Matches', value: stats.jobMatches, accent: 'text-sky-600', Icon: Bookmark },
         ].map((item) => (
-          <div key={item.title} className="rounded-xl border bg-white p-5 shadow-card dark:bg-slate-900">
-            <p className="text-sm text-slate-500">{item.title}</p>
-            <div className="mt-3 flex items-end justify-between">
-              <h2 className={`text-3xl font-semibold ${item.accent}`}>{item.value}</h2>
-              <div className="rounded-full bg-slate-100 p-2 text-slate-600 dark:bg-slate-800 dark:text-slate-300"><item.Icon className="h-4 w-4" aria-hidden="true" /></div>
+          <div key={item.title} className="min-w-0 rounded-xl border bg-white p-3 shadow-card dark:bg-slate-900 sm:p-5">
+            <div className="flex items-center justify-between gap-2">
+              <p className="min-w-0 text-xs font-medium text-slate-500 sm:text-sm">{item.title}</p>
+              <div className="shrink-0 rounded-full bg-slate-100 p-1.5 text-slate-600 dark:bg-slate-800 dark:text-slate-300 sm:p-2"><item.Icon className="h-3.5 w-3.5 sm:h-4 sm:w-4" aria-hidden="true" /></div>
             </div>
+            <h2 className={`mt-2 text-2xl font-semibold sm:mt-3 sm:text-3xl ${item.accent}`}>{item.value}</h2>
           </div>
         ))}
       </div>
@@ -175,26 +206,6 @@ const StudentDashboard = () => {
 
       <div className="grid gap-6 xl:grid-cols-[1.7fr_1fr]">
         <section className="space-y-6">
-          <div className="rounded-xl border bg-white p-5 shadow-card dark:bg-slate-900">
-            <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Quick Actions</h2>
-              <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-200">{quickActions.length} actions</span>
-            </div>
-            <div className="grid gap-4 md:grid-cols-2">
-              {quickActions.map(({ Icon, ...action }) => (
-                <button key={action.id} type="button" onClick={action.action} className={`rounded-xl bg-gradient-to-r ${action.accent} p-[1px] text-left transition hover:translate-y-[-1px]`}>
-                  <div className="flex h-full items-center gap-3 rounded-xl bg-slate-950/90 p-4 text-white">
-                    <div className="flex h-11 w-11 items-center justify-center rounded-full bg-white/10"><Icon className="h-5 w-5" aria-hidden="true" /></div>
-                    <div>
-                      <div className="font-semibold">{action.title}</div>
-                      <div className="mt-1 text-xs text-slate-200">{action.description}</div>
-                    </div>
-                  </div>
-                </button>
-              ))}
-            </div>
-          </div>
-
           <div className="rounded-xl border bg-white p-5 shadow-card dark:bg-slate-900">
             <div className="mb-4 flex items-center justify-between">
               <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Applications</h2>
@@ -246,7 +257,7 @@ const StudentDashboard = () => {
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <p className="font-medium text-slate-800 dark:text-slate-100">{job.title || job.jobDetails?.title || 'Recommended opportunity'}</p>
-                      <p className="text-xs text-slate-500">{job.company || job.jobDetails?.company || job.location || 'Details available'}</p>
+                      <p className="text-xs text-slate-500">{job.company || job.jobDetails?.company || formatLocation(job.location, 'Details available')}</p>
                     </div>
                     {job.matchScore && <span className="rounded-full bg-emerald-100 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-emerald-700">{job.matchScore}%</span>}
                   </div>

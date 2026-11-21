@@ -19,7 +19,14 @@ vi.mock('../../../config/firebase', () => ({
 }));
 
 vi.mock('firebase/firestore', () => ({
+  doc: vi.fn((_, name, id) => ({ name, id })),
+  limit: vi.fn(),
   onSnapshot: vi.fn(),
+  orderBy: vi.fn(),
+  query: vi.fn((reference) => reference),
+  serverTimestamp: vi.fn(() => 'server-timestamp'),
+  setDoc: vi.fn(),
+  where: vi.fn(),
 }));
 
 vi.mock('../../../config/supabase', () => ({
@@ -36,7 +43,7 @@ vi.mock('../../../utils/dashboardConstants', () => ({
 }));
 
 import { useAuth } from '../../../context/AuthContext';
-import { onSnapshot } from 'firebase/firestore';
+import { onSnapshot, setDoc } from 'firebase/firestore';
 import { supabase } from '../../../config/supabase';
 
 const renderHome = (ui) => render(ui, { wrapper: MemoryRouter });
@@ -63,6 +70,37 @@ describe('Home page', () => {
         ],
         size: 3,
       },
+      testimonials: {
+        docs: [
+          {
+            id: 'approved-student',
+            data: () => ({
+              approved: true,
+              userType: 'student',
+              name: 'Registered Student',
+              content: 'Career Connect helped me find useful opportunities.',
+            }),
+          },
+          {
+            id: 'pending-mentor',
+            data: () => ({
+              approved: false,
+              userType: 'mentor',
+              name: 'Pending Mentor',
+              content: 'This testimonial must remain private until approved.',
+            }),
+          },
+          {
+            id: 'approved-admin',
+            data: () => ({
+              approved: true,
+              userType: 'admin',
+              name: 'Unregistered Role',
+              content: 'This role is not permitted to publish a testimonial.',
+            }),
+          },
+        ],
+      },
     };
     onSnapshot.mockImplementation((reference, onNext) => {
       onNext(snapshots[reference.name]);
@@ -79,7 +117,7 @@ describe('Home page', () => {
     renderHome(<Home />);
 
     expect(supabase.from).toHaveBeenCalledTimes(4);
-    expect(onSnapshot).toHaveBeenCalledTimes(3);
+    expect(onSnapshot).toHaveBeenCalledTimes(4);
     expect(await screen.findByText(/students ready/i)).toBeInTheDocument();
     expect(screen.getAllByText(/active opportunities/i).length).toBeGreaterThan(0);
   });
@@ -93,7 +131,7 @@ describe('Home page', () => {
   it('renders nav links', () => {
     renderHome(<Home />);
     const nav = screen.getByRole('navigation', { name: /primary navigation/i });
-    ['Platform', 'Pathways', 'Stories', 'Impact', 'FAQ', 'Contact'].forEach((label) => {
+    ['Platform', 'Pathways', 'Testimonials', 'Impact', 'FAQ', 'Contact'].forEach((label) => {
       expect(within(nav).getByRole('link', { name: label })).toBeInTheDocument();
     });
   });
@@ -154,6 +192,33 @@ describe('Home page', () => {
     renderHome(<Home />);
     expect(screen.queryByText(/Palesa M\./)).not.toBeInTheDocument();
     expect(screen.queryByText(/Thabo K\./)).not.toBeInTheDocument();
+  });
+
+  it('renders only approved testimonials from supported registered roles', () => {
+    renderHome(<Home />);
+    expect(screen.getByText('Career Connect helped me find useful opportunities.')).toBeInTheDocument();
+    expect(screen.queryByText(/must remain private until approved/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/not permitted to publish/i)).not.toBeInTheDocument();
+  });
+
+  it('lets public visitors read testimonials and directs members to dashboard submission', () => {
+    renderHome(<Home />);
+
+    expect(screen.getByText('Career Connect helped me find useful opportunities.')).toBeInTheDocument();
+    expect(screen.queryByLabelText(/your testimonial/i)).not.toBeInTheDocument();
+    expect(screen.getByText(/share their experience from their dashboard/i)).toBeInTheDocument();
+  });
+
+  it('does not show testimonial submission controls on landing page for signed-in members', () => {
+    useAuth.mockReturnValue({
+      currentUser: { uid: 'student-1', displayName: 'Test Student' },
+      userProfile: { userType: 'student', fullName: 'Test Student' },
+    });
+    renderHome(<Home />);
+
+    expect(screen.getByText('Career Connect helped me find useful opportunities.')).toBeInTheDocument();
+    expect(screen.queryByLabelText(/your testimonial/i)).not.toBeInTheDocument();
+    expect(setDoc).not.toHaveBeenCalled();
   });
 
   it('renders impact stats with product-ready messaging', () => {

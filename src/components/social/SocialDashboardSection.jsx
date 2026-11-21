@@ -11,6 +11,7 @@ import {
   FiTrendingUp,
   FiUsers,
   FiUserPlus,
+  FiPlus,
   FiCheck,
   FiX,
   FiFlag,
@@ -19,6 +20,8 @@ import {
 
 import { useAuth } from '../../context/AuthContext';
 import socialPlatformService from '../../services/socialPlatformService';
+import { setCompanyFollow, subscribeToCompanyFollows } from '../../services/studentServices';
+import { ToastContainer, useToast } from '../ui/Toast';
 
 const formatTimeAgo = (value) => {
   const date = new Date(value);
@@ -78,6 +81,9 @@ const SocialDashboardSection = ({
     || userProfile?.adminLevel === 'super_admin'
     || userProfile?.role === 'super_admin'
     || userProfile?.userRole === 'super_admin';
+  const viewerRole = String(userProfile?.userType || userProfile?.role || audience).toLowerCase();
+  const canFollowCompanies = ['student', 'mentor'].includes(viewerRole);
+  const canAddFriends = ['student', 'mentor', 'company'].includes(viewerRole);
   const navigate = useNavigate();
   const [posts, setPosts] = useState([]);
   const [suggestions, setSuggestions] = useState([]);
@@ -90,8 +96,10 @@ const SocialDashboardSection = ({
   const [loading, setLoading] = useState(true);
   const [posting, setPosting] = useState(false);
   const [actionError, setActionError] = useState('');
+  const { toasts, show: showToast, hide: hideToast } = useToast();
   const [network, setNetwork] = useState({ incoming: [], outgoing: [], connections: [] });
   const [networkBusy, setNetworkBusy] = useState('');
+  const [followedCompanies, setFollowedCompanies] = useState(new Set());
   const connectedIds = useMemo(() => new Set(network.connections.flatMap((item) => item.userIds || []).filter((id) => id !== currentUser?.uid)), [network.connections, currentUser?.uid]);
 
   const displayName = useMemo(
@@ -119,6 +127,7 @@ const SocialDashboardSection = ({
       setSuggestions(people.data || []);
       setTopics(trending.data || []);
       if (!feed?.success) setActionError(feed?.error || 'The live feed could not be loaded.');
+      else if (feed.warning) setActionError(feed.warning);
     } finally {
       setLoading(false);
     }
@@ -136,7 +145,10 @@ const SocialDashboardSection = ({
     if (!currentUser) return undefined;
     return socialPlatformService.subscribeToFeed(
       (nextPosts) => setPosts(nextPosts),
-      (error) => console.error('Live social feed subscription failed:', error),
+      (error) => {
+        console.error('Live social feed subscription failed:', error);
+        setActionError(error.message || 'The live social feed could not be refreshed.');
+      },
       12,
       userProfile
     );
@@ -149,6 +161,16 @@ const SocialDashboardSection = ({
       setActionError(error.message || 'Connection requests could not be loaded.');
     });
   }, [currentUser?.uid]);
+
+  useEffect(() => {
+    if (!currentUser?.uid || !canFollowCompanies) {
+      setFollowedCompanies(new Set());
+      return undefined;
+    }
+    return subscribeToCompanyFollows(currentUser.uid, setFollowedCompanies, (error) => {
+      setActionError(error.message || 'Company follow status could not be loaded.');
+    });
+  }, [currentUser?.uid, canFollowCompanies]);
 
   if (!currentUser) {
     return null;
@@ -265,11 +287,36 @@ const SocialDashboardSection = ({
   };
 
   const handleAddFriend = async (person) => {
+    if (!canAddFriends) {
+      showToast({ severity: 'info', title: 'Connections unavailable', message: 'Connection requests are available between students, mentors, and companies.' });
+      return;
+    }
     setNetworkBusy(person.id);
     setActionError('');
     try { await socialPlatformService.sendFriendRequest(person, userProfile); }
     catch (error) { setActionError(error.message || 'Could not send the connection request.'); }
     finally { setNetworkBusy(''); }
+  };
+
+  const handleToggleCompanyFollow = async (event, person) => {
+    event.stopPropagation();
+    const following = !followedCompanies.has(person.id);
+    setNetworkBusy(person.id);
+    setActionError('');
+    try {
+      const result = await setCompanyFollow(currentUser.uid, person.id, following, viewerRole);
+      if (!result.success) throw new Error(result.error || 'Unable to update company follow.');
+      setFollowedCompanies((current) => {
+        const next = new Set(current);
+        if (following) next.add(person.id);
+        else next.delete(person.id);
+        return next;
+      });
+    } catch (error) {
+      setActionError(error.message || 'Unable to update company follow.');
+    } finally {
+      setNetworkBusy('');
+    }
   };
 
   const handleRespondFriend = async (request, status) => {
@@ -325,6 +372,7 @@ const SocialDashboardSection = ({
 
   return (
     <section className="social-section">
+      <ToastContainer toasts={toasts} onClose={hideToast} />
       <div className="social-section__header">
         <div>
           <div className="social-section__eyebrow">{audience} social layer</div>
@@ -347,7 +395,7 @@ const SocialDashboardSection = ({
       </div>
 
       <div className="social-section__body">
-        {actionError && <div role="alert" className="social-card" style={{ color: '#b91c1c' }}>{actionError}</div>}
+        {actionError && <div role="alert" className="rounded-xl border border-red-300/30 bg-red-50 px-4 py-3 text-sm text-red-800 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-200">{actionError}</div>}
         <div className="social-section__main">
           <div className="social-card social-composer">
             <div className="social-composer__top">
@@ -600,7 +648,7 @@ const SocialDashboardSection = ({
                         {person.role ? roleLabel(person.role) : 'Community member'}
                       </p>
                     </div>
-                    {isSuperAdmin ? <span className="social-network-badge"><FiCheck /> Platform access</span> : connectedIds.has(person.id) ? <span className="social-network-badge"><FiCheck /> Connected</span> : network.outgoing.some((request) => request.recipientId === person.id) ? <span className="social-network-badge">Request sent</span> : <button type="button" disabled={networkBusy === person.id} className="social-button social-button--ghost social-network-action" onClick={(event) => { event.stopPropagation(); handleAddFriend(person); }}><FiUserPlus /> Add</button>}
+                    {isSuperAdmin ? <span className="social-network-badge"><FiCheck /> Platform access</span> : person.role === 'company' ? canFollowCompanies ? <button type="button" disabled={networkBusy === person.id} aria-label={followedCompanies.has(person.id) ? `Unfollow ${person.name}` : `Follow ${person.name}`} className="social-button social-button--ghost social-network-action" onClick={(event) => handleToggleCompanyFollow(event, person)}>{followedCompanies.has(person.id) ? <FiCheck /> : <FiPlus />}{followedCompanies.has(person.id) ? 'Following' : 'Follow'}</button> : <span className="social-network-badge">Company profile</span> : connectedIds.has(person.id) ? <span className="social-network-badge"><FiCheck /> Connected</span> : network.outgoing.some((request) => request.recipientId === person.id) ? <span className="social-network-badge">Request sent</span> : canAddFriends ? <button type="button" disabled={networkBusy === person.id} className="social-button social-button--ghost social-network-action" onClick={(event) => { event.stopPropagation(); handleAddFriend(person); }}><FiUserPlus /> Add friend</button> : <button type="button" className="social-button social-button--ghost social-network-action" onClick={(event) => { event.stopPropagation(); showToast({ severity: 'info', title: 'Connections unavailable', message: 'Connection requests are available between students, mentors, and companies.' }); }}><FiUserPlus /> Add friend</button>}
                     <button type="button" className="social-action" title="Report profile" aria-label="Report profile" onClick={(event) => { event.stopPropagation(); handleReport('profile', person.id, person.id, 'profile'); }}><FiFlag /></button>
                     <button type="button" className="social-action" title="Block profile" aria-label="Block profile" onClick={(event) => { event.stopPropagation(); handleBlock(person.id, person.name); }}><FiSlash /></button>
                   </div>
@@ -620,8 +668,11 @@ const SocialDashboardSection = ({
 
           <div className="social-card">
             <div className="social-card__title">Connection requests <span className="social-request-count">{network.incoming.length}</span></div>
-            <div className="social-card__subtitle">{isSuperAdmin ? 'Platform-wide visibility is enabled; no friend requests are needed.' : 'Accept or decline requests. Friends can see friends-only posts.'}</div>
-            {!isSuperAdmin && (network.incoming.length ? network.incoming.map((request) => <div key={request.id} className="social-side-item"><AvatarImage src={request.senderAvatar} alt={request.senderName}/><div className="social-request-person"><p className="social-side-item__title">{request.senderName || 'Community member'}</p><p className="social-side-item__copy">{roleLabel(request.senderRole)}</p><div className="social-request-actions"><button type="button" disabled={networkBusy === request.id} onClick={() => handleRespondFriend(request, 'accepted')} aria-label={`Accept ${request.senderName}'s request`}><FiCheck/> Accept</button><button type="button" disabled={networkBusy === request.id} onClick={() => handleRespondFriend(request, 'rejected')} aria-label={`Decline ${request.senderName}'s request`}><FiX/> Decline</button></div></div></div>) : <div className="social-side-item"><p className="social-side-item__copy">No pending requests.</p></div>)}
+            <div className="social-card__subtitle">{isSuperAdmin ? 'Platform-wide visibility is enabled; no friend requests are needed.' : 'Accept or decline requests from students and mentors. Companies are followed instead.'}</div>
+            {!isSuperAdmin && (network.incoming.length ? network.incoming.map((request) => {
+              const isCompanyRequest = String(request.senderRole || '').toLowerCase() === 'company';
+              return <div key={request.id} className="social-side-item"><AvatarImage src={request.senderAvatar} alt={request.senderName}/><div className="social-request-person"><p className="social-side-item__title">{request.senderName || 'Community member'}</p><p className="social-side-item__copy">{isCompanyRequest ? 'Company profiles are followed, not added as friends.' : roleLabel(request.senderRole)}</p><div className="social-request-actions">{!isCompanyRequest && <button type="button" disabled={networkBusy === request.id} onClick={() => handleRespondFriend(request, 'accepted')} aria-label={`Accept ${request.senderName}'s request`}><FiCheck/> Accept</button>}<button type="button" disabled={networkBusy === request.id} onClick={() => handleRespondFriend(request, 'rejected')} aria-label={`Decline ${request.senderName}'s request`}><FiX/> Decline</button></div></div></div>;
+            }) : <div className="social-side-item"><p className="social-side-item__copy">No pending requests.</p></div>)}
           </div>
 
           <div className="social-card">

@@ -33,6 +33,29 @@ const ProtectedRoute = ({
     resendVerificationEmail,
   } = useAuth();
   const location = useLocation();
+  const [tokenClaims, setTokenClaims] = React.useState(null);
+  const [claimsLoaded, setClaimsLoaded] = React.useState(false);
+
+  React.useEffect(() => {
+    let active = true;
+    setClaimsLoaded(false);
+    setTokenClaims(null);
+    if (!currentUser) {
+      setClaimsLoaded(true);
+      return () => { active = false; };
+    }
+    currentUser.getIdTokenResult()
+      .then(({ claims }) => {
+        if (active) setTokenClaims(claims || {});
+      })
+      .catch(() => {
+        if (active) setTokenClaims({});
+      })
+      .finally(() => {
+        if (active) setClaimsLoaded(true);
+      });
+    return () => { active = false; };
+  }, [currentUser]);
 
   /** @type {Object.<string, string>} */
   const DASHBOARD_MAP = {
@@ -140,8 +163,24 @@ const ProtectedRoute = ({
   if (allowedUserTypes.length > 0) {
     const userType = normalizeUserType(userProfile.userType || userProfile.role || '');
     const normalizedAllowed = allowedUserTypes.map((type) => normalizeUserType(type));
-    const isAdmin = userProfile.isAdmin || userType === 'admin';
-    const isAllowed = normalizedAllowed.includes(userType) || isAdmin;
+    const hasAdminClaim = tokenClaims?.admin === true
+      || tokenClaims?.isAdmin === true
+      || tokenClaims?.superAdmin === true
+      || tokenClaims?.isSuperAdmin === true
+      || ['admin', 'super_admin'].includes(normalizeUserType(tokenClaims?.role));
+    const routeRequiresAdmin = normalizedAllowed.includes('admin');
+
+    if (routeRequiresAdmin && !claimsLoaded) {
+      return (
+        <div className="flex min-h-screen items-center justify-center bg-slate-50 px-4 dark:bg-slate-950">
+          <Loader2 className="h-8 w-8 animate-spin text-brand-600" aria-label="Checking administrator access" />
+        </div>
+      );
+    }
+
+    const isAllowed = routeRequiresAdmin
+      ? hasAdminClaim
+      : normalizedAllowed.includes(userType) || hasAdminClaim;
 
     if (!isAllowed) {
       // Get appropriate dashboard for user type

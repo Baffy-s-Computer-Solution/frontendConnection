@@ -19,6 +19,7 @@ import {
   writeBatch,
 } from 'firebase/firestore';
 import { auth, db } from '../config/firebase';
+import { apiRequest } from './apiClient';
 import supabaseService from './supabaseService';
 
 const fileToDataUrl = (file) => new Promise((resolve, reject) => {
@@ -142,7 +143,7 @@ export const alumniSocialService = {
 
     try {
       let postsQuery = query(
-        collection(db, 'alumni_posts'),
+        collection(db, 'social_posts'),
         orderBy('createdAt', 'desc'),
         limit(pageSize * 2)
       );
@@ -162,6 +163,8 @@ export const alumniSocialService = {
         posts.push({
           id: doc.id,
           ...postData,
+          userId: postData.userId || postData.authorId,
+          authorId: postData.authorId || postData.userId,
           isLiked: isLiked,
           likeCount: postData.likeCount ?? postData.likesCount ?? postData.likedBy?.length ?? postData.likes?.length ?? 0,
           commentsCount: postData.commentCount ?? postData.commentsCount ?? postData.comments?.length ?? 0,
@@ -206,19 +209,9 @@ export const alumniSocialService = {
 
   // Like a post
   likePost: async (postId) => {
-    const userId = auth.currentUser?.uid;
-    if (!userId) throw new Error('Not authenticated');
-
     try {
-      const postRef = doc(db, 'social_posts', postId);
-      const postSnap = await getDoc(postRef);
-      const postData = postSnap.data() || {};
-      await updateDoc(postRef, {
-        likedBy: arrayUnion(userId),
-        likesCount: (postData.likesCount ?? postData.likeCount ?? 0) + 1,
-        likeCount: (postData.likeCount ?? postData.likesCount ?? 0) + 1,
-      });
-      return { success: true };
+      const data = await apiRequest(`/api/social/posts/${encodeURIComponent(postId)}/like`, { method: 'POST' });
+      return { success: true, data };
     } catch (error) {
       console.error('Error liking post:', error);
       return { success: false, error: error.message };
@@ -227,19 +220,9 @@ export const alumniSocialService = {
 
   // Unlike a post
   unlikePost: async (postId) => {
-    const userId = auth.currentUser?.uid;
-    if (!userId) throw new Error('Not authenticated');
-
     try {
-      const postRef = doc(db, 'social_posts', postId);
-      const postSnap = await getDoc(postRef);
-      const postData = postSnap.data() || {};
-      await updateDoc(postRef, {
-        likedBy: arrayRemove(userId),
-        likesCount: Math.max(0, (postData.likesCount ?? postData.likeCount ?? 0) - 1),
-        likeCount: Math.max(0, (postData.likeCount ?? postData.likesCount ?? 0) - 1),
-      });
-      return { success: true };
+      const data = await apiRequest(`/api/social/posts/${encodeURIComponent(postId)}/like`, { method: 'POST' });
+      return { success: true, data };
     } catch (error) {
       console.error('Error unliking post:', error);
       return { success: false, error: error.message };
@@ -248,41 +231,9 @@ export const alumniSocialService = {
 
   // Add comment
   addComment: async (postId, commentText) => {
-    const userId = auth.currentUser?.uid;
-    if (!userId) throw new Error('Not authenticated');
-
     try {
-      const userRef = doc(db, 'alumni', userId);
-      const userSnap = await getDoc(userRef);
-      const userData = userSnap.data() || {};
-
-      const comment = {
-        id: `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-        authorId: userId,
-        userId: userId,
-        authorName: userData.displayName || userData.fullName || userData.name || auth.currentUser.displayName || 'Alumni',
-        authorPhoto: userData.photoURL || userData.profilePhoto || null,
-        content: commentText,
-        body: commentText,
-        likes: [],
-        createdAt: Timestamp.now(),
-      };
-
-      const postRef = doc(db, 'social_posts', postId);
-      const postSnap = await getDoc(postRef);
-      if (!postSnap.exists()) return { success: false, error: 'Post not found' };
-      const postData = postSnap.data();
-
-      const updatedComments = [...(postData.comments || []), comment];
-
-      await updateDoc(postRef, {
-        comments: updatedComments,
-        commentsCount: updatedComments.length,
-        commentCount: updatedComments.length,
-        updatedAt: Timestamp.now(),
-      });
-
-      return { success: true, data: comment };
+      const data = await apiRequest(`/api/social/posts/${encodeURIComponent(postId)}/comments`, { method: 'POST', body: { body: commentText } });
+      return { success: true, data };
     } catch (error) {
       console.error('Error adding comment:', error);
       return { success: false, error: error.message };
@@ -291,24 +242,9 @@ export const alumniSocialService = {
 
   // Share a post
   sharePost: async (postId, shareMessage = '') => {
-    const userId = auth.currentUser?.uid;
-    if (!userId) throw new Error('Not authenticated');
-
     try {
-      const originalPostRef = doc(db, 'social_posts', postId);
-      const originalPostSnap = await getDoc(originalPostRef);
-      if (!originalPostSnap.exists()) return { success: false, error: 'Post not found' };
-
-      const originalPost = originalPostSnap.data();
-      const currentShares = originalPost.shareCount ?? originalPost.sharesCount ?? originalPost.shares ?? 0;
-      await updateDoc(originalPostRef, {
-        shares: currentShares + 1,
-        sharesCount: currentShares + 1,
-        shareCount: currentShares + 1,
-        updatedAt: Timestamp.now(),
-      });
-
-      return { success: true };
+      const data = await apiRequest(`/api/social/posts/${encodeURIComponent(postId)}/share`, { method: 'POST', body: { message: String(shareMessage).slice(0, 500) } });
+      return { success: true, data };
     } catch (error) {
       console.error('Error sharing post:', error);
       return { success: false, error: error.message };

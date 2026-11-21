@@ -22,6 +22,7 @@ const MentorMessages = lazy(() => import('../../pages/mentor/MentorMessages'));
 const MentorAvailability = lazy(() => import('../../pages/mentor/MentorAvailability'));
 const MentorResources = lazy(() => import('../../pages/mentor/MentorResources'));
 const MentorReviews = lazy(() => import('../../pages/mentor/MentorReviews'));
+const MentorReferrals = lazy(() => import('../../pages/mentor/MentorReferrals'));
 const FriendsNetwork = lazy(() => import('../../pages/FriendsNetwork'));
 
 /**
@@ -105,6 +106,7 @@ export const getMentorRoutes = () => [
   <Route key="mentor-schedule" path="/mentor/schedule" element={<ProtectedRoute allowedUserTypes={['mentor']}><MentorPage><MentorAvailability /></MentorPage></ProtectedRoute>} />,
   <Route key="mentor-resources" path="/mentor/resources" element={<ProtectedRoute allowedUserTypes={['mentor']}><MentorPage><MentorResources /></MentorPage></ProtectedRoute>} />,
   <Route key="mentor-reviews" path="/mentor/reviews" element={<ProtectedRoute allowedUserTypes={['mentor']}><MentorPage><MentorReviews /></MentorPage></ProtectedRoute>} />,
+  <Route key="mentor-referrals" path="/mentor/referrals" element={<ProtectedRoute allowedUserTypes={['mentor']}><MentorPage><MentorReferrals /></MentorPage></ProtectedRoute>} />,
   <Route key="mentor-settings" path="/mentor/settings" element={<ProtectedRoute allowedUserTypes={['mentor']}><MentorPage><MentorSettings /></MentorPage></ProtectedRoute>} />,
   <Route key="mentor-friends" path="/mentor/friends" element={<ProtectedRoute allowedUserTypes={['mentor']}><MentorPage><FriendsNetwork /></MentorPage></ProtectedRoute>} />,
 ];

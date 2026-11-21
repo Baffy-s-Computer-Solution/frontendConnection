@@ -30,17 +30,17 @@ const roles = [
     verification: false,
   },
   {
-    value: "company",
-    label: "Company",
-    description: "Hire talented people",
-    icon: Building2,
-    verification: true,
-  },
-  {
     value: "mentor",
     label: "Mentor",
     description: "Guide the next generation",
     icon: UserRound,
+    verification: true,
+  },
+  {
+    value: "company",
+    label: "Company",
+    description: "Hire talented people",
+    icon: Building2,
     verification: true,
   },
 ];
@@ -72,6 +72,10 @@ export default function RegisterPro() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const requestedRole = searchParams.get("role");
+  const referralCode = searchParams.get("ref") || '';
+  const referralCompanyId = searchParams.get("company") || '';
+  const referralOwnerId = searchParams.get("referrer") || '';
+  const referralOwnerType = searchParams.get("referrerType") || (referralOwnerId ? 'mentor' : '');
   const hasRequestedRole = roles.some((role) => role.value === requestedRole);
   const [userType, setUserType] = useState(() => hasRequestedRole ? requestedRole : "");
   const [step, setStep] = useState(() => hasRequestedRole ? 2 : 1);
@@ -88,9 +92,7 @@ export default function RegisterPro() {
     website: "",
     institution: "",
     educationLevel: "",
-    instituteName: "",
-    agencyName: "",
-    department: "",
+    expertise: "",
   });
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
@@ -139,6 +141,9 @@ export default function RegisterPro() {
         if (!form.institution.trim())
           errors.institution = "Institution is required";
       }
+      if (userType === "mentor" && !form.expertise.trim()) {
+        errors.expertise = "Area of expertise is required";
+      }
     }
     setFieldErrors(errors);
     return Object.keys(errors).length === 0;
@@ -174,6 +179,11 @@ export default function RegisterPro() {
         userType: normalizedUserType,
         acceptTerms: form.acceptTerms,
       };
+      if (referralCode && referralCompanyId) {
+        Object.assign(data, { referralCode, referralCompanyId });
+      } else if (referralCode && referralOwnerId) {
+        Object.assign(data, { referralCode, referralOwnerId, referralOwnerType });
+      }
       if (userType === "company")
         Object.assign(data, {
           companyName: form.companyName.trim(),
@@ -186,12 +196,14 @@ export default function RegisterPro() {
           institution: form.institution.trim(),
           educationLevel: form.educationLevel,
         });
+      if (userType === "mentor")
+        Object.assign(data, { expertise: form.expertise.trim() });
       const result = await register(data);
       if (!result.success) {
         setError(result.error || "Registration failed. Please try again.");
         return;
       }
-      setSuccess("Account created successfully!");
+      setSuccess(result.referralWarning || "Account created successfully!");
       setTimeout(
         () =>
           currentRole?.verification
@@ -226,12 +238,18 @@ export default function RegisterPro() {
     setError("");
     try {
       const normalizedUserType = normalizeUserType(userType);
-      const result = await loginWithGoogle({ userType: normalizedUserType });
+      const referralData =
+        referralCode && referralCompanyId
+          ? { referralCode, referralCompanyId }
+          : referralCode && referralOwnerId
+            ? { referralCode, referralOwnerId, referralOwnerType }
+            : {};
+      const result = await loginWithGoogle({ userType: normalizedUserType, ...referralData });
       if (!result.success) {
         setError(result.error || "Google sign-up failed");
         return;
       }
-      setSuccess("Account created! Redirecting...");
+      setSuccess(result.referralWarning || "Account created! Redirecting...");
       setTimeout(
         () =>
           currentRole?.verification
@@ -253,7 +271,7 @@ export default function RegisterPro() {
     }
   };
   const disabled = loading || googleLoading;
-  const field = (name, label, type = "text", icon, placeholder) => (
+  const field = (name, label, type = "text", icon, placeholder, required = true) => (
     <Input
       id={name}
       label={label}
@@ -265,7 +283,7 @@ export default function RegisterPro() {
       leadingIcon={icon}
       showPasswordToggle={type === "password"}
       placeholder={placeholder}
-      required
+      required={required}
     />
   );
 
@@ -288,7 +306,7 @@ export default function RegisterPro() {
           <p className="mt-2 text-sm text-slate-500">
             Join Career Connect today
           </p>
-          <div className="mx-auto mt-6 flex max-w-sm items-center gap-2">
+          <div className="mx-auto mt-6 flex max-w-sm items-center gap-2" role="progressbar" aria-label={`Signup progress: step ${step} of 3`} aria-valuemin={1} aria-valuemax={3} aria-valuenow={step}>
             {[1, 2, 3].map((item) => (
               <div
                 key={item}
@@ -392,6 +410,7 @@ export default function RegisterPro() {
               "tel",
               Phone,
               "Optional phone number",
+              false,
             )}
             <label className="flex items-start gap-2 text-sm text-slate-600 dark:text-slate-300">
               <input
@@ -475,13 +494,17 @@ export default function RegisterPro() {
                     ))}
                   </select>
                 </label>
-                {field(
-                  "companySize",
-                  "Company Size",
-                  "text",
-                  Building2,
-                  "Optional company size",
-                )}
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">
+                  Company Size (optional)
+                  <select
+                    value={form.companySize}
+                    onChange={(event) => update("companySize", event.target.value)}
+                    className="mt-1 block h-11 w-full rounded-lg border bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                  >
+                    <option value="">Select company size</option>
+                    {companySizes.map((item) => <option key={item}>{item}</option>)}
+                  </select>
+                </label>
                 {field(
                   "website",
                   "Website",
@@ -521,24 +544,19 @@ export default function RegisterPro() {
                 )}
               </>
             )}
-            {userType === "institute" && (
+            {userType === "mentor" && (
               <>
-                {field("instituteName", "Institute Name", "text", Building2, "University, college, or training provider")}
-                {field("website", "Website", "url", Building2, "https://example.org")}
-                <div className="rounded-lg border border-info/20 bg-info-light p-4 text-sm text-info-dark">Institute accounts require admin verification before full access.</div>
+                {field("expertise", "Area of expertise", "text", GraduationCap, "For example: software engineering")}
+                <div className="flex gap-2 rounded-lg border border-info/20 bg-info-light p-4 text-sm text-info-dark">
+                  <Info className="h-5 w-5 shrink-0" />
+                  Mentor accounts are reviewed by our admin team before activation.
+                </div>
               </>
             )}
-            {userType === "government" && (
-              <>
-                {field("agencyName", "Agency Name", "text", Landmark, "Ministry or public agency")}
-                {field("department", "Department", "text", Landmark, "Optional department")}
-                <div className="rounded-lg border border-info/20 bg-info-light p-4 text-sm text-info-dark">Government accounts require admin verification before full access.</div>
-              </>
-            )}
-            {userType !== "company" && userType !== "student" && (
+            {userType !== "company" && userType !== "student" && userType !== "mentor" && (
               <div className="flex gap-2 rounded-lg border border-info/20 bg-info-light p-4 text-sm text-info-dark">
                 <Info className="h-5 w-5 shrink-0" />
-                Complete your profile information after creating your account.
+                Select a supported account type to continue.
               </div>
             )}
             <div className="flex gap-3">

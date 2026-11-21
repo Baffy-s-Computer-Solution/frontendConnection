@@ -182,11 +182,6 @@ if (typeof window !== 'undefined') {
   }
 }
 
-const adminConfig = {
-  email: import.meta.env.VITE_ADMIN_EMAIL || 'baffkay20@gmail.com',
-  password: import.meta.env.VITE_ADMIN_PASSWORD || '',
-};
-
 console.log('Firebase initialized successfully', {
   projectId: firebaseConfig.projectId,
   authDomain: firebaseConfig.authDomain,
@@ -196,7 +191,6 @@ console.log('Firebase initialized successfully', {
 // Export all Firebase services and utilities
 export {
   addDoc,
-  adminConfig,
   analytics,
   app,
   arrayRemove,

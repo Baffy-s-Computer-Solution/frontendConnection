@@ -1,43 +1,65 @@
 import { useEffect, useMemo, useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
-import { FaBars, FaAward, FaBell, FaBriefcase, FaBuilding, FaCalendarAlt, FaChartLine, FaChevronDown, FaChevronLeft, FaChevronRight, FaMoon, FaChalkboardTeacher, FaComments, FaCog, FaFileAlt, FaGraduationCap, FaHome, FaPlus, FaRocket, FaSchool, FaSignOutAlt, FaSun, FaTimes, FaUser, FaUsers, FaUserShield, FaVideo } from "react-icons/fa";
+import { FaBars, FaAward, FaBell, FaBriefcase, FaBuilding, FaCalendarAlt, FaChartLine, FaChevronDown, FaChevronLeft, FaChevronRight, FaMoon, FaChalkboardTeacher, FaComments, FaCog, FaFileAlt, FaGraduationCap, FaHome, FaPlus, FaRocket, FaSchool, FaSignOutAlt, FaSun, FaTimes, FaUser, FaUsers, FaUserShield, FaVideo, FaQuoteRight } from "react-icons/fa";
+import { doc, onSnapshot } from 'firebase/firestore';
 
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import { normalizeUserType } from '../../utils/authRoleUtils';
 import { ROUTES } from '../../routing/utils/routeConstants';
+import { db } from '../../config/firebase';
 
 const ROLE_NAVIGATION = {
   admin: [
     { label: 'Dashboard', path: '/admin/dashboard', icon: FaHome },
-    { label: 'Users', path: '/admin/users', icon: FaUser },
-    { label: 'Companies', path: '/admin/companies', icon: FaBuilding },
-    { label: 'Jobs', path: '/admin/jobs', icon: FaBriefcase },
-    { label: 'Pending Approvals', path: '/admin/pending-approvals', icon: FaUsers },
-    { label: 'Analytics', path: '/admin/analytics', icon: FaChartLine },
-    { label: 'Search users', path: '/admin/search/users', icon: FaUser },
-    { label: 'Search companies', path: '/admin/search/companies', icon: FaBuilding },
-    { label: 'Search applications', path: '/admin/search/applications', icon: FaFileAlt },
-    { label: 'Admin Management', path: '/admin/admins', icon: FaUserShield },
-    { label: 'Audit log', path: '/admin/audit', icon: FaFileAlt },
-    { label: 'Admissions', path: '/admin/admissions', icon: FaSchool },
-    { label: 'System settings', path: '/admin/system-settings', icon: FaCog },
-    { label: 'Profile', path: '/admin/profile', icon: FaUserShield },
+    { label: 'People & access', icon: FaUsers, children: [
+      { label: 'Users', path: '/admin/users', icon: FaUser },
+      { label: 'Pending Approvals', path: '/admin/pending-approvals', icon: FaUsers },
+      { label: 'Admin Management', path: '/admin/admins', icon: FaUserShield },
+    ] },
+    { label: 'Platform', icon: FaBuilding, children: [
+      { label: 'Companies', path: '/admin/companies', icon: FaBuilding },
+      { label: 'Jobs', path: '/admin/jobs', icon: FaBriefcase },
+      { label: 'Admissions', path: '/admin/admissions', icon: FaSchool },
+      { label: 'Testimonials', path: '/admin/testimonials', icon: FaQuoteRight },
+    ] },
+    { label: 'Insights', icon: FaChartLine, children: [
+      { label: 'Analytics', path: '/admin/analytics', icon: FaChartLine },
+      { label: 'Search users', path: '/admin/search/users', icon: FaUser },
+      { label: 'Search companies', path: '/admin/search/companies', icon: FaBuilding },
+      { label: 'Search applications', path: '/admin/search/applications', icon: FaFileAlt },
+    ] },
+    { label: 'Governance', icon: FaUserShield, children: [
+      { label: 'Audit log', path: '/admin/audit', icon: FaFileAlt },
+      { label: 'System settings', path: '/admin/system-settings', icon: FaCog },
+      { label: 'Profile', path: '/admin/profile', icon: FaUserShield },
+    ] },
     { label: 'Settings', path: '/settings', icon: FaCog },
   ],
   student: [
     { label: 'Dashboard', path: ROUTES.STUDENT_DASHBOARD, icon: FaHome },
-    { label: 'Profile', path: ROUTES.STUDENT.PROFILE, icon: FaUser },
-    { label: 'Jobs', path: ROUTES.STUDENT.JOBS, icon: FaBriefcase },
-    { label: 'Internships', path: ROUTES.STUDENT.SEARCH.INTERNSHIPS, icon: FaBriefcase },
-    { label: 'Applications', path: ROUTES.STUDENT.APPLICATIONS, icon: FaFileAlt },
-    { label: 'Documents', path: ROUTES.STUDENT.DOCUMENTS, icon: FaFileAlt },
-    { label: 'Courses', path: ROUTES.STUDENT.COURSES, icon: FaGraduationCap },
-    { label: 'Mentorship', path: ROUTES.STUDENT.MENTORSHIP, icon: FaChalkboardTeacher },
-    { label: 'Friends', path: '/student/friends', icon: FaUsers },
-    { label: 'Analytics', path: ROUTES.STUDENT.ANALYTICS, icon: FaChartLine },
-    { label: 'Job matches', path: ROUTES.STUDENT.JOB_MATCHES, icon: FaChartLine },
-    { label: 'Performance', path: ROUTES.STUDENT.PERFORMANCE, icon: FaChartLine },
+    { label: 'Career', icon: FaBriefcase, children: [
+      { label: 'Profile', path: ROUTES.STUDENT.PROFILE, icon: FaUser },
+      { label: 'Jobs', path: ROUTES.STUDENT.JOBS, icon: FaBriefcase },
+      { label: 'Internships', path: ROUTES.STUDENT.SEARCH.INTERNSHIPS, icon: FaBriefcase },
+      { label: 'Applications', path: ROUTES.STUDENT.APPLICATIONS, icon: FaFileAlt },
+      { label: 'Assessments', path: ROUTES.STUDENT.ASSESSMENTS, icon: FaAward },
+      { label: 'Documents', path: ROUTES.STUDENT.DOCUMENTS, icon: FaFileAlt },
+      { label: 'Courses', path: ROUTES.STUDENT.COURSES, icon: FaGraduationCap },
+    ] },
+    { label: 'Connections', icon: FaChalkboardTeacher, children: [
+      { label: 'Mentorship', path: ROUTES.STUDENT.MENTORSHIP, icon: FaChalkboardTeacher },
+      { label: 'Friends', path: '/student/friends', icon: FaUsers },
+    ] },
+    { label: 'Progress', icon: FaChartLine, children: [
+      { label: 'Calendar', path: '/student/calendar', icon: FaCalendarAlt },
+      { label: 'Deadlines', path: '/student/deadlines', icon: FaBell },
+      { label: 'Activity', path: '/student/activity', icon: FaChartLine },
+      { label: 'Notifications', path: '/student/notifications', icon: FaBell },
+      { label: 'Analytics', path: ROUTES.STUDENT.ANALYTICS, icon: FaChartLine },
+      { label: 'Job matches', path: ROUTES.STUDENT.JOB_MATCHES, icon: FaChartLine },
+      { label: 'Performance', path: ROUTES.STUDENT.PERFORMANCE, icon: FaChartLine },
+    ] },
     { label: 'Settings', path: ROUTES.SETTINGS, icon: FaCog },
   ],
   company: [
@@ -67,7 +89,6 @@ const ROLE_NAVIGATION = {
     ] },
     { label: 'Network', icon: FaComments, children: [
       { label: 'Followers', path: '/company/followers', icon: FaUsers },
-      { label: 'Friends', path: '/company/friends', icon: FaUsers },
       { label: 'Chat', path: '/company/chat', icon: FaComments },
       { label: 'Notifications', path: '/company/notifications', icon: FaBell },
       { label: 'AI matching', path: '/company/ai-matching', icon: FaRocket },
@@ -100,12 +121,21 @@ const ROLE_NAVIGATION = {
   ],
   mentor: [
     { label: 'Dashboard', path: '/mentor/dashboard', icon: FaHome },
-    { label: 'Profile', path: '/mentor/profile', icon: FaChalkboardTeacher },
-    { label: 'Sessions', path: '/mentor/sessions', icon: FaUsers },
-    { label: 'Applications', path: '/mentor/applications', icon: FaFileAlt },
+    { label: 'Mentoring', icon: FaChalkboardTeacher, children: [
+      { label: 'Profile', path: '/mentor/profile', icon: FaChalkboardTeacher },
+      { label: 'Sessions', path: '/mentor/sessions', icon: FaUsers },
+      { label: 'Schedule', path: '/mentor/schedule', icon: FaCalendarAlt },
+      { label: 'Applications', path: '/mentor/applications', icon: FaFileAlt },
+      { label: 'Mentees', path: '/mentor/mentees', icon: FaUsers },
+    ] },
+    { label: 'Community', icon: FaComments, children: [
+      { label: 'Friends', path: '/mentor/friends', icon: FaUsers },
+      { label: 'Messages', path: '/mentor/messages', icon: FaComments },
+      { label: 'Resources', path: '/mentor/resources', icon: FaFileAlt },
+      { label: 'Reviews', path: '/mentor/reviews', icon: FaAward },
+      { label: 'Referrals', path: '/mentor/referrals', icon: FaUsers },
+    ] },
     { label: 'Earnings', path: '/mentor/earnings', icon: FaChartLine },
-    { label: 'Mentees', path: '/mentor/mentees', icon: FaUsers },
-    { label: 'Friends', path: '/mentor/friends', icon: FaUsers },
     { label: 'Settings', path: '/mentor/settings', icon: FaCog },
   ],
   youth: [
@@ -171,32 +201,60 @@ const Layout = ({ children }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [avatarFailed, setAvatarFailed] = useState(false);
-  const [expandedCompanyGroup, setExpandedCompanyGroup] = useState(null);
-
-  const avatarUrl = useMemo(() => (
-    userProfile?.photoURL ||
-    userProfile?.profilePhoto ||
-    userProfile?.alumniProfile?.photoURL ||
-    userProfile?.alumniProfile?.profilePhoto ||
-    userProfile?.typeProfile?.photoURL ||
-    userProfile?.typeProfile?.profilePhoto ||
-    currentUser?.photoURL ||
-    ''
-  ), [currentUser?.photoURL, userProfile]);
-
-  useEffect(() => setAvatarFailed(false), [avatarUrl]);
+  const [liveAvatarProfiles, setLiveAvatarProfiles] = useState({ user: null, role: null });
+  const [expandedNavigationGroup, setExpandedNavigationGroup] = useState(null);
 
   const normalizedUserType = useMemo(() => {
     const rawUserType = userProfile?.userType || userProfile?.role || 'student';
     return normalizeUserType(rawUserType);
   }, [userProfile?.userType, userProfile?.role]);
+
+  useEffect(() => {
+    if (!currentUser?.uid) {
+      setLiveAvatarProfiles({ user: null, role: null });
+      return undefined;
+    }
+    const roleCollection = ({ student: 'students', company: 'companies', mentor: 'mentors' })[normalizedUserType];
+    const unsubscribers = [onSnapshot(doc(db, 'users', currentUser.uid), (snapshot) => {
+      setLiveAvatarProfiles((current) => ({ ...current, user: snapshot.exists() ? snapshot.data() : null }));
+    }, () => {})];
+    if (roleCollection) {
+      unsubscribers.push(onSnapshot(doc(db, roleCollection, currentUser.uid), (snapshot) => {
+        setLiveAvatarProfiles((current) => ({ ...current, role: snapshot.exists() ? snapshot.data() : null }));
+      }, () => {}));
+    } else {
+      setLiveAvatarProfiles((current) => ({ ...current, role: null }));
+    }
+    return () => unsubscribers.forEach((unsubscribe) => unsubscribe());
+  }, [currentUser?.uid, normalizedUserType]);
+
+  const avatarUrl = useMemo(() => (
+    // Prefer the live role document so photo and company logo edits propagate
+    // while this account remains signed in.
+    liveAvatarProfiles.role?.logoUrl || liveAvatarProfiles.role?.logo || liveAvatarProfiles.role?.companyLogo ||
+    liveAvatarProfiles.role?.photoURL || liveAvatarProfiles.role?.profilePhoto || liveAvatarProfiles.role?.avatarUrl ||
+    userProfile?.companyProfile?.logoUrl || userProfile?.companyProfile?.logo || userProfile?.companyProfile?.companyLogo ||
+    userProfile?.companyProfile?.photoURL || userProfile?.companyProfile?.profilePhoto ||
+    userProfile?.studentProfile?.photoURL || userProfile?.studentProfile?.profilePhoto || userProfile?.studentProfile?.avatarUrl ||
+    userProfile?.mentorProfile?.photoURL || userProfile?.mentorProfile?.profilePhoto ||
+    liveAvatarProfiles.user?.photoURL || liveAvatarProfiles.user?.profilePhoto || liveAvatarProfiles.user?.avatarUrl ||
+    userProfile?.adminProfile?.photoURL || userProfile?.adminProfile?.profilePhoto ||
+    userProfile?.alumniProfile?.photoURL || userProfile?.alumniProfile?.profilePhoto ||
+    userProfile?.typeProfile?.logoUrl || userProfile?.typeProfile?.logo || userProfile?.typeProfile?.photoURL || userProfile?.typeProfile?.profilePhoto ||
+    userProfile?.photoURL || userProfile?.profilePhoto || userProfile?.avatarUrl || userProfile?.avatar || currentUser?.photoURL || ''
+  ), [currentUser?.photoURL, liveAvatarProfiles, userProfile]);
+
+  useEffect(() => setAvatarFailed(false), [avatarUrl]);
   const navigationItems = useMemo(() => ROLE_NAVIGATION[normalizedUserType] || ROLE_NAVIGATION.student, [normalizedUserType]);
 
   useEffect(() => {
-    if (normalizedUserType !== 'company') return;
-    const activeGroup = navigationItems.find((item) => item.children?.some((child) => location.pathname === child.path || location.pathname.startsWith(`${child.path}/`)));
-    if (activeGroup) setExpandedCompanyGroup(activeGroup.label);
-  }, [location.pathname, navigationItems, normalizedUserType]);
+    const activeGroup = navigationItems.find((item) =>
+      item.children?.some((child) =>
+        location.pathname === child.path || location.pathname.startsWith(`${child.path}/`)
+      )
+    );
+    if (activeGroup) setExpandedNavigationGroup(activeGroup.label);
+  }, [location.pathname, navigationItems]);
 
   const displayName =
     userProfile?.displayName ||
@@ -270,13 +328,13 @@ const Layout = ({ children }) => {
       <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4" aria-label="Primary">
         {navigationItems.map((item) => {
           const { label, path, icon: Icon, children } = item;
-          if (normalizedUserType === 'company' && children) {
-            const expanded = expandedCompanyGroup === label;
+          if (children) {
+            const expanded = expandedNavigationGroup === label;
             const active = children.some((child) => location.pathname === child.path || location.pathname.startsWith(`${child.path}/`));
             return <div key={label}>
               <button type="button" aria-expanded={expanded} onClick={() => {
                 if (sidebarCollapsed) setSidebarCollapsed(false);
-                setExpandedCompanyGroup(expanded ? null : label);
+                setExpandedNavigationGroup(expanded ? null : label);
               }} title={sidebarCollapsed ? label : undefined}
                 className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-medium transition-colors ${active ? 'bg-brand-50 text-brand-700 dark:bg-brand-950 dark:text-brand-200' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-100'} ${sidebarCollapsed ? 'justify-center px-2' : ''}`}>
                 <Icon className="h-4 w-4 shrink-0" />
@@ -336,7 +394,10 @@ const Layout = ({ children }) => {
         <button
           type="button"
           className="rounded-lg p-2 text-slate-600 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
-          onClick={() => setMobileMenuOpen(true)}
+          onClick={() => {
+            setSidebarCollapsed(false);
+            setMobileMenuOpen(true);
+          }}
           aria-label="Open navigation menu"
         >
           <FaBars className="h-5 w-5" />
@@ -372,7 +433,7 @@ const Layout = ({ children }) => {
         </>
       )}
 
-      <main data-user-role={userType} className={`dashboard-content transition-[margin] lg:ml-64 ${sidebarCollapsed ? 'lg:ml-20' : ''}`}>
+      <main data-user-role={normalizedUserType} className={`dashboard-content transition-[margin] lg:ml-64 ${sidebarCollapsed ? 'lg:ml-20' : ''}`}>
         <div className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-8">{children}</div>
       </main>
     </div>

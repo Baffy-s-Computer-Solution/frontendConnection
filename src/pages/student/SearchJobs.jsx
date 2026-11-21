@@ -10,6 +10,7 @@ import {
   subscribeToSavedJobs,
   subscribeToStudentApplications,
 } from '../../services/studentServices';
+import { formatLocation } from '../../utils/formatters';
 
 const formatSalary = (min, max) => {
   if (!min && !max) return 'Negotiable';
@@ -78,7 +79,7 @@ const SearchJobs = ({ internshipsOnly = false }) => {
       const matchesInternship = !internshipsOnly || jobType === 'internship';
       const matchesType = internshipsOnly || selectedType === 'all' || jobType === selectedType;
       const skills = Array.isArray(job.skills) ? job.skills : [];
-      const combined = `${job.title || ''} ${job.companyName || ''} ${job.location || ''} ${job.description || ''} ${skills.join(' ')}`.toLowerCase();
+      const combined = `${job.title || ''} ${job.companyName || ''} ${formatLocation(job.location)} ${job.description || ''} ${skills.join(' ')}`.toLowerCase();
       const matchesSearch = !searchTerm || combined.includes(searchTerm.toLowerCase());
       return matchesInternship && matchesType && matchesSearch;
     });
@@ -196,7 +197,7 @@ const SearchJobs = ({ internshipsOnly = false }) => {
 
                       <div className="mt-3 flex flex-wrap items-center gap-4 text-sm text-slate-600 dark:text-slate-300">
                         <span className="flex items-center gap-1.5"><FaBriefcase className="text-brand-500" />{job.companyName || 'Company'}</span>
-                        <span className="flex items-center gap-1.5"><FaMapMarkerAlt className="text-brand-500" />{job.location || 'Location not specified'}</span>
+                        <span className="flex items-center gap-1.5"><FaMapMarkerAlt className="text-brand-500" />{formatLocation(job.location, 'Location not specified')}</span>
                         <span className="flex items-center gap-1.5"><FaMoneyBillWave className="text-brand-500" />{salaryText}</span>
                       </div>
 

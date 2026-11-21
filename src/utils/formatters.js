@@ -172,6 +172,26 @@ export const formatPhoneNumber = (phone) => {
   return phone;
 };
 
+export const formatLocation = (location, fallback = "") => {
+  if (typeof location === "string" || typeof location === "number") {
+    return String(location).trim() || fallback;
+  }
+
+  if (Array.isArray(location)) {
+    return location.map((part) => formatLocation(part)).filter(Boolean).join(", ") || fallback;
+  }
+
+  if (!location || typeof location !== "object") return fallback;
+
+  const fields = ["street", "city", "state", "zipCode", "postalCode", "country"];
+  const values = fields.map((field) => location[field]).filter((value) => value != null && value !== "");
+  const parts = values.length
+    ? values
+    : [location.name, location.label, location.displayName, location.address].filter(Boolean);
+
+  return parts.map((part) => formatLocation(part)).filter(Boolean).join(", ") || fallback;
+};
+
 /**
  * Truncate text
  * @param {string} text - Text to truncate

@@ -1,10 +1,30 @@
-import { render, screen } from '@testing-library/react';
+import { cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { MemoryRouter } from 'react-router-dom';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import Contact from '../../../pages/common/Contact';
 
+vi.mock('../../../context/AuthContext', () => ({
+  useAuth: vi.fn(() => ({ currentUser: null, userProfile: null })),
+}));
+
+import { useAuth } from '../../../context/AuthContext';
+
+const renderContact = () => render(<Contact />, { wrapper: MemoryRouter });
+
 describe('Contact page', () => {
+  beforeEach(() => {
+    vi.stubGlobal('fetch', vi.fn());
+    useAuth.mockReturnValue({ currentUser: null, userProfile: null });
+  });
+
+  afterEach(() => {
+    cleanup();
+    vi.unstubAllGlobals();
+  });
+
   it('provides working email, phone, WhatsApp, and developer links', () => {
-    render(<Contact />);
+    renderContact();
 
     expect(screen.getByRole('link', { name: /khoalibafokeng@gmail\.com/i })).toHaveAttribute(
       'href',
@@ -24,23 +44,44 @@ describe('Contact page', () => {
     );
   });
 
-  it('prepares an email draft without claiming that the message was sent', async () => {
+  it('sends the form to the support endpoint and reports the confirmed result', async () => {
     const user = userEvent.setup();
-    render(<Contact />);
+    renderContact();
+    fetch.mockResolvedValue({ ok: true, json: async () => ({ success: true }) });
 
     await user.type(screen.getByLabelText('Your name'), 'Lerato');
     await user.type(screen.getByLabelText('Your email'), 'lerato@example.com');
     await user.type(screen.getByLabelText('Subject'), 'Mentorship question');
     await user.type(screen.getByLabelText('Message'), 'I would like to ask about mentoring.');
-    await user.click(screen.getByRole('button', { name: /prepare email/i }));
+    await user.click(screen.getByRole('button', { name: /send message/i }));
 
-    expect(screen.getByRole('status')).toHaveTextContent(
-      'Your email draft is ready. Open it to review and send your message.'
+    expect(await screen.findByText(/message was sent successfully/i)).toBeInTheDocument();
+    expect(fetch).toHaveBeenCalledWith(
+      expect.stringMatching(/\/api\/contact$/),
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({
+          name: 'Lerato',
+          email: 'lerato@example.com',
+          subject: 'Mentorship question',
+          message: 'I would like to ask about mentoring.',
+        }),
+      })
     );
-    expect(screen.queryByText(/message sent/i)).not.toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /open email draft/i })).toHaveAttribute(
-      'href',
-      expect.stringContaining('mailto:khoalibafokeng@gmail.com')
-    );
+    expect(screen.queryByRole('link', { name: /open email draft/i })).not.toBeInTheDocument();
+  });
+
+  it('shows a failure instead of claiming delivery when the backend rejects the message', async () => {
+    const user = userEvent.setup();
+    renderContact();
+    fetch.mockResolvedValue({ ok: false, json: async () => ({ success: false, message: 'Email delivery is unavailable.' }) });
+    await user.type(screen.getByLabelText('Your name'), 'Lerato');
+    await user.type(screen.getByLabelText('Your email'), 'lerato@example.com');
+    await user.type(screen.getByLabelText('Subject'), 'Mentorship question');
+    await user.type(screen.getByLabelText('Message'), 'I would like to ask about mentoring.');
+    await user.click(screen.getByRole('button', { name: /send message/i }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Email delivery is unavailable.');
+    expect(screen.queryByText(/message was sent successfully/i)).not.toBeInTheDocument();
   });
 });

@@ -30,9 +30,19 @@ const userTypeConfig = {
   parent: { label: 'Parent', color: 'bg-pink-100 text-pink-700' },
 };
 
+const generateStrongPassword = () => {
+  const groups = ['ABCDEFGHJKLMNPQRSTUVWXYZ', 'abcdefghijkmnopqrstuvwxyz', '23456789', '!@#$%'];
+  const chars = groups.join('');
+  const values = new Uint32Array(24);
+  crypto.getRandomValues(values);
+  const required = groups.map((group) => group[values[0] % group.length]);
+  const rest = Array.from(values, (value) => chars[value % chars.length]).join('');
+  return `${required.join('')}${rest}`.slice(0, 24);
+};
+
 const SearchUsers = () => {
   const navigate = useNavigate();
-  const { currentUser, userProfile, isAdmin } = useAuth();
+  const { currentUser, userProfile, isAdmin, isSuperAdmin } = useAuth();
   const { addSuccessNotification, addErrorNotification } = useNotification();
 
   const [users, setUsers] = useState([]);
@@ -67,6 +77,9 @@ const SearchUsers = () => {
     userType: 'student',
     phoneNumber: '',
     status: 'active',
+    adminScope: 'platform',
+    adminLevel: 'admin',
+    confirmSuperAdmin: false,
   });
   const [stats, setStats] = useState({
     total: 0,
@@ -172,17 +185,36 @@ const SearchUsers = () => {
   };
 
   const handleCreateUser = async () => {
-    if (!newUser.email || !newUser.password) {
-      addErrorNotification('Validation', 'Email and password are required');
+    if (!newUser.email) {
+      addErrorNotification('Validation', 'Email is required');
+      return;
+    }
+    if (newUser.userType !== 'admin' && !newUser.password) {
+      addErrorNotification('Validation', 'Temporary password is required');
+      return;
+    }
+    if (newUser.userType === 'admin' && !isSuperAdmin) {
+      addErrorNotification('Restricted action', 'Only a super administrator can grant administrator access');
+      return;
+    }
+    if (newUser.userType === 'admin' && newUser.adminLevel === 'super_admin' && !newUser.confirmSuperAdmin) {
+      addErrorNotification('Confirmation required', 'Confirm that this account should receive super-administrator access');
       return;
     }
     setActionLoading(true);
 
     try {
-      const response = await adminService.users.createUser(newUser, currentUser, userProfile);
+      const response = newUser.userType === 'admin'
+        ? await adminService.admins.createAdmin(newUser, currentUser, userProfile)
+        : await adminService.users.createUser(newUser, currentUser, userProfile);
 
       if (response.success) {
-        addSuccessNotification('Success', 'User created successfully');
+        addSuccessNotification(
+          'Success',
+          newUser.userType === 'admin'
+            ? 'Administrator access granted. Ask the user to sign out and back in.'
+            : 'User created successfully'
+        );
         setShowCreateModal(false);
         setNewUser({
           email: '',
@@ -1070,18 +1102,29 @@ const SearchUsers = () => {
               className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200 dark:border-slate-700 dark:bg-slate-800"
             />
           </div>
-          <div>
-            <label className="text-sm font-medium text-slate-700 dark:text-slate-200">
-              Password *
-            </label>
-            <input
-              type="password"
-              value={newUser.password}
-              onChange={(e) => setNewUser({ ...newUser, password: e.target.value })}
-              placeholder="Minimum 6 characters"
-              className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200 dark:border-slate-700 dark:bg-slate-800"
-            />
-          </div>
+          {newUser.userType !== 'admin' && (
+            <div>
+              <label className="text-sm font-medium text-slate-700 dark:text-slate-200">
+                Temporary Password *
+              </label>
+              <div className="mt-1 flex gap-2">
+                <input
+                  type="text"
+                  value={newUser.password}
+                  onChange={(e) => setNewUser({ ...newUser, password: e.target.value })}
+                  placeholder="Minimum 6 characters"
+                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200 dark:border-slate-700 dark:bg-slate-800"
+                />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setNewUser((current) => ({ ...current, password: generateStrongPassword() }))}
+                >
+                  Generate
+                </Button>
+              </div>
+            </div>
+          )}
           <div>
             <label className="text-sm font-medium text-slate-700 dark:text-slate-200">
               Display Name
@@ -1115,6 +1158,28 @@ const SearchUsers = () => {
                 <option value="parent">Parent</option>
               </select>
             </div>
+            {newUser.userType === 'admin' && (
+              <div>
+                <label className="text-sm font-medium text-slate-700 dark:text-slate-200">
+                  Administrator Scope
+                </label>
+                <select
+                  value={newUser.adminScope}
+                  onChange={(e) => setNewUser({
+                    ...newUser,
+                    adminScope: e.target.value,
+                    adminLevel: e.target.value === 'super_platform' ? 'super_admin' : 'admin',
+                    confirmSuperAdmin: false,
+                  })}
+                  className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800"
+                >
+                  <option value="platform">Platform administrator</option>
+                  <option value="super_platform">Platform super-administrator</option>
+                  <option value="company">Company administrator (scoped)</option>
+                  <option value="institute">Institute administrator (scoped)</option>
+                </select>
+              </div>
+            )}
             <div>
               <label className="text-sm font-medium text-slate-700 dark:text-slate-200">
                 Status
@@ -1130,6 +1195,22 @@ const SearchUsers = () => {
               </select>
             </div>
           </div>
+          {newUser.userType === 'admin' && ['company', 'institute'].includes(newUser.adminScope) && (
+            <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-100">
+              Scoped administrator roles are not yet supported by the platform claims API. Use organization/team management or grant platform administrator access.
+            </div>
+          )}
+          {newUser.userType === 'admin' && newUser.adminLevel === 'super_admin' && (
+            <label className="flex items-start gap-2 rounded-lg border border-red-300 bg-red-50 p-3 text-sm text-red-900 dark:border-red-800 dark:bg-red-950/30 dark:text-red-100">
+              <input
+                type="checkbox"
+                checked={Boolean(newUser.confirmSuperAdmin)}
+                onChange={(e) => setNewUser({ ...newUser, confirmSuperAdmin: e.target.checked })}
+                className="mt-1"
+              />
+              I confirm this existing account should receive full super-administrator access.
+            </label>
+          )}
           <div>
             <label className="text-sm font-medium text-slate-700 dark:text-slate-200">
               Phone Number
@@ -1163,7 +1244,13 @@ const SearchUsers = () => {
           <Button
             variant="primary"
             onClick={handleCreateUser}
-            disabled={actionLoading || !newUser.email || !newUser.password}
+            disabled={
+              actionLoading ||
+              !newUser.email ||
+              (newUser.userType !== 'admin' && !newUser.password) ||
+              (newUser.userType === 'admin' && ['company', 'institute'].includes(newUser.adminScope)) ||
+              (newUser.userType === 'admin' && newUser.adminLevel === 'super_admin' && !newUser.confirmSuperAdmin)
+            }
           >
             {actionLoading ? 'Creating...' : 'Create User'}
           </Button>

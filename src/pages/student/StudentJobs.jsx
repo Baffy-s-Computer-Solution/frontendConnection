@@ -4,6 +4,7 @@ import { FaArrowRight, FaBookmark, FaBriefcase, FaDollarSign, FaFilter, FaMapMar
 
 import { useAuth } from '../../context/AuthContext';
 import { subscribeToActiveJobs, subscribeToSavedJobs, setStudentJobSaved, subscribeToCompanyFollows, setCompanyFollow } from '../../services/studentServices';
+import { formatLocation } from '../../utils/formatters';
 
 
 const jobTypeClasses = {
@@ -59,7 +60,7 @@ function StudentJobs() {
           !searchTerm ||
           String(job.title || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
           String(job.companyName || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-          String(job.location || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+          formatLocation(job.location).toLowerCase().includes(searchTerm.toLowerCase()) ||
           (Array.isArray(job.skills) ? job.skills : []).some((skill) => String(skill).toLowerCase().includes(searchTerm.toLowerCase()));
 
         return matchesType && matchesSearch;
@@ -125,19 +126,19 @@ function StudentJobs() {
           </div>
         </header>
 
-        <section className="mb-6 grid gap-4 md:grid-cols-3">
+        <section className="mb-5 grid grid-cols-3 gap-2.5 sm:mb-6 sm:gap-4 md:grid-cols-3">
           {[
             { label: 'Available jobs', value: stats.total, icon: <FaBriefcase className="text-brand-600" /> },
             { label: 'Saved roles', value: stats.saved, icon: <FaBookmark className="text-amber-500" /> },
             { label: 'Matches', value: stats.visible, icon: <FaUsers className="text-emerald-500" /> },
           ].map((item) => (
-            <div key={item.label} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-900">
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="text-xs font-medium uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">{item.label}</div>
-                  <div className="mt-3 text-3xl font-bold text-slate-900 dark:text-slate-100">{item.value}</div>
+            <div key={item.label} className="min-w-0 rounded-2xl border border-slate-200 bg-white p-2.5 shadow-sm dark:border-slate-700 dark:bg-slate-900 sm:p-5">
+              <div className="flex items-center justify-between gap-1">
+                <div className="min-w-0">
+                  <div className="truncate text-[9px] font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400 sm:text-xs sm:tracking-[0.2em]">{item.label}</div>
+                  <div className="mt-1 text-xl font-bold text-slate-900 dark:text-slate-100 sm:mt-3 sm:text-3xl">{item.value}</div>
                 </div>
-                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-slate-100 text-lg dark:bg-slate-800">{item.icon}</div>
+                <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-sm dark:bg-slate-800 sm:h-11 sm:w-11 sm:rounded-xl sm:text-lg">{item.icon}</div>
               </div>
             </div>
           ))}
@@ -198,7 +199,7 @@ function StudentJobs() {
 
                     <div className="mt-2 flex flex-wrap items-center gap-4 text-sm text-slate-600 dark:text-slate-300">
                       <span className="flex items-center gap-1.5"><FaBriefcase className="text-brand-500" />{job.companyName}</span>
-                      <span className="flex items-center gap-1.5"><FaMapMarkerAlt className="text-brand-500" />{job.location}</span>
+                      <span className="flex items-center gap-1.5"><FaMapMarkerAlt className="text-brand-500" />{formatLocation(job.location, 'Location not specified')}</span>
                       <span className="flex items-center gap-1.5"><FaDollarSign className="text-brand-500" />{typeof job.salary === 'string' ? job.salary : formatSalary(job.salaryMin ?? job.salary?.min, job.salaryMax ?? job.salary?.max, job.currency || 'LSL')}</span>
                     </div>
 

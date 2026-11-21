@@ -597,6 +597,23 @@ export const uploadDocument = async (userId, file, documentType) => {
       return { success: false, error: 'Please sign in again to upload this document.' };
     }
 
+    if (documentType === 'profile_photo') {
+      const formData = new FormData();
+      formData.append('file', file);
+      const image = await apiRequest('/api/media/student/profile-photo', {
+        method: 'POST',
+        body: formData,
+      });
+      return { success: true, url: image.photoURL, storageType: 'cloudinary' };
+    }
+
+    // Do not create publicly deliverable Cloudinary assets for student records.
+    return {
+      success: false,
+      code: 'PRIVATE_DELIVERY_REQUIRED',
+      error: 'Document uploads are paused until private, authenticated file delivery is enabled.',
+    };
+
     const uploadResult = await cloudinaryService.uploadToCloudinary(file, `students/${userId}/documents`, {
       tags: ['student-document', documentType, `student_${userId}`],
       context: { studentId: userId, documentType, originalName: file.name },
@@ -762,6 +779,113 @@ export const subscribeToActiveJobs = (onData, onError) => {
   }, onError, (snapshot) => snapshot);
 };
 
+export const updateStudentDocumentMetadata = async (documentId, studentId, metadata) => {
+  try {
+    if (!documentId || !studentId || auth.currentUser?.uid !== studentId) {
+      return { success: false, error: 'Please sign in again to update this document.' };
+    }
+
+    const fileName = String(metadata?.fileName || '').trim();
+    const documentType = String(metadata?.documentType || '').trim();
+    if (!fileName || !documentType) {
+      return { success: false, error: 'A document name and type are required.' };
+    }
+
+    const documentRef = doc(db, COLLECTIONS.DOCUMENTS, documentId);
+    const documentSnapshot = await getDoc(documentRef);
+    if (!documentSnapshot.exists()) {
+      return { success: false, error: 'Document not found.' };
+    }
+
+    const ownerId = documentSnapshot.data().studentId || documentSnapshot.data().userId;
+    if (ownerId !== studentId) {
+      return { success: false, error: 'You can only update your own documents.' };
+    }
+
+    await updateDoc(documentRef, {
+      fileName,
+      documentType,
+      updatedAt: serverTimestamp(),
+    });
+    return { success: true };
+  } catch (error) {
+    console.error('❌ Error updating student document:', error);
+    return { success: false, error: error.message || 'Unable to update this document.' };
+  }
+};
+
+export const subscribeToStudentCalendarEvents = (studentId, onData, onError) => {
+  if (!studentId || typeof onData !== 'function') return () => {};
+
+  return subscribeToQuery(
+    collection(db, COLLECTIONS.STUDENTS, studentId, 'calendarEvents'),
+    (snapshot) => onData(snapshot.docs.map((eventSnapshot) => {
+      const data = eventSnapshot.data();
+      return {
+        id: eventSnapshot.id,
+        ...data,
+        startAt: safeDateConvert(data.startAt),
+      };
+    }).sort((left, right) => (left.startAt?.getTime() || 0) - (right.startAt?.getTime() || 0))),
+    onError,
+    (snapshot) => snapshot
+  );
+};
+
+export const saveStudentCalendarEvent = async (studentId, event, eventId = null) => {
+  try {
+    if (!studentId || auth.currentUser?.uid !== studentId) {
+      return { success: false, error: 'Please sign in again to manage calendar events.' };
+    }
+
+    const title = String(event?.title || '').trim();
+    const startAt = event?.startAt instanceof Date ? event.startAt : new Date(event?.startAt);
+    if (!title || Number.isNaN(startAt.getTime())) {
+      return { success: false, error: 'An event title and valid date are required.' };
+    }
+
+    const endAt = event?.endAt
+      ? event.endAt instanceof Date ? event.endAt : new Date(event.endAt)
+      : null;
+    if (endAt && (Number.isNaN(endAt.getTime()) || endAt < startAt)) {
+      return { success: false, error: 'The event end time must be after its start time.' };
+    }
+
+    const eventData = {
+      title,
+      description: String(event.description || '').trim(),
+      startAt,
+      ...(endAt ? { endAt } : {}),
+      updatedAt: serverTimestamp(),
+    };
+    const studentEvents = collection(db, COLLECTIONS.STUDENTS, studentId, 'calendarEvents');
+    if (eventId) {
+      await updateDoc(doc(studentEvents, eventId), eventData);
+    } else {
+      await addDoc(studentEvents, { ...eventData, createdAt: serverTimestamp() });
+    }
+
+    return { success: true };
+  } catch (error) {
+    console.error('❌ Error saving student calendar event:', error);
+    return { success: false, error: error.message || 'Unable to save this calendar event.' };
+  }
+};
+
+export const deleteStudentCalendarEvent = async (studentId, eventId) => {
+  try {
+    if (!studentId || auth.currentUser?.uid !== studentId || !eventId) {
+      return { success: false, error: 'Please sign in again to delete this calendar event.' };
+    }
+
+    await deleteDoc(doc(db, COLLECTIONS.STUDENTS, studentId, 'calendarEvents', eventId));
+    return { success: true };
+  } catch (error) {
+    console.error('❌ Error deleting student calendar event:', error);
+    return { success: false, error: error.message || 'Unable to delete this calendar event.' };
+  }
+};
+
 export const subscribeToSavedJobs = (studentId, onData, onError) => {
   if (!studentId || typeof onData !== 'function') return () => {};
   const savedJobsQuery = query(
@@ -776,23 +900,46 @@ export const subscribeToSavedJobs = (studentId, onData, onError) => {
   }, onError, (snapshot) => snapshot);
 };
 
-export const subscribeToCompanyFollows = (studentId, onData, onError) => {
-  if (!studentId || typeof onData !== 'function') return () => {};
-  const followsQuery = query(collection(db, 'companyFollowers'), where('studentId', '==', studentId));
-  return onSnapshot(followsQuery, (snapshot) => {
-    onData(new Set(snapshot.docs.filter((entry) => entry.data().status !== 'inactive').map((entry) => entry.data().companyId)));
-  }, onError);
+export const subscribeToCompanyFollows = (followerId, onData, onError) => {
+  if (!followerId || typeof onData !== 'function') return () => {};
+  const snapshots = new Map();
+  const emit = () => {
+    const followedCompanies = new Set();
+    snapshots.forEach((snapshot) => snapshot.docs.forEach((entry) => {
+      const data = entry.data();
+      if (data.status !== 'inactive' && data.companyId) followedCompanies.add(data.companyId);
+    }));
+    onData(followedCompanies);
+  };
+  const companyFollowers = collection(db, 'companyFollowers');
+  const subscribe = (field) => onSnapshot(
+    query(companyFollowers, where(field, '==', followerId)),
+    (snapshot) => { snapshots.set(field, snapshot); emit(); },
+    onError
+  );
+  const stopByStudentId = subscribe('studentId');
+  const stopByUserId = subscribe('userId');
+  return () => { stopByStudentId(); stopByUserId(); };
 };
 
-export const setCompanyFollow = async (studentId, companyId, following) => {
-  if (!studentId || !companyId || studentId === companyId) return { success: false, error: 'A valid company is required.' };
-  const followerRef = doc(db, 'companyFollowers', `${companyId}_${studentId}`);
-  const edgeRef = doc(db, 'company_chat_followers', `${companyId}_${studentId}`);
+export const setCompanyFollow = async (followerId, companyId, following, followerRole = 'student') => {
+  if (!followerId || !companyId || followerId === companyId) return { success: false, error: 'A valid company is required.' };
+  if (!['student', 'mentor'].includes(String(followerRole).toLowerCase())) {
+    return { success: false, error: 'Only student and mentor accounts can follow companies.' };
+  }
+  const followerRef = doc(db, 'companyFollowers', `${companyId}_${followerId}`);
+  const edgeRef = doc(db, 'company_chat_followers', `${companyId}_${followerId}`);
   try {
     const batch = writeBatch(db);
     if (following) {
-      batch.set(followerRef, { companyId, studentId, status: 'active', followedAt: serverTimestamp(), updatedAt: serverTimestamp() }, { merge: true });
-      batch.set(edgeRef, { companyId, followerId: studentId, status: 'active', updatedAt: serverTimestamp() }, { merge: true });
+      batch.set(followerRef, {
+        companyId,
+        ...(String(followerRole).toLowerCase() === 'mentor' ? { userId: followerId } : { studentId: followerId }),
+        status: 'active',
+        followedAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      }, { merge: true });
+      batch.set(edgeRef, { companyId, followerId, status: 'active', updatedAt: serverTimestamp() }, { merge: true });
     } else {
       batch.delete(followerRef);
       batch.delete(edgeRef);

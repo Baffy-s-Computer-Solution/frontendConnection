@@ -357,7 +357,8 @@ const AdminDashboard = () => {
         <div className="mb-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           {statCards.map((item) => {
             const Icon = item.icon;
-            const isPositive = item.change >= 0;
+            const numericChange = Number.isFinite(Number(item.change)) ? Number(item.change) : 0;
+            const isPositive = numericChange >= 0;
             return (
               <div
                 key={item.title}
@@ -383,7 +384,7 @@ const AdminDashboard = () => {
                     }`}
                   >
                     {isPositive ? <FaArrowUp /> : <FaArrowDown />}
-                    {Math.abs(item.change)}%
+                    {Math.abs(numericChange)}%
                     <span className="font-normal text-slate-400">vs last period</span>
                   </div>
                   <button

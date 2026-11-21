@@ -403,10 +403,11 @@ const useReferralProgram = (userId) => {
     if (!userId) return null;
     try {
       const programRef = doc(db, "referralPrograms", userId);
+      const referralCode = generateReferralCode(userId);
       const newProgram = {
         userId,
-        referralCode: generateReferralCode(userId),
-        referralLink: `${window.location.origin}/signup?ref=${generateReferralCode(userId)}`,
+        referralCode,
+        referralLink: `${window.location.origin}/register?ref=${encodeURIComponent(referralCode)}&referrer=${encodeURIComponent(userId)}&referrerType=mentor`,
         isActive: true,
         rewardType: REWARD_TYPES.CASH,
         rewardAmount: 50,
@@ -418,16 +419,6 @@ const useReferralProgram = (userId) => {
         ...programData,
       };
       await setDoc(programRef, newProgram);
-
-      // Sync to Supabase
-      await supabase.from("referral_programs").upsert({
-        user_id: userId,
-        referral_code: newProgram.referralCode,
-        is_active: true,
-        reward_type: newProgram.rewardType,
-        reward_amount: newProgram.rewardAmount,
-        created_at: new Date().toISOString(),
-      });
 
       return { id: userId, ...newProgram };
     } catch (error) {
@@ -444,16 +435,6 @@ const useReferralProgram = (userId) => {
         ...updates,
         updatedAt: serverTimestamp(),
       });
-
-      await supabase
-        .from("referral_programs")
-        .update({
-          is_active: updates.isActive,
-          reward_type: updates.rewardType,
-          reward_amount: updates.rewardAmount,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("user_id", userId);
     } catch (error) {
       console.error("Error updating referral program:", error);
       throw error;
@@ -826,11 +807,10 @@ const MentorReferrals = () => {
   }, [referrals, filters.search]);
 
   const referralLink = useMemo(() => {
-    if (program?.referralLink) return program.referralLink;
     if (program?.referralCode)
-      return `${window.location.origin}/signup?ref=${program.referralCode}`;
+      return `${window.location.origin}/register?ref=${encodeURIComponent(program.referralCode)}&referrer=${encodeURIComponent(userId)}&referrerType=mentor`;
     return "";
-  }, [program]);
+  }, [program, userId]);
 
   const handleCopyLink = async () => {
     try {
@@ -917,18 +897,29 @@ const MentorReferrals = () => {
 
       await batch.commit();
 
-      // Send emails via Supabase Edge Function or email service
-      await supabase.functions.invoke("send-referral-invites", {
-        body: {
-          emails,
-          referrerName: userProfile?.displayName,
-          referralLink,
-          message: inviteForm.message,
-        },
-      });
-
       setShowInviteModal(false);
       setInviteForm({ emails: "", message: "" });
+      let deliveryError = null;
+      try {
+        const result = await supabase.functions.invoke("send-referral-invites", {
+          body: {
+            emails,
+            referrerName: userProfile?.displayName,
+            referralLink,
+            message: inviteForm.message,
+          },
+        });
+        deliveryError = result.error;
+        if (deliveryError) throw deliveryError;
+      } catch (error) {
+        console.error("Referral invites were saved but email delivery failed:", error);
+        setToast({
+          message: "Invitations were saved, but email delivery could not be completed.",
+          type: "warning",
+        });
+        return;
+      }
+
       setToast({
         message: `Invites sent to ${emails.length} email(s)!`,
         type: "success",

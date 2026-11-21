@@ -168,6 +168,26 @@ export const NotificationProvider = ({ children }) => {
     [addNotification]
   );
 
+  const showNotification = useCallback(
+    (type, message, options = {}) => {
+      const notificationType = type === 'error' ? 'danger' : type;
+      const titles = {
+        success: 'Success',
+        warning: 'Warning',
+        danger: 'Error',
+        info: 'Information',
+      };
+
+      return addNotification({
+        type: notificationType,
+        title: options.title || titles[notificationType] || 'Notification',
+        message,
+        ...options,
+      });
+    },
+    [addNotification]
+  );
+
   const unreadCount = notifications.filter((notification) => !notification.read && !notification.deleted && !notification.archived).length;
 
   const value = {
@@ -184,6 +204,7 @@ export const NotificationProvider = ({ children }) => {
     addSuccessNotification,
     addErrorNotification,
     addWarningNotification,
+    showNotification,
   };
 
   return <NotificationContext.Provider value={value}>{children}</NotificationContext.Provider>;

@@ -962,6 +962,67 @@
     @apply mt-5 text-lg font-semibold text-slate-900 dark:text-slate-100;
   }
 
+  .testimonial-card {
+    @apply flex flex-col gap-4;
+  }
+
+  .testimonial-star {
+    @apply h-5 w-5 text-amber-500;
+  }
+
+  .testimonial-card blockquote {
+    @apply flex-1 text-sm leading-6 text-slate-700 dark:text-slate-200;
+  }
+
+  .testimonial-card .testimonial-author {
+    @apply mt-0 flex flex-col gap-1 border-t border-slate-100 pt-4 dark:border-slate-700;
+  }
+
+  .testimonial-author strong {
+    @apply font-semibold capitalize text-slate-900 dark:text-slate-100;
+  }
+
+  .testimonial-author span {
+    @apply text-xs capitalize text-slate-500 dark:text-slate-400;
+  }
+
+  .testimonial-empty {
+    @apply mt-6 text-center text-sm text-slate-500 dark:text-slate-400;
+  }
+
+  .testimonial-empty a {
+    @apply font-semibold text-brand-700 underline dark:text-brand-300;
+  }
+
+  .testimonial-form {
+    @apply mt-10 grid gap-3 rounded-xl border bg-white p-5 shadow-card dark:border-slate-700 dark:bg-slate-900;
+  }
+
+  .testimonial-form h3 {
+    @apply text-lg font-semibold text-slate-900 dark:text-slate-100;
+  }
+
+  .testimonial-form label {
+    @apply text-sm font-medium text-slate-700 dark:text-slate-300;
+  }
+
+  .testimonial-form input,
+  .testimonial-form textarea {
+    @apply w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100;
+  }
+
+  .testimonial-form-footer {
+    @apply flex flex-wrap items-center justify-between gap-3;
+  }
+
+  .testimonial-form-footer p {
+    @apply text-sm text-slate-500 dark:text-slate-400;
+  }
+
+  .testimonial-form-footer button {
+    @apply rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-60;
+  }
+
   .audience-card ul {
     @apply mt-4 space-y-2 p-0 text-sm text-slate-600 dark:text-slate-300;
   }
@@ -1303,6 +1364,18 @@
       height: 1.125rem;
     }
 
+    .dashboard-content[data-user-role="student"],
+    .dashboard-content[data-user-role="mentor"] {
+      overflow-x: clip;
+    }
+
+    .dashboard-content[data-user-role="student"] :is(input, select, textarea),
+    .dashboard-content[data-user-role="mentor"] :is(input, select, textarea) {
+      min-width: 0;
+      max-width: 100%;
+      font-size: 16px;
+    }
+
     .dashboard-content[data-user-role="student"] :is(table, .table-responsive),
     .dashboard-content[data-user-role="mentor"] :is(table, .table-responsive) {
       display: block;
@@ -1314,6 +1387,22 @@
     .dashboard-content[data-user-role="student"] :is(button, [role="button"]),
     .dashboard-content[data-user-role="mentor"] :is(button, [role="button"]) {
       max-width: 100%;
+    }
+
+    .student-settings-page :is([class~="p-5"], [class~="p-6"], [class~="p-8"]) {
+      padding: 0.75rem;
+    }
+
+    .student-settings-page [class~="mt-6"] {
+      margin-top: 1rem;
+    }
+
+    .student-settings-page [class~="gap-6"] {
+      gap: 1rem;
+    }
+
+    .student-settings-page [class~="space-y-5"] > :not([hidden]) ~ :not([hidden]) {
+      margin-top: 1rem;
     }
   }
 }

@@ -27,7 +27,7 @@ const CompanyCandidates = lazy(() => import('../../pages/company/CompanyCandidat
 // New Company Features
 const CompanyChat = lazy(() => import('../../pages/company/chat/CompanyChat'));
 const Notifications = lazy(() => import('../../pages/Notifications'));
-const CompanyFollowers = lazy(() => import('../../pages/company/followers/CompanyFollowers'));
+const CompanyFollowers = lazy(() => import('../../pages/company/CompanyFollowers'));
 const AIMatching = lazy(() => import('../../pages/company/ai-matching/AIMatching'));
 const VideoInterviews = lazy(() => import('../../pages/company/VideoInterviews'));
 // Branding is edited through the persisted company profile so this route never
@@ -50,7 +50,6 @@ const PredictiveAnalyticsHub = lazy(
 );
 const Marketplace = lazy(() => import('../../pages/company/marketplace/MarketplaceDatabase'));
 const TeamWorkspace = lazy(() => import('../../pages/company/team-workspace/TeamWorkspace'));
-const FriendsNetwork = lazy(() => import('../../pages/FriendsNetwork'));
 
 /**
  * Company Routes Module
@@ -78,7 +77,7 @@ export const getCompanyRoutes = () => [
     }
   />,
 
-  <Route key="company-friends" path="/company/friends" element={<ProtectedRoute allowedUserTypes={['company']}><FriendsNetwork /></ProtectedRoute>} />,
+  <Route key="company-friends" path="/company/friends" element={<ProtectedRoute allowedUserTypes={['company']}><Navigate to="/company/followers" replace /></ProtectedRoute>} />,
 
   // Company Profile & Settings
   <Route

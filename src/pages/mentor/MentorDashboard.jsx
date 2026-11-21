@@ -166,10 +166,10 @@ const MentorDashboard = () => {
   }
 
   return (
-      <main className="mx-auto w-full max-w-7xl space-y-8 px-4 py-8 sm:px-6 lg:px-8">
+      <main className="mx-auto w-full max-w-7xl space-y-5 px-4 py-5 sm:space-y-8 sm:px-6 sm:py-8 lg:px-8">
       {/* Welcome Header */}
       <motion.div
-        className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-indigo-700 via-indigo-600 to-violet-600 p-7 text-white shadow-xl shadow-indigo-950/10 sm:p-10"
+        className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-indigo-700 via-indigo-600 to-violet-600 p-4 text-white shadow-xl shadow-indigo-950/10 sm:p-10"
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
@@ -177,8 +177,8 @@ const MentorDashboard = () => {
         <div className="relative z-10 flex flex-wrap items-center justify-between gap-6">
           <div>
             <p className="mb-2 text-sm font-semibold uppercase tracking-[0.18em] text-indigo-100">Mentor workspace</p>
-            <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">Welcome back, {profile?.fullName || user?.displayName || 'Mentor'}</h1>
-            <p className="mt-3 max-w-2xl text-base text-indigo-100">Your mentoring work, sessions, and student progress at a glance.</p>
+            <h1 className="text-2xl font-bold tracking-tight sm:text-4xl">Welcome back, {profile?.fullName || user?.displayName || 'Mentor'}</h1>
+            <p className="mt-2 max-w-2xl text-sm text-indigo-100 sm:mt-3 sm:text-base">Your mentoring work, sessions, and student progress at a glance.</p>
           </div>
           <div className="flex items-center gap-3">
             <button type="button" onClick={loadDashboardData} className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-white/25 bg-white/10 text-white transition hover:bg-white/20" aria-label="Refresh dashboard"><RefreshCw size={19} /></button>
@@ -192,79 +192,79 @@ const MentorDashboard = () => {
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.1 }}
-        className="rounded-2xl border border-indigo-100 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900"
+        className="rounded-2xl border border-indigo-100 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:p-5"
       >
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div><h2 className="text-lg font-semibold text-slate-900 dark:text-white">Keep your mentoring moving</h2><p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Jump straight to the work that needs your attention.</p></div>
           <div className="flex flex-wrap gap-2">
-            {[['Sessions', '/mentor/sessions', Calendar], ['Applications', '/mentor/applications', Briefcase], ['Mentees', '/mentor/mentees', Users], ['Earnings', '/mentor/earnings', DollarSign]].map(([label, href, Icon]) => <Link key={href} to={href} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 transition hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-700 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"><Icon size={16} />{label}<ArrowUpRight size={14} /></Link>)}
+            {[['Sessions', '/mentor/sessions', Calendar], ['Applications', '/mentor/applications', Briefcase], ['Mentees', '/mentor/mentees', Users], ['Earnings', '/mentor/earnings', DollarSign]].map(([label, href, Icon]) => <Link key={href} to={href} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-xs font-medium text-slate-700 transition hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-700 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800 sm:text-sm"><Icon size={15} />{label}<ArrowUpRight size={13} /></Link>)}
           </div>
         </div>
       </motion.div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-2 sm:gap-4 xl:grid-cols-4">
         <motion.div
-          className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900"
+          className="flex min-w-0 items-center gap-2.5 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:block sm:p-5"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
         >
-          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-indigo-50 dark:bg-indigo-500/10">
-            <Users color="#4F46E5" />
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-indigo-50 dark:bg-indigo-500/10 sm:h-11 sm:w-11">
+            <Users size={17} color="#4F46E5" />
           </div>
-          <div className="mt-4">
-            <h3 className="text-sm font-medium text-slate-500 dark:text-slate-400">Mentees supported</h3>
-            <p className="mt-1 text-3xl font-bold tracking-tight text-slate-900 dark:text-white">{analytics?.summary?.uniqueStudents || 0}</p>
-            <span className="mt-1 block text-xs text-slate-500">Across your mentoring journey</span>
+          <div className="min-w-0 sm:mt-4">
+            <h3 className="truncate text-[11px] font-medium text-slate-500 dark:text-slate-400 sm:text-sm">Mentees supported</h3>
+            <p className="mt-0.5 text-xl font-bold tracking-tight text-slate-900 dark:text-white sm:mt-1 sm:text-3xl">{analytics?.summary?.uniqueStudents || 0}</p>
+            <span className="mt-1 hidden text-xs text-slate-500 sm:block">Across your mentoring journey</span>
           </div>
         </motion.div>
 
         <motion.div
-          className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900"
+          className="flex min-w-0 items-center gap-2.5 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:block sm:p-5"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
         >
-          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-50 dark:bg-emerald-500/10">
-            <Calendar color="#10B981" />
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-50 dark:bg-emerald-500/10 sm:h-11 sm:w-11">
+            <Calendar size={17} color="#10B981" />
           </div>
-          <div className="mt-4">
-            <h3 className="text-sm font-medium text-slate-500 dark:text-slate-400">Sessions delivered</h3>
-            <p className="mt-1 text-3xl font-bold tracking-tight text-slate-900 dark:text-white">{analytics?.summary?.totalSessions || 0}</p>
-            <span className="mt-1 block text-xs text-slate-500">{analytics?.summary?.completedSessions || 0} completed</span>
+          <div className="min-w-0 sm:mt-4">
+            <h3 className="truncate text-[11px] font-medium text-slate-500 dark:text-slate-400 sm:text-sm">Sessions delivered</h3>
+            <p className="mt-0.5 text-xl font-bold tracking-tight text-slate-900 dark:text-white sm:mt-1 sm:text-3xl">{analytics?.summary?.totalSessions || 0}</p>
+            <span className="mt-1 hidden text-xs text-slate-500 sm:block">{analytics?.summary?.completedSessions || 0} completed</span>
           </div>
         </motion.div>
 
         <motion.div
-          className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900"
+          className="flex min-w-0 items-center gap-2.5 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:block sm:p-5"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3 }}
         >
-          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-amber-50 dark:bg-amber-500/10">
-            <DollarSign color="#F59E0B" />
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-50 dark:bg-amber-500/10 sm:h-11 sm:w-11">
+            <DollarSign size={17} color="#F59E0B" />
           </div>
-          <div className="mt-4">
-            <h3 className="text-sm font-medium text-slate-500 dark:text-slate-400">Total earnings</h3>
-            <p className="mt-1 text-3xl font-bold tracking-tight text-slate-900 dark:text-white">${analytics?.summary?.totalEarnings || 0}</p>
-            <span className="mt-1 block text-xs text-slate-500">View earnings and payouts</span>
+          <div className="min-w-0 sm:mt-4">
+            <h3 className="truncate text-[11px] font-medium text-slate-500 dark:text-slate-400 sm:text-sm">Total earnings</h3>
+            <p className="mt-0.5 truncate text-xl font-bold tracking-tight text-slate-900 dark:text-white sm:mt-1 sm:text-3xl">${analytics?.summary?.totalEarnings || 0}</p>
+            <span className="mt-1 hidden text-xs text-slate-500 sm:block">View earnings and payouts</span>
           </div>
         </motion.div>
 
         <motion.div
-          className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900"
+          className="flex min-w-0 items-center gap-2.5 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:block sm:p-5"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.4 }}
         >
-          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-rose-50 dark:bg-rose-500/10">
-            <Star color="#EF4444" />
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-rose-50 dark:bg-rose-500/10 sm:h-11 sm:w-11">
+            <Star size={17} color="#EF4444" />
           </div>
-          <div className="mt-4">
-            <h3 className="text-sm font-medium text-slate-500 dark:text-slate-400">Average rating</h3>
-            <p className="mt-1 text-3xl font-bold tracking-tight text-slate-900 dark:text-white">{analytics?.summary?.averageRating || '—'} <span className="text-lg text-amber-500">★</span></p>
-            <span className="mt-1 block text-xs text-slate-500">{analytics?.summary?.totalReviews || 0} student reviews</span>
+          <div className="min-w-0 sm:mt-4">
+            <h3 className="truncate text-[11px] font-medium text-slate-500 dark:text-slate-400 sm:text-sm">Average rating</h3>
+            <p className="mt-0.5 truncate text-xl font-bold tracking-tight text-slate-900 dark:text-white sm:mt-1 sm:text-3xl">{analytics?.summary?.averageRating || '—'} <span className="text-base text-amber-500 sm:text-lg">★</span></p>
+            <span className="mt-1 hidden text-xs text-slate-500 sm:block">{analytics?.summary?.totalReviews || 0} student reviews</span>
           </div>
         </motion.div>
       </div>

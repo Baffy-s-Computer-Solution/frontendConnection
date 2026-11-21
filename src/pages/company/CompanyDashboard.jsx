@@ -32,6 +32,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useNotification } from '../../context/NotificationContext';
 import { useTheme } from '../../context/ThemeContext';
 import SocialDashboardSection from '../../components/social/SocialDashboardSection';
+import TestimonialComposer from '../../components/social/TestimonialComposer';
 import { db, storage, auth } from '../../config/firebase';
 import supabaseConfig, { supabase } from '../../config/supabase';
 import cloudinaryService from '../../services/cloudinaryService';
@@ -1321,7 +1322,8 @@ const CompanyDashboard = () => {
               </div>
             </div>
 
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center gap-3">
+              <TestimonialComposer userType="company" profile={{ ...userProfile, companyName }} />
               <button
                 onClick={() => navigate('/company/notifications')}
                 className="relative p-3 bg-gray-100 dark:bg-gray-700 rounded-xl hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"

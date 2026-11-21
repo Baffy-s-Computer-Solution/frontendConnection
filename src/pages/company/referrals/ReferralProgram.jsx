@@ -1,7 +1,7 @@
 // src/pages/company/referrals/ReferralProgram.jsx
 /* eslint-disable react-hooks/exhaustive-deps */
 /* eslint-disable no-unused-vars */
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { FaUserPlus, FaUsers, FaGift, FaTrophy, FaAward, FaMedal, FaCrown, FaGem, FaMoneyBillWave, FaDollarSign, FaCoins, FaPiggyBank, FaHandHoldingUsd, FaHandshake, FaHandsHelping, FaHeart, FaStar, FaRegStar, FaCheckCircle, FaTimesCircle, FaClock, FaCalendarAlt, FaHourglass, FaHourglassHalf, FaSearch, FaFilter, FaSort, FaSortAmountDown, FaSortAmountUp, FaEllipsisV, FaEye, FaEdit, FaTrash, FaCopy, FaLink, FaShare, FaShareAlt, FaPaperPlane, FaEnvelope, FaPhone, FaWhatsapp, FaTwitter, FaLinkedin, FaFacebook, FaPlus, FaTimes, FaCheck, FaSpinner, FaExclamationTriangle, FaInfoCircle, FaRocket, FaBolt, FaFire, FaSnowflake, FaSun, FaMoon, FaChartLine, FaChartBar, FaChartPie, FaPercentage, FaArrowUp, FaArrowDown, FaArrowRight, FaArrowLeft, FaExternalLinkAlt, FaDownload, FaFileExport, FaHistory, FaUndo, FaRedo, FaCog, FaSlidersH, FaToggleOn, FaToggleOff, FaBell, FaRegBell, FaComment, FaRegCommentDots, FaCommentDots, FaThumbsUp, FaRegThumbsUp, FaHeart as FaHeartSolid, FaStar as FaStarSolid, FaCrown as FaCrownSolid, FaTrophy as FaTrophySolid, FaAward as FaAwardSolid, FaMedal as FaMedalSolid, FaGem as FaGemSolid, FaUserFriends, FaUsersCog, FaUserTie, FaUserCheck, FaBriefcase, FaBuilding, FaGlobe, FaMapMarkerAlt, FaGraduationCap, FaBook, FaBookOpen, FaClipboard, FaClipboardCheck, FaClipboardList, FaTasks, FaCheckDouble, FaCalendarCheck, FaCalendarDay, FaCalendarWeek, FaRegCalendar, FaRegClock, FaStopwatch, FaPlay, FaPause, FaStop, FaFastForward, FaFastBackward, FaStepForward, FaStepBackward, FaFlag, FaFlagCheckered, FaBullseye, FaCrosshairs, FaMapPin, FaDirections, FaRoute, FaCompass, FaLocationArrow, FaMailBulk, FaEnvelopeOpen, FaEnvelopeOpenText, FaPaperclip, FaRegPaperPlane, FaInbox, FaLayerGroup, FaCube, FaCubes, FaPuzzlePiece, FaLightbulb, FaBrain, FaRobot, FaMagic, FaHandSparkles, FaMousePointer, FaHandPointer, FaRegHandPointer, FaRegThumbsUp as FaRegThumbsUpSolid, FaThumbsDown, FaRegThumbsDown, FaSmile, FaRegSmile, FaGrin, FaGrinStars, FaGrinHearts, FaGrinBeam, FaGrinTears, FaLaugh, FaLaughBeam, FaMeh, FaRegMeh, FaFrown, FaRegFrown, FaSadTear, FaRegSadTear, FaAngry, FaRegAngry, FaSurprise, FaRegSurprise, FaFlushed, FaDizzy, FaTired, FaRegTired, FaKiss, FaRegKiss, FaGrimace, FaMehBlank, FaFrownOpen, FaSadCry, FaGrinAlt } from "react-icons/fa";
@@ -177,9 +177,14 @@ const useReferralProgram = (companyId) => {
               updatedAt: programData.updatedAt?.toDate?.() || programData.updatedAt,
             },
           }));
+        } else {
+          setData(prev => ({ ...prev, program: null }));
         }
       },
-      (err) => console.error('Program error:', err)
+      (err) => {
+        console.error('Program error:', err);
+        setData(prev => ({ ...prev, error: err.message, loading: false }));
+      }
     );
     unsubscribers.push(programUnsub);
 
@@ -614,21 +619,36 @@ const ReferralProgram = () => {
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [saving, setSaving] = useState(false);
   const [referralCode, setReferralCode] = useState('');
+  const referralCodeInitializationStarted = useRef(false);
 
-  // Generate or load referral code
   useEffect(() => {
     if (program?.referralCode) {
       setReferralCode(program.referralCode);
-    } else if (companyId && !loading) {
-      // Generate default code if not exists
+      referralCodeInitializationStarted.current = true;
+    } else if (companyId && !loading && !referralCodeInitializationStarted.current) {
+      referralCodeInitializationStarted.current = true;
       const code = generateReferralCode(userProfile?.companyName || 'COMP');
-      setReferralCode(code);
+      setDoc(doc(db, 'referralPrograms', companyId), {
+        companyId,
+        referralCode: code,
+        rewards: program?.rewards || DEFAULT_REWARDS,
+        enabled: program?.enabled ?? true,
+        ...(program?.id ? {} : { createdAt: serverTimestamp() }),
+        updatedAt: serverTimestamp(),
+      }, { merge: true })
+        .then(() => setReferralCode(code))
+        .catch((error) => {
+          referralCodeInitializationStarted.current = false;
+          console.error('Failed to initialize company referral program:', error);
+          showNotification('error', error.message || 'Could not create the referral program');
+        });
     }
-  }, [program, companyId, loading, userProfile]);
+  }, [program, companyId, loading, userProfile, showNotification]);
 
   const referralUrl = useMemo(() => {
     const baseUrl = window.location.origin;
-    return `${baseUrl}/join?ref=${referralCode}&company=${companyId}`;
+    const params = new URLSearchParams({ ref: referralCode, company: companyId || '' });
+    return `${baseUrl}/register?${params.toString()}`;
   }, [referralCode, companyId]);
 
   // Stats
@@ -861,6 +881,12 @@ const ReferralProgram = () => {
             </button>
           </div>
         </motion.div>
+
+        {error && (
+          <div role="alert" className="mb-6 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700 dark:border-red-900 dark:bg-red-900/20 dark:text-red-300">
+            Referral data could not be loaded: {error}
+          </div>
+        )}
 
         {/* Referral Link Card */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">

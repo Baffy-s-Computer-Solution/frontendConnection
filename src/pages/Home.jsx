@@ -15,7 +15,6 @@ import {
   LogIn,
   Menu,
   MessageSquareText,
-  Network,
   Rocket,
   ShieldCheck,
   Sparkles,
@@ -25,7 +24,11 @@ import {
   X,
 } from 'lucide-react';
 import { collection, db } from '../config/firebase';
-import { onSnapshot } from 'firebase/firestore';
+import {
+  onSnapshot,
+  query,
+  where,
+} from 'firebase/firestore';
 import { supabase } from '../config/supabase';
 import { useAuth } from '../context/AuthContext';
 import { getUserDashboardPath } from '../utils/dashboardConstants';
@@ -33,7 +36,7 @@ import { getUserDashboardPath } from '../utils/dashboardConstants';
 const NAV_LINKS = [
   { label: 'Platform', href: '#platform' },
   { label: 'Pathways', href: '#pathways' },
-  { label: 'Stories', href: '#stories' },
+  { label: 'Testimonials', href: '#stories' },
   { label: 'Impact', href: '#impact' },
   { label: 'FAQ', href: '#faq' },
   { label: 'Contact', href: '/contact' },
@@ -158,24 +161,6 @@ const PLATFORM_HIGHLIGHTS = [
   },
 ];
 
-const COMMUNITY_JOURNEYS = [
-  {
-    step: 'Student journey',
-    title: 'From profile to application',
-    text: 'A student builds a profile, discovers a suitable role, submits an application, and follows its status.',
-  },
-  {
-    step: 'Employer journey',
-    title: 'From vacancy to candidates',
-    text: 'An employer publishes a vacancy, reviews applications, and keeps candidate communication organized.',
-  },
-  {
-    step: 'Mentor journey',
-    title: 'From experience to guidance',
-    text: 'A mentor shares expertise, responds to requests, and helps a learner make progress toward a career goal.',
-  },
-];
-
 const FAQ_ITEMS = [
   {
     question: 'Who can use Career Connect Lesotho?',
@@ -219,32 +204,20 @@ const EMPTY_LANDING_STATS = {
   activeOpportunities: 0,
 };
 
-const normalizeUserType = (value) => String(value ?? '').trim().toLowerCase();
-
 const fetchActiveUserCounts = async () => {
   if (!supabase) {
     throw new Error('Supabase is not configured for landing page statistics');
   }
-
-  const countUsers = async (userTypes) => {
-    const { count, error } = await supabase
-      .from('app_users')
-      .select('id', { count: 'exact', head: true })
-      .eq('status', 'active')
-      .in('user_type', userTypes);
-
-    if (error) throw error;
-    return count ?? 0;
+  const { data, error } = await supabase.rpc('get_public_user_counts');
+  if (error) throw error;
+  const counts = data && typeof data === 'object' ? data : {};
+  const sum = (roles) => roles.reduce((total, role) => total + Number(counts[role] || 0), 0);
+  return {
+    students: sum(['student', 'youth']),
+    employers: sum(['company', 'employer']),
+    mentors: sum(['mentor', 'advisor', 'instructor']),
+    institutions: sum(['institute', 'institution', 'school']),
   };
-
-  const [students, employers, mentors, institutions] = await Promise.all([
-    countUsers(['student', 'youth']),
-    countUsers(['company', 'employer']),
-    countUsers(['mentor', 'advisor', 'instructor']),
-    countUsers(['institute', 'institution', 'school', 'admin']),
-  ]);
-
-  return { students, employers, mentors, institutions };
 };
 
 const formatMetricValue = (value) => `+${Number(value || 0)}`;
@@ -271,6 +244,8 @@ const Home = () => {
   const [platformStats, setPlatformStats] = useState(EMPTY_LANDING_STATS);
   const [statsLoading, setStatsLoading] = useState(true);
   const [statsError, setStatsError] = useState(false);
+  const [testimonials, setTestimonials] = useState([]);
+  const [testimonialError, setTestimonialError] = useState('');
 
   useEffect(() => {
     const legacyPath = getLegacyPublicPath(location.hash);
@@ -366,6 +341,38 @@ const Home = () => {
       window.clearInterval(refreshInterval);
       window.removeEventListener('focus', refreshUserStats);
     };
+  }, []);
+
+  useEffect(() => {
+    const testimonialsQuery = query(
+      collection(db, 'testimonials'),
+      where('approved', '==', true),
+    );
+
+    return onSnapshot(
+      testimonialsQuery,
+      (snapshot) => {
+        const approvedTestimonials = snapshot.docs
+          .map((record) => ({ id: record.id, ...record.data() }))
+          .filter((testimonial) =>
+            testimonial.approved === true &&
+            ['student', 'company', 'mentor'].includes(
+              normalizeUserType(testimonial.userType || testimonial.role)
+            )
+          )
+          .sort((left, right) => {
+            const millis = (value) => value?.toMillis?.() ?? (Number.isFinite(value?.seconds) ? value.seconds * 1000 : new Date(value || 0).getTime());
+            return millis(right.createdAt) - millis(left.createdAt);
+          });
+        setTestimonials(approvedTestimonials);
+        setTestimonialError('');
+      },
+      (error) => {
+        console.error('Could not load approved landing-page testimonials:', error);
+        setTestimonials([]);
+        setTestimonialError('Testimonials are temporarily unavailable.');
+      }
+    );
   }, []);
 
   const dashboardPath = useMemo(
@@ -707,28 +714,40 @@ const Home = () => {
           </div>
         </section>
 
-        <section id="stories" className="landing-section" aria-label="From profile to opportunity — without confusion.">
+        <section id="stories" className="landing-section" aria-label="Community testimonials">
           <div className="landing-shell">
             <div className="section-heading">
               <span className="section-kicker">
-                <Network aria-hidden="true" /> Example journeys
+                <Star aria-hidden="true" /> Community voices
               </span>
-              <h2>See how different roles move forward.</h2>
+              <h2>Experiences from our community.</h2>
               <p>
-                These are illustrative platform journeys, not individual testimonials. Each role
-                can use Career Connect in a way that fits its goals.
+                Testimonials from registered students, companies, and mentors are published
+                immediately and visible to everyone.
               </p>
             </div>
 
             <div className="workflow-grid">
-              {COMMUNITY_JOURNEYS.map(({ step, title, text }) => (
-                <div key={step} className="workflow-card">
-                  <span aria-label={step}>{step}</span>
-                  <h3>{title}</h3>
-                  <p>{text}</p>
-                </div>
+              {testimonials.map((testimonial) => (
+                <article key={testimonial.id} className="workflow-card testimonial-card">
+                  <Star className="testimonial-star" aria-hidden="true" />
+                  <blockquote>
+                    {testimonial.content || testimonial.text || testimonial.message}
+                  </blockquote>
+                  <p className="testimonial-author">
+                    <strong>{testimonial.name || testimonial.fullName}</strong>
+                    <span>{normalizeUserType(testimonial.userType || testimonial.role)}</span>
+                  </p>
+                </article>
               ))}
             </div>
+            {testimonials.length === 0 && (
+              <p className="testimonial-empty" role="status">
+                No approved testimonials yet. Be among the first to share your experience.
+              </p>
+            )}
+            {testimonialError && <p className="testimonial-empty" role="alert">{testimonialError}</p>}
+            <p className="testimonial-empty">Students, mentors, and companies can share their experience from their dashboard.</p>
           </div>
         </section>
 

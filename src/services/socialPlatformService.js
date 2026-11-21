@@ -21,6 +21,7 @@ import {
   writeBatch,
 } from '../config/firebase';
 import { cloudinaryService } from './cloudinaryService';
+import { apiRequest } from './apiClient';
 
 const SOCIAL_COLLECTION = 'social_posts';
 
@@ -36,6 +37,9 @@ const PROFILE_COLLECTIONS = {
   student: 'students',
   youth: 'youth',
 };
+
+const FRIEND_ACCOUNT_TYPES = new Set(['student', 'mentor']);
+const normalizeAccountType = (profile) => String(profile?.userType || profile?.role || '').toLowerCase();
 
 const normalizeDate = (value) => {
   if (!value) {
@@ -68,7 +72,7 @@ const buildAuthorProfile = async (userProfile) => {
       currentUser.displayName ||
       currentUser.email?.split('@')[0] ||
       'Community Member',
-    role: userProfile?.userType || 'member',
+    role: userProfile?.userType || userProfile?.role || 'member',
     avatar: userProfile?.photoURL || userProfile?.profilePhoto || userProfile?.logo || '',
     headline:
       userProfile?.headline ||
@@ -218,8 +222,14 @@ export const socialPlatformService = {
         ? await Promise.allSettled(connectedList.map((friendId) => getDocs(query(postsRef, where('authorId', '==', friendId), where('visibility', 'in', ['friends', 'connections']), limit(pageSize)))))
         : [];
       if (friendResults.some((result) => result.status === 'rejected')) {
-        warnings.push('Some connection posts could not be loaded.');
-        friendResults.filter((result) => result.status === 'rejected').forEach((result) => console.error('Connection-only social posts query failed:', result.reason));
+        const failures = friendResults.filter((result) => result.status === 'rejected');
+        const hasPermissionDenial = failures.some((result) => result.reason?.code === 'permission-denied');
+        warnings.push(hasPermissionDenial
+          ? 'Some connection-only posts could not be loaded because their sharing permissions do not allow access.'
+          : 'Some connection posts could not be loaded.');
+        failures
+          .filter((result) => result.reason?.code !== 'permission-denied')
+          .forEach((result) => console.error('Connection-only social posts query failed:', result.reason));
       }
       const entries = [...publicDocs, ...(ownResult.value?.docs || []), ...friendResults.filter((result) => result.status === 'fulfilled').flatMap((result) => result.value.docs)];
       const posts = [...new Map(entries.map((entry) => [entry.id, shapePost(entry.id, entry.data(), currentUser.uid)])).values()]
@@ -247,6 +257,8 @@ export const socialPlatformService = {
     }
     const snapshots = new Map();
     const connectedStops = new Map();
+    const deniedFriendIds = new Set();
+    let reportedPermissionIssue = false;
     let publicStop = null;
     let friendIds = new Set();
     let blockedIds = new Set();
@@ -264,8 +276,26 @@ export const socialPlatformService = {
       connectedStops.forEach((stop) => stop());
       connectedStops.clear();
       if (!blockReady.blocking || !blockReady.blockedBy) { emit(); return; }
-      [...friendIds].filter((friendId) => !blockedIds.has(friendId)).slice(0, 20).forEach((friendId) => {
-        connectedStops.set(friendId, onSnapshot(query(postsRef, where('authorId', '==', friendId), where('visibility', 'in', ['friends', 'connections']), limit(pageSize)), (friendSnapshot) => { snapshots.set(`friend:${friendId}`, friendSnapshot); emit(); }, (error) => { console.warn('Connection-only post feed unavailable for a connection:', error); }));
+      [...friendIds].filter((friendId) => !blockedIds.has(friendId) && !deniedFriendIds.has(friendId)).slice(0, 20).forEach((friendId) => {
+        connectedStops.set(friendId, onSnapshot(
+          query(postsRef, where('authorId', '==', friendId), where('visibility', 'in', ['friends', 'connections']), limit(pageSize)),
+          (friendSnapshot) => { snapshots.set(`friend:${friendId}`, friendSnapshot); emit(); },
+          (error) => {
+            connectedStops.get(friendId)?.();
+            connectedStops.delete(friendId);
+            snapshots.delete(`friend:${friendId}`);
+            if (error?.code === 'permission-denied') {
+              deniedFriendIds.add(friendId);
+              emit();
+              if (!reportedPermissionIssue) {
+                reportedPermissionIssue = true;
+                onError?.(new Error('Some connection-only posts are unavailable because their sharing permissions do not allow access.'));
+              }
+              return;
+            }
+            onError?.(error);
+          }
+        ));
       });
       emit();
     };
@@ -323,7 +353,7 @@ export const socialPlatformService = {
         const user = entry.data() || {};
         const role = String(user.userType || user.role || '').toLowerCase();
         if (entry.id === currentUser.uid || !eligibleRoles.has(role) || blockedIds.has(entry.id)) return [];
-        const isConnection = connectedIds.has(entry.id);
+        const isConnection = ['student', 'mentor'].includes(role) && connectedIds.has(entry.id);
         const profileVisibility = user.privacySettings?.profileVisibility || user.profileVisibility || user.profile?.visibility || 'public';
         if (profileVisibility !== 'public' && !isConnection) return [];
         return [{
@@ -345,7 +375,14 @@ export const socialPlatformService = {
   async sendFriendRequest(person, userProfile) {
     const currentUser = auth.currentUser;
     if (!currentUser || !person?.id || person.id === currentUser.uid) throw new Error('Choose another member to connect with.');
-    if (!['student', 'mentor', 'company'].includes(String(person.role || person.userType || '').toLowerCase())) throw new Error('Connection requests are available between students, mentors, and companies.');
+    const senderRole = normalizeAccountType(userProfile) || normalizeAccountType(currentUser);
+    const recipientRole = String(person.role || person.userType || '').toLowerCase();
+    if (senderRole === 'company' || recipientRole === 'company') {
+      throw new Error('Company profiles are followed, not added as friends. Friend requests are for students and mentors.');
+    }
+    if (!FRIEND_ACCOUNT_TYPES.has(senderRole) || !FRIEND_ACCOUNT_TYPES.has(recipientRole)) {
+      throw new Error('Friend requests are available between students and mentors only.');
+    }
     if (await this.isBlocked(person.id)) throw new Error('A block is active between these accounts.');
     if ((await getConnectedIds(currentUser.uid)).has(person.id)) return { success: true, alreadyConnected: true };
     const existing = await getDocs(query(collection(db, 'social_friend_requests'), where('senderId', '==', currentUser.uid), where('recipientId', '==', person.id), where('status', '==', 'pending'), limit(1)));
@@ -369,6 +406,12 @@ export const socialPlatformService = {
   async respondFriendRequest(request, status) {
     const currentUser = auth.currentUser;
     if (!currentUser || request?.recipientId !== currentUser.uid || !['accepted', 'rejected'].includes(status)) throw new Error('This connection request is no longer available.');
+    if (status === 'accepted' && (request.senderRole === 'company' || request.recipientRole === 'company')) {
+      throw new Error('Company profiles are followed, not added as friends.');
+    }
+    if (status === 'accepted' && (!FRIEND_ACCOUNT_TYPES.has(String(request.senderRole || '').toLowerCase()) || !FRIEND_ACCOUNT_TYPES.has(String(request.recipientRole || '').toLowerCase()))) {
+      throw new Error('Friend connections are only available between students and mentors.');
+    }
     if (status === 'accepted' && await this.isBlocked(request.senderId)) throw new Error('Unblock this member before accepting the request.');
     const batch = writeBatch(db);
     const requestRef = doc(db, 'social_friend_requests', request.id);
@@ -379,7 +422,7 @@ export const socialPlatformService = {
       batch.set(doc(db, 'social_connections', connectionId), { userIds, requestId: request.id, createdAt: Timestamp.now() });
       batch.set(doc(collection(db, 'notifications')), {
         userId: request.senderId, type: 'friend_request_accepted', title: 'Request accepted',
-        message: `${request.recipientName || 'A community member'} accepted your connection request.`, read: false, createdAt: Timestamp.now(),
+        message: `${request.recipientName || 'A community member'} accepted your connection request.`, requestId: request.id, read: false, createdAt: Timestamp.now(),
       });
     }
     await batch.commit();
@@ -450,7 +493,6 @@ export const socialPlatformService = {
       throw new Error('Not authenticated');
     }
 
-    const author = await buildAuthorProfile(userProfile);
     const normalizedTags = (tags || []).filter(Boolean);
 
     try {
@@ -466,8 +508,6 @@ export const socialPlatformService = {
           }))
         : [];
       const post = {
-        authorId: currentUser.uid,
-        author,
         content: content.trim(),
         visibility: files?.length && userProfile?.privacySettings?.mediaVisibility === 'private'
           ? 'private'
@@ -476,17 +516,10 @@ export const socialPlatformService = {
             : visibility || 'public',
         tags: normalizedTags,
         media,
-        likedBy: [],
-        likeCount: 0,
-        commentCount: 0,
-        shareCount: 0,
-        comments: [],
-        createdAt: Timestamp.now(),
-        updatedAt: Timestamp.now(),
       };
 
-      const docRef = await addDoc(collection(db, SOCIAL_COLLECTION), post);
-      return { success: true, data: shapePost(docRef.id, post, currentUser.uid) };
+      const result = await apiRequest('/api/social/posts', { method: 'POST', body: post });
+      return { success: true, data: result };
     } catch (error) {
       throw new Error(error.message || 'Unable to save this post to the community feed.');
     }
@@ -499,16 +532,8 @@ export const socialPlatformService = {
     }
 
     try {
-      const postRef = doc(db, SOCIAL_COLLECTION, postId);
-      await updateDoc(postRef, {
-        likedBy: hasLiked ? arrayRemove(currentUser.uid) : arrayUnion(currentUser.uid),
-        likes: hasLiked ? arrayRemove(currentUser.uid) : arrayUnion(currentUser.uid),
-        likeCount: increment(hasLiked ? -1 : 1),
-        likesCount: increment(hasLiked ? -1 : 1),
-        updatedAt: Timestamp.now(),
-      });
-
-      return { success: true };
+      const data = await apiRequest(`/api/social/posts/${encodeURIComponent(postId)}/like`, { method: 'POST' });
+      return { success: true, data };
     } catch (error) {
       throw new Error(error.message || 'Unable to update this post.');
     }
@@ -520,34 +545,11 @@ export const socialPlatformService = {
       throw new Error('Not authenticated');
     }
 
-    const author = await buildAuthorProfile(userProfile);
-    const comment = {
-      id: `comment-${globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`}`,
-      authorId: currentUser.uid,
-      authorName: author.name,
-      authorRole: author.role,
-      authorAvatar: author.avatar,
-      body: body.trim(),
-      createdAt: Timestamp.now(),
-    };
-
     try {
-      const postRef = doc(db, SOCIAL_COLLECTION, postId);
-      const postSnap = await getDoc(postRef);
-      if (!postSnap.exists() || !(await canAccessPost(postSnap.data(), currentUser.uid, isSuperAdminProfile(userProfile)))) {
-        throw new Error('You do not have access to comment on this post.');
-      }
-      const postData = postSnap.data() || {};
-      const comments = [...(postData.comments || []), comment];
-
-      await updateDoc(postRef, {
-        comments,
-        commentCount: comments.length,
-        commentsCount: comments.length,
-        updatedAt: Timestamp.now(),
+      const data = await apiRequest(`/api/social/posts/${encodeURIComponent(postId)}/comments`, {
+        method: 'POST', body: { body: String(body || '').trim() },
       });
-
-      return { success: true, data: { ...comment, createdAt: normalizeDate(comment.createdAt) } };
+      return { success: true, data };
     } catch (error) {
       throw new Error(error.message || 'Unable to add your comment.');
     }
@@ -557,62 +559,23 @@ export const socialPlatformService = {
     const currentUser = auth.currentUser;
     if (!currentUser) throw new Error('Not authenticated');
     try {
-      const postRef = doc(db, SOCIAL_COLLECTION, postId);
-      const snapshot = await getDoc(postRef);
-      if (!snapshot.exists() || !(await canAccessPost(snapshot.data(), currentUser.uid, isSuperAdminProfile(userProfile)))) {
-        throw new Error('You do not have access to share this post.');
-      }
-      await updateDoc(postRef, {
-        shareCount: increment(1),
-        sharesCount: increment(1),
-        updatedAt: Timestamp.now(),
-      });
+      const data = await apiRequest(`/api/social/posts/${encodeURIComponent(postId)}/share`, { method: 'POST' });
+      return { success: true, data };
     } catch (error) {
       throw new Error(error.message || 'Unable to share this post.');
     }
-    return { success: true };
   },
 
   async getSuggestions(userProfile) {
     const currentUser = auth.currentUser;
-    const suggestions = [];
-
     try {
-      const superAdmin = isSuperAdminProfile(userProfile);
-      const [usersSnap, blockedIds, connections] = await Promise.all([
-        getDocs(query(collection(db, 'users'), limit(30))),
-        currentUser && !superAdmin ? getBlockedIds(currentUser.uid) : new Set(),
-        currentUser && !superAdmin ? getConnectedIds(currentUser.uid) : new Set(),
-      ]);
-      usersSnap.forEach((entry) => {
-        if (entry.id === currentUser?.uid || blockedIds.has(entry.id) || (!superAdmin && entry.data().privacySettings?.profileVisibility === 'private' && !connections.has(entry.id))) {
-          return;
-        }
-
-        const data = entry.data();
-        suggestions.push({
-          id: entry.id,
-          name: data.displayName || data.fullName || data.companyName || 'Community Member',
-          role: data.userType || 'member',
-          avatar: data.photoURL || data.profilePhoto || data.logo || '',
-          headline:
-            data.title ||
-            data.currentPosition ||
-            data.industry ||
-            data.fieldOfStudy ||
-            'Building something meaningful',
-          mutualCount: Number(data.mutualCount || 0),
-        });
-      });
+      if (!currentUser) throw new Error('Not authenticated');
+      const data = await apiRequest('/api/social/suggestions');
+      return { success: true, data: Array.isArray(data) ? data : [] };
     } catch (error) {
-      console.warn('Using default social suggestions', error);
+      console.warn('Unable to load social suggestions:', error);
+      return { success: false, error: error.message, data: [] };
     }
-
-    if (suggestions.length > 0) {
-      return { success: true, data: suggestions.slice(0, 5) };
-    }
-
-    return { success: true, data: [] };
   },
 
   async getTrendingTopics(userProfile) {

@@ -6,8 +6,8 @@
 import { apiRequest } from './apiClient';
 
 const CLOUDINARY_CONFIG = {
-  cloudName: (import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || 'dwz0osyou').trim(),
-  uploadPreset: (import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET || 'career_connect_upload').trim(),
+  cloudName: (import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || '').trim(),
+  uploadPreset: (import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET || '').trim(),
   apiKey: (import.meta.env.VITE_CLOUDINARY_API_KEY || '').trim(),
   baseUrl: 'https://api.cloudinary.com/v1_1',
   secure: true,
@@ -112,6 +112,22 @@ class CloudinaryService {
    * Upload image to Cloudinary with retry logic and CORS handling
    */
   async uploadImage(file, options = {}) {
+    if (typeof options.folder === 'string'
+      && /\b(documents?|resumes?|transcripts?|certificates?|identity|evidence|applications?)\b/i.test(options.folder)) {
+      return {
+        success: false,
+        error: 'Sensitive documents require authenticated private delivery, which is not configured yet.',
+        code: 'PRIVATE_DELIVERY_REQUIRED',
+      };
+    }
+    if (!this.config.cloudName || !this.config.uploadPreset) {
+      return {
+        success: false,
+        error: 'Cloudinary public image uploads are not configured.',
+        code: 'CLOUDINARY_CONFIG_MISSING',
+      };
+    }
+
     let lastError = null;
 
     for (let attempt = 1; attempt <= this.retryAttempts; attempt++) {
@@ -256,6 +272,9 @@ class CloudinaryService {
       if (!file) {
         throw new Error('No file provided');
       }
+      if (/\b(documents?|resumes?|transcripts?|certificates?|identity|evidence|applications?)\b/i.test(folderPath)) {
+        throw new Error('Sensitive documents require authenticated private delivery, which is not configured yet.');
+      }
 
       console.log('☁️ Uploading to Cloudinary:', {
         name: file.name,
@@ -330,6 +349,18 @@ class CloudinaryService {
     try {
       if (!file) {
         throw new Error('No file provided');
+      }
+      if (typeof options.folder === 'string'
+        && /\b(documents?|resumes?|transcripts?|certificates?|identity|evidence|applications?)\b/i.test(options.folder)) {
+        throw new Error('Sensitive documents require authenticated private delivery, which is not configured yet.');
+      }
+      if (file.type?.startsWith('application/') || file.type === 'text/csv') {
+        throw new Error(
+          'Sensitive documents require authenticated private delivery and cannot be uploaded through the public browser preset.'
+        );
+      }
+      if (!this.config.cloudName || !this.config.uploadPreset) {
+        throw new Error('Direct Cloudinary file uploads are not configured.');
       }
 
       console.log('☁️ Uploading file to Cloudinary:', file.name);

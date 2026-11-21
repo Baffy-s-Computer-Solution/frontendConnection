@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowRight, RefreshCw, Sparkles } from 'lucide-react';
 import { useStudent } from '../../context/StudentContext';
+import { formatLocation } from '../../utils/formatters';
 
 const Recommendations = () => {
   const { fetchRecommendedJobs } = useStudent();
@@ -52,7 +53,7 @@ const Recommendations = () => {
                 <div className="flex items-start justify-between gap-4">
                   <div>
                     <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">{details.title || 'Opportunity'}</h2>
-                    <p className="mt-1 text-sm text-slate-500">{details.company || details.companyName || 'Employer details available'}{details.location ? ` · ${details.location}` : ''}</p>
+                    <p className="mt-1 text-sm text-slate-500">{details.company || details.companyName || 'Employer details available'}{formatLocation(details.location) ? ` · ${formatLocation(details.location)}` : ''}</p>
                   </div>
                   {job.matchScore != null && <span className="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-700">{job.matchScore}% match</span>}
                 </div>

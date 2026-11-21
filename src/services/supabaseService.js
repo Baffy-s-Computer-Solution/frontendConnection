@@ -1,5 +1,5 @@
 import { auth } from '../config/firebase';
-import supabaseConfig, { getSupabasePublicUrl, supabaseFetch } from '../config/supabase';
+import supabaseConfig, { getSupabasePublicUrl } from '../config/supabase';
 import API_BASE_URL from './apiConfig';
 
 const getFirebaseToken = async () => {
@@ -61,17 +61,6 @@ export const supabaseService = {
       method: 'POST',
       body: JSON.stringify({ path, file, contentType }),
     }),
-
-  listPublicUsers: async () => {
-    try {
-      const data = await supabaseFetch('/rest/v1/app_users?select=*&status=eq.active', {
-        method: 'GET',
-      });
-      return { success: true, data };
-    } catch (error) {
-      return { success: false, error: error.message, data: [] };
-    }
-  },
 
   getPublicUrl: getSupabasePublicUrl,
 };

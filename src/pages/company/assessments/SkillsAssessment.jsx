@@ -6,13 +6,12 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { FaClipboardCheck, FaClipboardList, FaTasks, FaPlus, FaSearch, FaFilter, FaEllipsisV, FaCheck, FaTimes, FaSpinner, FaEdit, FaTrash, FaEye, FaPaperPlane, FaClock, FaCheckCircle, FaTimesCircle, FaCalendarAlt, FaUser, FaUserTie, FaUsers, FaChartLine, FaChartBar, FaChartPie, FaPercentage, FaStar, FaTrophy, FaAward, FaMedal, FaCrown, FaGem, FaRocket, FaBolt, FaFire, FaBrain, FaRobot, FaMagic, FaLightbulb, FaCode, FaLaptopCode, FaDatabase, FaServer, FaCloud, FaMobile, FaDesktop, FaPalette, FaPaintBrush, FaBullhorn, FaChartArea, FaLayerGroup, FaSitemap, FaProjectDiagram, FaFileAlt, FaFilePdf, FaDownload, FaFileExport, FaCopy, FaExternalLinkAlt, FaLink, FaShare, FaShareAlt, FaHistory, FaUndo, FaRedo, FaSync, FaCog, FaSlidersH, FaToggleOn, FaToggleOff, FaLock, FaUnlock, FaShieldAlt, FaFingerprint, FaUserShield, FaUserLock, FaUserSecret, FaUserGraduate, FaUserFriends, FaUsersCog, FaHandshake, FaHandsHelping, FaHeart, FaThumbsUp, FaRegThumbsUp, FaComment, FaRegCommentDots, FaInfoCircle, FaExclamationTriangle, FaChevronLeft, FaChevronRight, FaChevronDown, FaChevronUp, FaPlay, FaPause, FaStop, FaArrowRight, FaArrowLeft, FaRegClock, FaRegCalendar, FaRegCommentDots as FaRegCommentDotsSolid, FaRegUserCircle, FaUserCircle, FaCircle, FaRegCircle, FaDotCircle, FaRegDotCircle, FaCheckSquare, FaRegCheckSquare, FaSquare, FaRegSquare, FaStream, FaList, FaTh, FaThLarge, FaThList, FaTable, FaColumns, FaBars, FaGripHorizontal, FaGripVertical, FaEllipsisH, FaPlusSquare, FaMinusSquare, FaCheckDouble, FaPercentage as FaPercentageSolid, FaChartPie as FaChartPieSolid, FaChartBar as FaChartBarSolid, FaChartLine as FaChartLineSolid } from "react-icons/fa";
 import {
   collection, doc, query, where, orderBy, limit, onSnapshot,
-  addDoc, updateDoc, deleteDoc, serverTimestamp, getDocs, writeBatch,
+  addDoc, updateDoc, deleteDoc, serverTimestamp, getDocs, getDoc, writeBatch,
 } from 'firebase/firestore';
 
 import { useAuth } from '../../../context/AuthContext';
 import { useNotification } from '../../../context/NotificationContext';
 import { db } from '../../../config/firebase';
-import { supabase } from '../../../config/supabase';
 
 const ASSESSMENT_TYPES = [
   { value: 'technical', label: 'Technical Skills', icon: FaCode, color: 'blue' },
@@ -21,49 +20,6 @@ const ASSESSMENT_TYPES = [
   { value: 'language', label: 'Language Proficiency', icon: FaComment, color: 'green' },
   { value: 'situational', label: 'Situational Judgment', icon: FaLightbulb, color: 'yellow' },
   { value: 'custom', label: 'Custom Assessment', icon: FaMagic, color: 'gray' },
-];
-
-const DEFAULT_TEMPLATES = [
-  {
-    id: 'tech-frontend',
-    title: 'Frontend Developer Assessment',
-    type: 'technical',
-    duration: 60,
-    passingScore: 70,
-    questionCount: 25,
-    skills: ['JavaScript', 'React', 'CSS', 'HTML'],
-    description: 'Comprehensive frontend development assessment covering modern frameworks.',
-  },
-  {
-    id: 'tech-backend',
-    title: 'Backend Developer Assessment',
-    type: 'technical',
-    duration: 90,
-    passingScore: 70,
-    questionCount: 30,
-    skills: ['Node.js', 'Databases', 'APIs', 'System Design'],
-    description: 'Evaluate backend development skills including API design and databases.',
-  },
-  {
-    id: 'cognitive-general',
-    title: 'General Cognitive Ability',
-    type: 'cognitive',
-    duration: 45,
-    passingScore: 60,
-    questionCount: 40,
-    skills: ['Logic', 'Numerical', 'Verbal', 'Spatial'],
-    description: 'Standard cognitive assessment measuring problem-solving capabilities.',
-  },
-  {
-    id: 'personality-work',
-    title: 'Workplace Personality Profile',
-    type: 'personality',
-    duration: 30,
-    passingScore: 50,
-    questionCount: 50,
-    skills: ['Teamwork', 'Leadership', 'Adaptability', 'Communication'],
-    description: 'Evaluate personality traits relevant to workplace success.',
-  },
 ];
 
 const formatDate = (date) => {
@@ -117,6 +73,114 @@ const useAssessments = (companyId) => {
     ));
 
     return () => unsubs.forEach(u => u());
+  }, [companyId]);
+
+  return data;
+};
+
+const isAssessmentCandidate = (userType) =>
+  ['student', 'candidate', 'youth', 'alumni'].includes(String(userType || '').toLowerCase());
+
+const useAssessmentCandidates = (companyId) => {
+  const [data, setData] = useState({ candidates: [], loading: true, error: null });
+
+  useEffect(() => {
+    if (!companyId) {
+      setData({ candidates: [], loading: false, error: null });
+      return;
+    }
+
+    let active = true;
+    let requestId = 0;
+    const snapshots = { companyFollows: null, candidateFollows: null };
+    const unsubscribe = [];
+
+    const publishCandidates = async () => {
+      if (!snapshots.companyFollows || !snapshots.candidateFollows) return;
+
+      const currentRequestId = ++requestId;
+      const relationshipsByCandidate = new Map();
+      [
+        ['companyFollows', snapshots.companyFollows],
+        ['candidateFollows', snapshots.candidateFollows],
+      ].forEach(([source, snapshot]) => {
+        snapshot.docs.forEach((record) => {
+          const relationship = record.data();
+          if (relationship.status !== 'active') return;
+          const candidateId =
+            relationship.studentId || relationship.candidateId || relationship.userId;
+          if (!candidateId || candidateId === companyId) return;
+          const sources = relationshipsByCandidate.get(candidateId) || new Set();
+          sources.add(source);
+          relationshipsByCandidate.set(candidateId, sources);
+        });
+      });
+
+      setData((current) => ({ ...current, loading: true, error: null }));
+      try {
+        const candidates = await Promise.all(
+          [...relationshipsByCandidate].map(async ([candidateId, sources]) => {
+            const profileSnapshot = await getDoc(doc(db, 'users', candidateId));
+            if (!profileSnapshot.exists()) return null;
+
+            const profile = profileSnapshot.data();
+            const userType = profile.userType || profile.role || 'student';
+            if (!isAssessmentCandidate(userType)) return null;
+
+            return {
+              id: candidateId,
+              name:
+                profile.fullName ||
+                profile.displayName ||
+                [profile.firstName, profile.lastName].filter(Boolean).join(' ') ||
+                profile.companyName ||
+                'Candidate',
+              email: profile.email || '',
+              photoURL: profile.photoURL || profile.profilePicture || '',
+              userType,
+              companyFollows: sources.has('companyFollows'),
+            };
+          })
+        );
+
+        if (active && currentRequestId === requestId) {
+          setData({
+            candidates: candidates.filter(Boolean).sort((a, b) => a.name.localeCompare(b.name)),
+            loading: false,
+            error: null,
+          });
+        }
+      } catch (error) {
+        console.error('Failed to load eligible assessment candidates:', error);
+        if (active && currentRequestId === requestId) {
+          setData((current) => ({ ...current, loading: false, error }));
+        }
+      }
+    };
+
+    const subscribe = (key, collectionName) => {
+      unsubscribe.push(
+        onSnapshot(
+          query(collection(db, collectionName), where('companyId', '==', companyId)),
+          (snapshot) => {
+            snapshots[key] = snapshot;
+            void publishCandidates();
+          },
+          (error) => {
+            console.error(`Failed to load ${collectionName} relationships:`, error);
+            if (active) setData((current) => ({ ...current, loading: false, error }));
+          }
+        )
+      );
+    };
+
+    subscribe('companyFollows', 'company_followers');
+    subscribe('candidateFollows', 'companyFollowers');
+
+    return () => {
+      active = false;
+      unsubscribe.forEach((stop) => stop());
+    };
   }, [companyId]);
 
   return data;
@@ -254,12 +318,19 @@ const SkillsAssessment = () => {
   const { showNotification } = useNotification();
   const companyId = currentUser?.uid;
   const { assessments, templates, loading } = useAssessments(companyId);
+  const { candidates, loading: candidatesLoading, error: candidatesError } =
+    useAssessmentCandidates(companyId);
 
   const [searchTerm, setSearchTerm] = useState('');
   const [typeFilter, setTypeFilter] = useState('all');
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showPreviewModal, setShowPreviewModal] = useState(false);
+  const [showAssignModal, setShowAssignModal] = useState(false);
   const [selectedAssessment, setSelectedAssessment] = useState(null);
+  const [selectedCandidateIds, setSelectedCandidateIds] = useState([]);
+  const [questionDraft, setQuestionDraft] = useState({ text: '', type: 'multiple_choice', options: ['', '', '', ''], correctOptionIndex: 0, points: 1 });
+  const [editingQuestionId, setEditingQuestionId] = useState('');
+  const [assigning, setAssigning] = useState(false);
   const [saving, setSaving] = useState(false);
   const [newAssessment, setNewAssessment] = useState({
     title: '',
@@ -269,7 +340,20 @@ const SkillsAssessment = () => {
     passingScore: 70,
     skills: [],
     newSkill: '',
+    questions: [],
   });
+  const [submissions, setSubmissions] = useState([]);
+  const [submissionScores, setSubmissionScores] = useState({});
+
+  useEffect(() => {
+    if (!companyId) return undefined;
+    return onSnapshot(query(collection(db, 'assessmentSubmissions'), where('companyId', '==', companyId)), (snapshot) => {
+      setSubmissions(snapshot.docs.map((item) => ({ id: item.id, ...item.data() })));
+    }, (error) => {
+      console.error('Unable to load assessment submissions:', error);
+      showNotification('error', 'Unable to load submitted assessments.');
+    });
+  }, [companyId]);
 
   const stats = useMemo(() => ({
     total: assessments.length,
@@ -296,58 +380,197 @@ const SkillsAssessment = () => {
     if (!newAssessment.title.trim()) return showNotification('error', 'Title required');
     try {
       setSaving(true);
-      await addDoc(collection(db, 'companyAssessments'), {
-        ...newAssessment,
+      const createdAt = serverTimestamp();
+      const assessmentRef = selectedAssessment?.id
+        ? doc(db, 'companyAssessments', selectedAssessment.id)
+        : doc(collection(db, 'companyAssessments'));
+      const activityRef = doc(collection(db, 'companyActivities'));
+      const batch = writeBatch(db);
+      const questions = (newAssessment.questions || []).map(({ id, text, type, options, points }) => ({ id, text, type, options, points }));
+      const answerKey = Object.fromEntries((newAssessment.questions || []).filter((question) => question.type === 'multiple_choice').map((question) => [question.id, Number(question.correctOptionIndex)]));
+      batch.set(assessmentRef, {
+        title: newAssessment.title.trim(),
+        description: newAssessment.description.trim(),
+        type: newAssessment.type,
+        duration: Number(newAssessment.duration),
+        passingScore: Number(newAssessment.passingScore),
+        skills: newAssessment.skills,
+        questions,
         companyId,
-        questionCount: 0,
+        questionCount: questions.length,
         createdBy: companyId,
-        createdByName: userProfile?.displayName || userProfile?.companyName || 'Admin',
-        createdAt: serverTimestamp(),
+        createdByName: userProfile?.fullName || userProfile?.displayName || userProfile?.companyName || 'Company',
+        ...(!selectedAssessment?.id && { createdAt }),
         updatedAt: serverTimestamp(),
+      }, { merge: true });
+      batch.set(doc(db, 'assessmentAnswerKeys', assessmentRef.id), { assessmentId: assessmentRef.id, companyId, answerKey, updatedAt: serverTimestamp() }, { merge: true });
+      if (!selectedAssessment?.id) batch.set(activityRef, {
+        companyId,
+        type: 'assessment_created',
+        title: newAssessment.title,
+        metadata: { assessmentId: assessmentRef.id, assessmentType: newAssessment.type },
+        createdAt,
       });
-      await supabase.from('company_activities').insert({
-        company_id: companyId,
-        activity_type: 'assessment_created',
-        metadata: { title: newAssessment.title, type: newAssessment.type },
-        created_at: new Date().toISOString(),
-      });
-      showNotification('success', 'Assessment created');
+      await batch.commit();
+      showNotification('success', selectedAssessment?.id ? 'Assessment updated' : 'Assessment created');
       setShowCreateModal(false);
-      setNewAssessment({ title: '', description: '', type: 'technical', duration: 60, passingScore: 70, skills: [], newSkill: '' });
+      setSelectedAssessment(null);
+      setNewAssessment({ title: '', description: '', type: 'technical', duration: 60, passingScore: 70, skills: [], newSkill: '', questions: [] });
     } catch (error) {
-      showNotification('error', 'Failed to create');
+      console.error('Failed to create assessment:', error);
+      showNotification('error', error.message || 'Failed to create assessment');
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleEditAssessment = async (assessment) => {
+    setSelectedAssessment(assessment);
+    setNewAssessment({
+      title: assessment.title || '', description: assessment.description || '', type: assessment.type || 'technical',
+      duration: assessment.duration || 60, passingScore: assessment.passingScore ?? 70,
+      skills: assessment.skills || [], newSkill: '', questions: (assessment.questions || []).map((question) => ({ ...question })),
+    });
+    setEditingQuestionId('');
+    setShowCreateModal(true);
+    try {
+      const keySnapshot = await getDoc(doc(db, 'assessmentAnswerKeys', assessment.id));
+      if (keySnapshot.exists()) {
+        const answerKey = keySnapshot.data().answerKey || {};
+        setNewAssessment((current) => ({ ...current, questions: current.questions.map((question) => ({ ...question, correctOptionIndex: answerKey[question.id] ?? 0 })) }));
+      }
+    } catch {
+      showNotification('error', 'Could not load the private answer key for editing.');
+    }
+  };
+
+  const handleStartCreate = () => {
+    setSelectedAssessment(null);
+    setNewAssessment({ title: '', description: '', type: 'technical', duration: 60, passingScore: 70, skills: [], newSkill: '', questions: [] });
+    setQuestionDraft({ text: '', type: 'multiple_choice', options: ['', '', '', ''], correctOptionIndex: 0, points: 1 });
+    setShowCreateModal(true);
+  };
+
+  const saveQuestionDraft = () => {
+    const text = questionDraft.text.trim();
+    const options = questionDraft.type === 'multiple_choice' ? questionDraft.options.map((option) => option.trim()).filter(Boolean) : [];
+    if (!text || (questionDraft.type === 'multiple_choice' && (options.length < 2 || !options[Number(questionDraft.correctOptionIndex)]))) {
+      showNotification('error', 'Add a question and at least two choices with a correct answer.');
+      return;
+    }
+    const id = editingQuestionId || globalThis.crypto?.randomUUID?.() || `q-${Date.now()}`;
+    const item = { ...questionDraft, id, text, options, points: Math.max(1, Number(questionDraft.points) || 1) };
+    setNewAssessment((current) => ({ ...current, questions: editingQuestionId ? current.questions.map((question) => question.id === editingQuestionId ? item : question) : [...current.questions, item] }));
+    setQuestionDraft({ text: '', type: 'multiple_choice', options: ['', '', '', ''], correctOptionIndex: 0, points: 1 });
+    setEditingQuestionId('');
   };
 
   const handleUseTemplate = async (template) => {
     try {
       setSaving(true);
       const { id, ...templateData } = template;
-      await addDoc(collection(db, 'companyAssessments'), {
+      const answerKey = templateData.answerKey || Object.fromEntries((templateData.questions || []).filter((question) => Number.isInteger(question.correctOptionIndex)).map((question) => [question.id, question.correctOptionIndex]));
+      const questions = (templateData.questions || []).map(({ correctOptionIndex, correctAnswer, answerKey: _key, ...question }) => question);
+      const assessmentRef = doc(collection(db, 'companyAssessments'));
+      const batch = writeBatch(db);
+      batch.set(assessmentRef, {
         ...templateData,
+        questions,
+        questionCount: questions.length,
         companyId,
         createdBy: companyId,
         createdByName: userProfile?.displayName || userProfile?.companyName || 'Admin',
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       });
+      batch.set(doc(db, 'assessmentAnswerKeys', assessmentRef.id), { assessmentId: assessmentRef.id, companyId, answerKey, updatedAt: serverTimestamp() });
+      await batch.commit();
       showNotification('success', 'Template applied');
     } catch (error) {
-      showNotification('error', 'Failed to apply template');
+      console.error('Failed to apply assessment template:', error);
+      showNotification('error', error.message || 'Failed to apply template');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleAssign = async () => {
+    if (!selectedAssessment || selectedCandidateIds.length === 0) {
+      showNotification('warning', 'Choose at least one eligible candidate');
+      return;
+    }
+
+    try {
+      setAssigning(true);
+      const batch = writeBatch(db);
+      selectedCandidateIds.forEach((candidateId) => {
+        const assignmentId = `${selectedAssessment.id}_${candidateId}`;
+        batch.set(doc(db, 'assessmentAssignments', assignmentId), {
+          assessmentId: selectedAssessment.id,
+          assessmentTitle: selectedAssessment.title,
+          assessmentType: selectedAssessment.type,
+          companyId,
+          candidateId,
+          status: 'assigned',
+          assignedAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        }, { merge: true });
+      });
+      await batch.commit();
+      showNotification(
+        'success',
+        `Assessment assigned to ${selectedCandidateIds.length} candidate${selectedCandidateIds.length === 1 ? '' : 's'}`
+      );
+      setShowAssignModal(false);
+      setSelectedCandidateIds([]);
+    } catch (error) {
+      console.error('Failed to assign assessment:', error);
+      showNotification('error', error.message || 'Failed to assign assessment');
+    } finally {
+      setAssigning(false);
     }
   };
 
   const handleDelete = async (id) => {
     if (!window.confirm('Delete this assessment?')) return;
     try {
-      await deleteDoc(doc(db, 'companyAssessments', id));
+      const assignments = await getDocs(query(
+        collection(db, 'assessmentAssignments'),
+        where('companyId', '==', companyId),
+        where('assessmentId', '==', id)
+      ));
+      const submissions = await getDocs(query(collection(db, 'assessmentSubmissions'), where('companyId', '==', companyId), where('assessmentId', '==', id)));
+      const batch = writeBatch(db);
+      assignments.docs.forEach((assignment) => batch.delete(assignment.ref));
+      submissions.docs.forEach((submission) => batch.delete(submission.ref));
+      batch.delete(doc(db, 'assessmentAnswerKeys', id));
+      batch.delete(doc(db, 'companyAssessments', id));
+      await batch.commit();
       showNotification('success', 'Assessment deleted');
     } catch (error) {
       showNotification('error', 'Failed to delete');
+    }
+  };
+
+  const handleReviewSubmission = async (submission) => {
+    const review = submissionScores[submission.id] || {};
+    const score = Number(review.score);
+    if (!Number.isFinite(score) || score < 0 || score > 100) {
+      showNotification('error', 'Enter a score from 0 to 100 before saving the review.');
+      return;
+    }
+    try {
+      await updateDoc(doc(db, 'assessmentSubmissions', submission.id), {
+        score,
+        feedback: String(review.feedback || '').trim().slice(0, 2000),
+        status: 'reviewed',
+        reviewedBy: companyId,
+        reviewedAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      });
+      showNotification('success', 'Assessment review saved.');
+    } catch (error) {
+      showNotification('error', error.message || 'Unable to save assessment review.');
     }
   };
 
@@ -387,7 +610,7 @@ const SkillsAssessment = () => {
             </p>
           </div>
           <button
-            onClick={() => setShowCreateModal(true)}
+            onClick={handleStartCreate}
             className="px-6 py-3 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 transition-colors flex items-center gap-2"
           >
             <FaPlus className="w-4 h-4" />
@@ -491,7 +714,7 @@ const SkillsAssessment = () => {
                 assessment={assessment}
                 onView={(a) => { setSelectedAssessment(a); setShowPreviewModal(true); }}
                 onDelete={handleDelete}
-                onEdit={(a) => { setSelectedAssessment(a); setShowCreateModal(true); }}
+                onEdit={handleEditAssessment}
               />
             ))}
           </div>
@@ -505,7 +728,7 @@ const SkillsAssessment = () => {
               Create your first assessment to evaluate candidates effectively.
             </p>
             <button
-              onClick={() => setShowCreateModal(true)}
+              onClick={handleStartCreate}
               className="px-6 py-3 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 transition-colors inline-flex items-center gap-2"
             >
               <FaPlus className="w-4 h-4" />
@@ -518,6 +741,22 @@ const SkillsAssessment = () => {
             <p className="text-gray-500">No assessments match your filters</p>
           </div>
         )}
+
+        <section className="mt-8 space-y-3">
+          <div><h2 className="text-lg font-semibold text-gray-900 dark:text-white">Candidate submissions</h2><p className="text-sm text-gray-500">Review written answers and record a score and feedback.</p></div>
+          {submissions.length === 0 ? <div className="rounded-xl border border-gray-200 bg-white p-5 text-sm text-gray-500 dark:border-gray-700 dark:bg-gray-800">No submissions yet.</div> : submissions.map((submission) => {
+            const review = submissionScores[submission.id] || {};
+            return <article key={submission.id} className="rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
+              <div className="flex flex-wrap items-center justify-between gap-2"><h3 className="font-medium text-gray-900 dark:text-white">{submission.assessmentId} · Candidate {submission.candidateId}</h3><span className="rounded-full bg-indigo-100 px-2.5 py-1 text-xs font-medium text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-200">{submission.status || 'submitted'}</span></div>
+              <div className="mt-3 space-y-2">{Object.entries(submission.answers || {}).map(([questionId, answer]) => <div key={questionId} className="rounded-lg bg-gray-50 p-3 text-sm dark:bg-gray-900"><p className="text-xs font-medium text-gray-500">Question {questionId}</p><p className="mt-1 whitespace-pre-wrap text-gray-800 dark:text-gray-200">{String(answer)}</p></div>)}</div>
+              <div className="mt-4 grid gap-3 sm:grid-cols-[9rem_1fr_auto]">
+                <label className="text-xs text-gray-500">Score (0–100)<input type="number" min="0" max="100" value={review.score ?? submission.score ?? ''} onChange={(event) => setSubmissionScores((current) => ({ ...current, [submission.id]: { ...current[submission.id], score: event.target.value } }))} className="mt-1 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 dark:border-gray-600 dark:bg-gray-900 dark:text-white" /></label>
+                <label className="text-xs text-gray-500">Feedback<textarea rows="2" maxLength="2000" value={review.feedback ?? submission.feedback ?? ''} onChange={(event) => setSubmissionScores((current) => ({ ...current, [submission.id]: { ...current[submission.id], feedback: event.target.value } }))} className="mt-1 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 dark:border-gray-600 dark:bg-gray-900 dark:text-white" /></label>
+                <button type="button" onClick={() => handleReviewSubmission(submission)} className="self-end rounded-lg bg-indigo-600 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-700">Save review</button>
+              </div>
+            </article>;
+          })}
+        </section>
       </div>
 
       {/* Create Modal */}
@@ -538,7 +777,7 @@ const SkillsAssessment = () => {
               className="bg-white dark:bg-gray-800 rounded-2xl p-6 w-full max-w-lg max-h-[85vh] overflow-y-auto"
             >
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-                Create Assessment
+                {selectedAssessment?.id ? 'Edit assessment' : 'Create Assessment'}
               </h3>
               <div className="space-y-4">
                 <input
@@ -654,6 +893,26 @@ const SkillsAssessment = () => {
                     </div>
                   )}
                 </div>
+
+                <section className="space-y-3 border-t border-gray-200 pt-4 dark:border-gray-700">
+                  <div className="flex items-center justify-between"><h4 className="font-semibold text-gray-900 dark:text-white">Questions ({newAssessment.questions.length})</h4><span className="text-xs text-gray-500">Answer keys are private</span></div>
+                  {newAssessment.questions.map((question, index) => (
+                    <div key={question.id} className="flex items-start justify-between gap-3 rounded-lg border border-gray-200 p-3 dark:border-gray-700">
+                      <p className="min-w-0 text-sm text-gray-800 dark:text-gray-200"><span className="mr-2 text-gray-500">{index + 1}.</span>{question.text}<span className="ml-2 text-xs text-gray-500">{question.type === 'multiple_choice' ? 'Choice' : 'Written'} · {question.points} pt</span></p>
+                      <div className="flex shrink-0 gap-1">
+                        <button type="button" aria-label={`Edit question ${index + 1}`} onClick={() => { setEditingQuestionId(question.id); setQuestionDraft({ text: question.text, type: question.type, options: question.type === 'multiple_choice' ? [...question.options, '', '', '', ''].slice(0, 4) : ['', '', '', ''], correctOptionIndex: question.correctOptionIndex || 0, points: question.points || 1 }); }} className="rounded-md p-2 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20"><FaEdit className="h-3.5 w-3.5" /></button>
+                        <button type="button" aria-label={`Delete question ${index + 1}`} onClick={() => setNewAssessment((current) => ({ ...current, questions: current.questions.filter((item) => item.id !== question.id) }))} className="rounded-md p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"><FaTrash className="h-3.5 w-3.5" /></button>
+                      </div>
+                    </div>
+                  ))}
+                  <textarea aria-label="Question text" placeholder="Write a question" value={questionDraft.text} onChange={(event) => setQuestionDraft((current) => ({ ...current, text: event.target.value }))} rows={2} className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-700 dark:text-white" />
+                  <div className="grid grid-cols-2 gap-3">
+                    <select aria-label="Question type" value={questionDraft.type} onChange={(event) => setQuestionDraft((current) => ({ ...current, type: event.target.value }))} className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-700 dark:text-white"><option value="multiple_choice">Multiple choice</option><option value="written">Written response</option></select>
+                    <input aria-label="Question points" type="number" min="1" max="100" value={questionDraft.points} onChange={(event) => setQuestionDraft((current) => ({ ...current, points: event.target.value }))} className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-700 dark:text-white" />
+                  </div>
+                  {questionDraft.type === 'multiple_choice' && <div className="space-y-2">{questionDraft.options.map((option, index) => <div key={index} className="flex gap-2"><input aria-label={`Choice ${index + 1}`} value={option} onChange={(event) => setQuestionDraft((current) => ({ ...current, options: current.options.map((item, itemIndex) => itemIndex === index ? event.target.value : item) }))} placeholder={`Choice ${index + 1}`} className="min-w-0 flex-1 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-700 dark:text-white" /><label className="flex items-center gap-1 text-xs text-gray-500"><input type="radio" name="correct-answer" checked={Number(questionDraft.correctOptionIndex) === index} onChange={() => setQuestionDraft((current) => ({ ...current, correctOptionIndex: index }))} />Correct</label></div>)}</div>}
+                  <button type="button" onClick={saveQuestionDraft} className="inline-flex items-center gap-2 rounded-lg border border-blue-200 px-3 py-2 text-sm font-medium text-blue-700 hover:bg-blue-50 dark:border-blue-900 dark:text-blue-300 dark:hover:bg-blue-900/20"><FaPlus className="h-3 w-3" />{editingQuestionId ? 'Save question' : 'Add question'}</button>
+                </section>
               </div>
 
               <div className="flex gap-3 mt-6">
@@ -669,7 +928,7 @@ const SkillsAssessment = () => {
                   className="flex-1 px-4 py-2.5 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
                 >
                   {saving ? <FaSpinner className="w-4 h-4 animate-spin" /> : <FaCheck className="w-4 h-4" />}
-                  Create
+                  {selectedAssessment?.id ? 'Save changes' : 'Create'}
                 </button>
               </div>
             </motion.div>
@@ -751,11 +1010,116 @@ const SkillsAssessment = () => {
                   Close
                 </button>
                 <button
-                  onClick={() => { showNotification('info', 'Assign to candidate feature coming soon'); }}
+                  onClick={() => {
+                    setShowPreviewModal(false);
+                    setSelectedCandidateIds([]);
+                    setShowAssignModal(true);
+                  }}
                   className="flex-1 px-4 py-2.5 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
                 >
                   <FaPaperPlane className="w-4 h-4" />
                   Assign
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {showAssignModal && selectedAssessment && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+            onClick={() => setShowAssignModal(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              onClick={(event) => event.stopPropagation()}
+              className="bg-white dark:bg-gray-800 rounded-2xl p-6 w-full max-w-lg max-h-[85vh] overflow-y-auto"
+            >
+              <div className="mb-5">
+                <h3 className="text-xl font-semibold text-gray-900 dark:text-white">
+                  Assign assessment
+                </h3>
+                <p className="text-sm text-gray-500 mt-1">
+                  {selectedAssessment.title} · Select candidates connected to your company.
+                </p>
+              </div>
+
+              {candidatesLoading ? (
+                <p className="py-8 text-center text-sm text-gray-500">Loading eligible candidates…</p>
+              ) : candidatesError ? (
+                <p role="alert" className="py-6 text-sm text-red-600">
+                  Candidates could not be loaded. Please try again later.
+                </p>
+              ) : candidates.length === 0 ? (
+                <p className="py-8 text-center text-sm text-gray-500">
+                  No eligible candidates found. Follow a candidate or invite them to follow your company.
+                </p>
+              ) : (
+                <div className="max-h-80 overflow-y-auto divide-y divide-gray-100 dark:divide-gray-700">
+                  {candidates.map((candidate) => (
+                    <label
+                      key={candidate.id}
+                      className="flex cursor-pointer items-center gap-3 py-3"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selectedCandidateIds.includes(candidate.id)}
+                        onChange={(event) =>
+                          setSelectedCandidateIds((current) =>
+                            event.target.checked
+                              ? [...current, candidate.id]
+                              : current.filter((id) => id !== candidate.id)
+                          )
+                        }
+                        className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                      />
+                      {candidate.photoURL ? (
+                        <img
+                          src={candidate.photoURL}
+                          alt=""
+                          className="h-10 w-10 rounded-full object-cover"
+                        />
+                      ) : (
+                        <span className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-100 text-sm font-semibold text-blue-700">
+                          {candidate.name.charAt(0).toUpperCase()}
+                        </span>
+                      )}
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate font-medium text-gray-900 dark:text-white">
+                          {candidate.name}
+                        </span>
+                        <span className="block truncate text-xs text-gray-500">
+                          {candidate.email || candidate.userType}
+                        </span>
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              )}
+
+              <div className="mt-6 flex justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setShowAssignModal(false)}
+                  className="rounded-xl bg-gray-100 px-4 py-2.5 font-medium text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleAssign}
+                  disabled={assigning || candidatesLoading || candidatesError || selectedCandidateIds.length === 0}
+                  className="flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+                >
+                  {assigning ? <FaSpinner className="h-4 w-4 animate-spin" /> : <FaPaperPlane className="h-4 w-4" />}
+                  Assign selected
                 </button>
               </div>
             </motion.div>

@@ -24,17 +24,13 @@ import {
   db,
 } from '../config/firebase';
 import { cloudinaryService as cloudinaryMediaService } from './cloudinaryService';
+import { apiRequest } from './apiClient';
 
 const COMPANY_COLLECTION = 'companies';
 const JOBS_COLLECTION = 'jobs';
 const APPLICATIONS_COLLECTION = 'applications';
 const STUDENTS_COLLECTION = 'students';
 const USERS_COLLECTION = 'users';
-
-// Cloudinary configuration
-const CLOUDINARY_CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || 'dwz0osyou';
-const CLOUDINARY_UPLOAD_PRESET =
-  import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET || 'career_connect_upload';
 
 // Helper function for safe date conversion
 const safeDateConvert = (firebaseDate) => {
@@ -92,64 +88,25 @@ const executeCompanyQueryWithFallback = async (
 
 // Cloudinary service
 export const cloudinaryService = {
-  async uploadImage(file, folder = 'company-profile') {
+  async uploadImage(file, assetType = 'logo') {
     try {
-      console.log('Starting upload process...');
-      console.log('File details:', {
-        name: file.name,
-        type: file.type,
-        size: file.size,
-      });
-
-      // Validate file
       this.validateImageFile(file);
-
       const formData = new FormData();
       formData.append('file', file);
-      formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
-      formData.append('folder', folder);
-      formData.append('cloud_name', CLOUDINARY_CLOUD_NAME);
-
-      console.log('Upload preset:', CLOUDINARY_UPLOAD_PRESET);
-      console.log('Cloud name:', CLOUDINARY_CLOUD_NAME);
-      console.log('Folder:', folder);
-
-      const response = await fetch(
-        `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`,
-        {
-          method: 'POST',
-          body: formData,
-        }
-      );
-
-      console.log('Response status:', response.status);
-      console.log('Response ok:', response.ok);
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Raw error response:', errorText);
-
-        try {
-          const errorData = JSON.parse(errorText);
-          console.error('Cloudinary error details:', errorData);
-          throw new Error(`Upload failed: ${errorData.error?.message || 'Unknown error'}`);
-        } catch (parseError) {
-          throw new Error(`Upload failed with status ${response.status}: ${errorText}`);
-        }
-      }
-
-      const data = await response.json();
-      console.log('Upload successful:', data);
+      formData.append('assetType', assetType);
+      const data = await apiRequest('/api/media/company/branding-image', {
+        method: 'POST',
+        body: formData,
+      });
 
       return {
-        secure_url: data.secure_url,
-        public_id: data.public_id,
+        secure_url: data.secure_url || data.url,
+        public_id: data.public_id || data.publicId,
         width: data.width,
         height: data.height,
         format: data.format,
       };
     } catch (error) {
-      console.error('Detailed upload error:', error);
       throw error;
     }
   },
@@ -331,7 +288,7 @@ export const companyService = {
   async uploadLogo(file) {
     try {
       cloudinaryService.validateImageFile(file);
-      const result = await cloudinaryService.uploadImage(file, 'company-logos');
+      const result = await cloudinaryService.uploadImage(file, 'logo');
 
       // Update company profile with new logo URL
       await this.updateCompanyProfile({
@@ -350,7 +307,7 @@ export const companyService = {
   async uploadCoverImage(file) {
     try {
       cloudinaryService.validateImageFile(file);
-      const result = await cloudinaryService.uploadImage(file, 'company-covers');
+      const result = await cloudinaryService.uploadImage(file, 'cover');
 
       // Update company profile with new cover image URL
       await this.updateCompanyProfile({

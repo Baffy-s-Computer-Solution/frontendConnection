@@ -794,21 +794,13 @@ class MentorService {
         sessionId,
         mentorId,
         studentId: feedbackData.studentId,
+        reviewerId: auth.currentUser?.uid || feedbackData.studentId,
         rating,
         comment,
         createdAt: timestamp,
       };
 
       await addDoc(collection(db, this.reviewsCollection), review);
-      await this.updateSession(sessionId, {
-        feedback: { rating, comment },
-        rating,
-      });
-
-      const reviews = await this.getMentorReviews(mentorId);
-      const newAvgRating = reviews.data.averageRating;
-
-      await this.updateMentorProfile(mentorId, { rating: newAvgRating });
 
       return { success: true };
     } catch (error) {

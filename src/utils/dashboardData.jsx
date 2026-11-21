@@ -150,46 +150,11 @@ export const DashboardService = {
         })
         .slice(0, limit);
 
-      // If no activities, return sample ones
-      if (activities.length === 0) {
-        return this.getSampleActivities();
-      }
-
       return activities;
     } catch (error) {
       console.error('Error getting recent activities:', error);
-      // Return sample activities if collection doesn't exist
-      return this.getSampleActivities();
+      return [];
     }
-  },
-
-  // Get sample activities for initial setup
-  getSampleActivities() {
-    return [
-      {
-        id: '1',
-        type: 'user_registered',
-        title: 'Admin Account Created',
-        description: 'System administrator account was created',
-        timestamp: new Date().toISOString(),
-        userEmail: 'baffkay20@gmail.com',
-      },
-      {
-        id: '2',
-        type: 'login',
-        title: 'Admin Login',
-        description: 'Administrator logged into the system',
-        timestamp: new Date(Date.now() - 3600000).toISOString(),
-        userEmail: 'baffkay20@gmail.com',
-      },
-      {
-        id: '3',
-        type: 'system_start',
-        title: 'System Started',
-        description: 'Career Connect Lesotho platform started',
-        timestamp: new Date(Date.now() - 7200000).toISOString(),
-      },
-    ];
   },
 
   // Get system statistics

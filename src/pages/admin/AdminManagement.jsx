@@ -37,6 +37,7 @@ const statusConfig = {
   suspended: { label: 'Suspended', color: 'bg-red-100 text-red-700', icon: FaBan },
   pending: { label: 'Pending', color: 'bg-amber-100 text-amber-700', icon: FaClock },
   revoked: { label: 'Revoked', color: 'bg-slate-100 text-slate-700', icon: FaTimesCircle },
+  deleted: { label: 'Deleted', color: 'bg-slate-200 text-slate-700', icon: FaTrash },
 };
 
 const AdminManagement = () => {
@@ -78,18 +79,17 @@ const AdminManagement = () => {
     moderators: 0,
     suspended: 0,
   });
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
 
   const itemsPerPage = 15;
 
-  const isSuperAdmin = useMemo(() => {
-    const email = String(currentUser?.email || '').toLowerCase();
-    const ownerEmail = String(import.meta.env.VITE_SUPER_ADMIN_EMAIL || '').toLowerCase();
-    return (
-      userProfile?.role === 'super_admin' ||
-      userProfile?.adminLevel === 'super_admin' ||
-      (ownerEmail && ownerEmail === email)
-    );
-  }, [currentUser?.email, userProfile?.role, userProfile?.adminLevel]);
+  useEffect(() => {
+    let active = true;
+    currentUser?.getIdTokenResult?.().then(({ claims }) => {
+      if (active) setIsSuperAdmin(claims?.role === 'super_admin' || claims?.superAdmin === true || claims?.isSuperAdmin === true);
+    }).catch(() => { if (active) setIsSuperAdmin(false); });
+    return () => { active = false; };
+  }, [currentUser]);
 
   const loadAdmins = useCallback(async () => {
     if (!isAdmin) return;
@@ -370,7 +370,13 @@ const AdminManagement = () => {
 
   const formatDate = (value) => {
     if (!value) return 'N/A';
-    return new Date(value).toLocaleDateString('en-US', {
+    const dateValue = typeof value?.toDate === 'function'
+      ? value.toDate()
+      : Number.isFinite(value?._seconds)
+        ? new Date(value._seconds * 1000)
+        : new Date(value);
+    if (Number.isNaN(dateValue.getTime())) return 'N/A';
+    return dateValue.toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'short',
       day: 'numeric',
@@ -559,6 +565,7 @@ const AdminManagement = () => {
               <option value="suspended">Suspended</option>
               <option value="pending">Pending</option>
               <option value="revoked">Revoked</option>
+              <option value="deleted">Deleted</option>
             </select>
           </div>
         </CardBody>
@@ -662,13 +669,13 @@ const AdminManagement = () => {
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex items-center justify-end gap-2">
-                          <button
+                          {isSuperAdmin && <button
                             onClick={() => handleViewDetails(admin)}
                             className="rounded-lg border border-slate-200 p-2 text-slate-600 transition hover:border-brand-300 hover:bg-brand-50 hover:text-brand-600 dark:border-slate-700"
                             title="View Details"
                           >
                             <FaEye className="h-4 w-4" />
-                          </button>
+                          </button>}
                           {isSuperAdmin && admin.id !== currentUser?.uid && (
                             <>
                               <button
@@ -678,7 +685,7 @@ const AdminManagement = () => {
                               >
                                 <FaEdit className="h-4 w-4" />
                               </button>
-                              {admin.status === 'suspended' ? (
+                              {admin.status !== 'active' ? (
                                 <button
                                   onClick={() => handleActivate(admin.id)}
                                   disabled={actionLoading}
@@ -760,7 +767,7 @@ const AdminManagement = () => {
 
       {/* Create Modal */}
       <Modal
-        isOpen={showCreateModal}
+        open={showCreateModal}
         onClose={() => {
           setShowCreateModal(false);
           setForm({
@@ -800,23 +807,30 @@ const AdminManagement = () => {
           </div>
           <div>
             <label className="text-sm font-medium text-slate-700 dark:text-slate-200">
-              Admin Role *
+              Platform access level *
             </label>
             <select
               value={form.role}
               onChange={(e) => setForm((prev) => ({ ...prev, role: e.target.value }))}
+              required
               className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800"
             >
-              <option value="admin">Admin</option>
-              <option value="moderator">Moderator</option>
-              <option value="auditor">Auditor</option>
-              <option value="super_admin">Super Admin</option>
+              <option value="admin">Platform administrator</option>
+              <option value="super_admin">Platform super administrator</option>
             </select>
           </div>
           <div className="rounded-lg border border-brand-200 bg-brand-50 p-3 text-xs text-brand-700 dark:border-brand-800 dark:bg-brand-950 dark:text-brand-200">
-            <FaShieldAlt className="mb-1 inline h-3 w-3" /> The new admin will receive an
-            invitation email with instructions to set up their account.
+            <FaShieldAlt className="mb-1 inline h-3 w-3" /> The person must already have a Career Connect account. This grants platform administrator access; company team administrators belong in Company → Teams. The user should sign out and back in to refresh access claims.
           </div>
+          <div className="rounded-lg border border-brand-200 bg-brand-50 p-3 text-xs text-brand-700 dark:border-brand-800 dark:bg-brand-950 dark:text-brand-200">
+            <FaShieldAlt className="mb-1 mr-1 inline h-3 w-3" /> This grants platform-wide access to an existing Career Connect account. Company administrators are scoped to a company and should be invited from Company → Teams. Institute administrator access is not yet supported.
+          </div>
+          {form.role === 'super_admin' && (
+            <label className="flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-100">
+              <input type="checkbox" checked={Boolean(form.confirmSuperAdmin)} onChange={(event) => setForm((prev) => ({ ...prev, confirmSuperAdmin: event.target.checked }))} className="mt-0.5" />
+              <span>Confirm this person should have platform-wide super administrator privileges.</span>
+            </label>
+          )}
           <div className="flex justify-end gap-2 pt-2">
             <Button
               type="button"
@@ -833,8 +847,8 @@ const AdminManagement = () => {
             >
               Cancel
             </Button>
-            <Button type="submit" variant="primary" disabled={saving || !form.email.trim()}>
-              {saving ? 'Creating...' : 'Create Administrator'}
+            <Button type="submit" variant="primary" disabled={saving || !form.email.trim() || (form.role === 'super_admin' && !form.confirmSuperAdmin)}>
+              {saving ? 'Granting...' : form.role === 'super_admin' ? 'Grant Super Admin Access' : 'Grant Admin Access'}
             </Button>
           </div>
         </form>
@@ -842,7 +856,7 @@ const AdminManagement = () => {
 
       {/* Edit Modal */}
       <Modal
-        isOpen={showEditModal}
+        open={showEditModal}
         onClose={() => {
           setShowEditModal(false);
           setEditForm({});
@@ -872,8 +886,6 @@ const AdminManagement = () => {
               className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800"
             >
               <option value="admin">Admin</option>
-              <option value="moderator">Moderator</option>
-              <option value="auditor">Auditor</option>
               <option value="super_admin">Super Admin</option>
             </select>
           </div>
@@ -911,7 +923,7 @@ const AdminManagement = () => {
 
       {/* Details Modal */}
       <Modal
-        isOpen={showDetailsModal}
+        open={showDetailsModal}
         onClose={() => {
           setShowDetailsModal(false);
           setSelectedAdmin(null);
@@ -1013,7 +1025,7 @@ const AdminManagement = () => {
 
       {/* Suspend Modal */}
       <Modal
-        isOpen={showSuspendModal}
+        open={showSuspendModal}
         onClose={() => {
           setShowSuspendModal(false);
           setSuspendReason('');
@@ -1060,7 +1072,7 @@ const AdminManagement = () => {
 
       {/* Revoke Modal */}
       <Modal
-        isOpen={showRevokeModal}
+        open={showRevokeModal}
         onClose={() => {
           setShowRevokeModal(false);
           setRevokeReason('');
@@ -1111,7 +1123,7 @@ const AdminManagement = () => {
 
       {/* Delete Modal */}
       <Modal
-        isOpen={showDeleteModal}
+        open={showDeleteModal}
         onClose={() => {
           setShowDeleteModal(false);
           setDeleteReason('');
@@ -1120,8 +1132,7 @@ const AdminManagement = () => {
         title="Delete Administrator"
       >
         <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
-          <strong>Warning:</strong> This action cannot be undone. The admin account will be
-          permanently removed.
+          <strong>Warning:</strong> This disables sign-in and revokes administrator claims. The user record is retained with a deleted status for audit purposes; it can be restored by a super administrator.
         </div>
         <p className="mt-4 text-sm text-slate-600 dark:text-slate-300">
           Are you sure you want to delete{' '}

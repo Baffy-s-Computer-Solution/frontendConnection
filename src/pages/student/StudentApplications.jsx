@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Download, Eye, RotateCcw, Search, GraduationCap, Send } from 'lucide-react';
+import { Download, Eye, RotateCcw, Search, GraduationCap, Send, BriefcaseBusiness, Clock3, CircleCheck, CircleX } from 'lucide-react';
 
 import { useAuth } from '../../context/AuthContext';
 import { subscribeToStudentApplications, withdrawStudentApplication } from '../../services/studentServices';
@@ -147,16 +147,19 @@ function StudentApplications() {
           {mentorshipRequests.length ? <ul className="divide-y divide-slate-200 dark:divide-slate-800">{mentorshipRequests.map((request) => <li key={request.id} className="flex flex-wrap items-center justify-between gap-3 p-4"><div><p className="font-semibold text-slate-900 dark:text-white">{request.initiatedBy === 'mentor' ? request.mentorName || 'Mentor invitation' : request.mentorName || 'Mentor'}{request.topic ? ` · ${request.topic}` : ''}</p><p className="mt-1 text-sm text-slate-500">{request.initiatedBy === 'mentor' ? 'Invitation from mentor' : 'Your mentorship request'} · {formatDisplayStatus(request.status || 'pending')}</p></div><div className="flex gap-2">{request.initiatedBy === 'mentor' && request.status === 'pending' ? <><button type="button" onClick={() => handleMentorshipResponse(request, 'accepted')} className="rounded-lg bg-emerald-600 px-3 py-2 text-sm font-semibold text-white">Approve</button><button type="button" onClick={() => handleMentorshipResponse(request, 'rejected')} className="rounded-lg border border-rose-200 px-3 py-2 text-sm font-semibold text-rose-700">Decline</button></> : request.status === 'pending' && <button type="button" onClick={async () => { const result = await cancelStudentMentorshipRequest(request.id, currentUser?.uid || userProfile?.uid); setNotice(result.success ? 'Mentorship request cancelled.' : result.error); }} className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium dark:border-slate-700">Cancel request</button>}</div></li>)}</ul> : <p className="p-5 text-sm text-slate-500">No mentorship applications yet. Browse mentors to send a request.</p>}
         </section>
 
-        <section className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <section className="mb-5 grid grid-cols-2 gap-3 sm:mb-6 sm:gap-4 xl:grid-cols-4">
           {[
-            { label: 'Total', value: stats.total },
-            { label: 'Pending', value: stats.pending },
-            { label: 'Accepted', value: stats.accepted },
-            { label: 'Outcomes', value: stats.rejected },
+            { label: 'Total', value: stats.total, Icon: BriefcaseBusiness, color: 'text-brand-600' },
+            { label: 'Pending', value: stats.pending, Icon: Clock3, color: 'text-amber-600' },
+            { label: 'Accepted', value: stats.accepted, Icon: CircleCheck, color: 'text-emerald-600' },
+            { label: 'Outcomes', value: stats.rejected, Icon: CircleX, color: 'text-rose-600' },
           ].map((item) => (
-            <div key={item.label} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-900">
-              <div className="text-xs font-medium uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">{item.label}</div>
-              <div className="mt-3 text-3xl font-bold text-slate-900 dark:text-slate-100">{item.value}</div>
+            <div key={item.label} className="flex min-w-0 items-center justify-between gap-2 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-700 dark:bg-slate-900 sm:p-5">
+              <div className="min-w-0">
+                <div className="truncate text-[11px] font-medium uppercase tracking-wider text-slate-500 dark:text-slate-400 sm:text-xs">{item.label}</div>
+                <div className="mt-1 text-2xl font-bold text-slate-900 dark:text-slate-100 sm:mt-3 sm:text-3xl">{item.value}</div>
+              </div>
+              <item.Icon className={`h-4 w-4 shrink-0 sm:h-5 sm:w-5 ${item.color}`} aria-hidden="true" />
             </div>
           ))}
         </section>

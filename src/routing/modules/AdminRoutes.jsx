@@ -19,6 +19,7 @@ const AdmissionsManagement = lazy(() => import('../../pages/admin/AdmissionsMana
 const SearchUsers = lazy(() => import('../../pages/admin/SearchUsers'));
 const SearchCompanies = lazy(() => import('../../pages/admin/SearchCompanies'));
 const SearchApplications = lazy(() => import('../../pages/admin/SearchApplications'));
+const TestimonialModeration = lazy(() => import('../../pages/admin/TestimonialModeration'));
 
 /**
  * Admin Routes Module
@@ -47,6 +48,16 @@ export const getAdminRoutes = () => [
   />,
 
   // Admin Management Routes
+  <Route
+    key="admin-testimonials"
+    path="/admin/testimonials"
+    element={
+      <ProtectedRoute allowedUserTypes={['admin']}>
+        <TestimonialModeration />
+      </ProtectedRoute>
+    }
+  />,
+
   <Route
     key="admin-users"
     path="/admin/users"

@@ -46,10 +46,11 @@ test.describe('Home landing page E2E', () => {
     await expect(second).toHaveAttribute('open', '');
   });
 
-  test('testimonials render', async ({ page }) => {
+  test('community testimonials section renders', async ({ page }) => {
     const section = page.locator('#stories');
     await section.scrollIntoViewIfNeeded();
-    await expect(section.locator('.testimonial-card')).toHaveCount(3);
+    await expect(section).toBeVisible();
+    await expect(section.getByRole('heading', { name: /experiences from our community/i })).toBeVisible();
   });
 
   test('footer contains legal links', async ({ page }) => {

@@ -63,7 +63,9 @@ const FIRESTORE_SUPPORTED_USER_TYPES = new Set([
 ]);
 
 const inFlightProfileCreations = new Map();
-const ENABLE_BACKEND_AUTH = import.meta.env.VITE_ENABLE_BACKEND_AUTH === 'true';
+// Account identity and credential recovery are handled by Firebase Auth.
+// The former backend OTP/password API used in-memory user state and is retired.
+const ENABLE_BACKEND_AUTH = false;
 
 const isPermissionDeniedError = (error) => {
   return (
@@ -79,6 +81,34 @@ const isProfileMissingError = (error) => {
 
 const normalizeUserTypeForFirestore = (userType) => {
   return FIRESTORE_SUPPORTED_USER_TYPES.has(userType) ? userType : USER_TYPES.STUDENT;
+};
+
+const createReferralAttribution = async (user, userData) => {
+  const ownerId = userData.referralCompanyId || userData.referralOwnerId;
+  const ownerType = userData.referralCompanyId ? 'company' : userData.referralOwnerType;
+  const referralCode = String(userData.referralCode || '').trim();
+  const userType = String(userData.userType || '').toLowerCase();
+
+  if (!ownerId || !referralCode || !['company', 'mentor'].includes(ownerType)) return;
+  if (!['student', 'youth', 'alumni'].includes(userType)) return;
+
+  const referral = {
+    referrerId: ownerId,
+    referrerName: userData.referrerName || 'Career Connect member',
+    candidateId: user.uid,
+    candidateName: userData.fullName || user.displayName || '',
+    candidateEmail: user.email || userData.email || '',
+    referredName: userData.fullName || user.displayName || '',
+    referredEmail: user.email || userData.email || '',
+    referralCode,
+    status: ownerType === 'company' ? 'pending' : 'active',
+    source: 'signup_link',
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  };
+  if (ownerType === 'company') referral.companyId = ownerId;
+
+  await setDoc(doc(db, 'referrals', `${ownerId}_${user.uid}`), referral);
 };
 
 const writeRoleProfileDocument = async (collectionName, userId, profileData, label) => {
@@ -261,15 +291,6 @@ export const AuthProvider = ({ children }) => {
     requestedUserType: null,
   });
 
-  // Admin emails from env
-  const ADMIN_EMAILS = useMemo(
-    () =>
-      [
-        import.meta.env.VITE_ADMIN_EMAIL || 'baffkay20@gmail.com',
-      ],
-    []
-  );
-
   // ==================== UTILITY FUNCTIONS ====================
   const clearError = useCallback(() => setError(null), []);
 
@@ -290,16 +311,9 @@ export const AuthProvider = ({ children }) => {
     }
   }, []);
 
-  const isAdminEmail = useCallback(
-    (email) => {
-      if (!email) return false;
-      const normalizedEmail = email.toLowerCase();
-      return ADMIN_EMAILS.some(
-        (adminEmail) => adminEmail && normalizedEmail === adminEmail.toLowerCase()
-      );
-    },
-    [ADMIN_EMAILS]
-  );
+  // Email addresses are identity data, never administrator credentials.
+  // Privileged operations are enforced by verified Firebase claims/rules.
+  const isAdminEmail = useCallback(() => false, []);
 
   const validateEmail = useCallback((email) => {
     const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
@@ -1863,6 +1877,14 @@ export const AuthProvider = ({ children }) => {
             : userTypeData?.userType || USER_TYPES.STUDENT;
 
         const additionalData = typeof userTypeData === 'object' ? userTypeData : {};
+        const {
+          referralCompanyId,
+          referralOwnerId,
+          referralOwnerType,
+          referralCode,
+          referrerName,
+          ...profileAdditionalData
+        } = additionalData;
         managedAuthFlowRef.current = {
           suppressAutoProfileCreation: true,
           requestedUserType: selectedUserType,
@@ -1949,13 +1971,32 @@ export const AuthProvider = ({ children }) => {
             isGoogleAuth: true,
             emailVerified: user.emailVerified,
             photoURL: user.photoURL,
-            ...additionalData,
+            ...profileAdditionalData,
           };
 
           const createResult = await createUserProfile(user, profileData);
 
           if (!createResult.success) {
             throw new Error('Failed to create user profile');
+          }
+
+          let referralWarning = '';
+          if (referralCode && (referralCompanyId || referralOwnerId)) {
+            try {
+              await createReferralAttribution(user, {
+                userType,
+                fullName: profileData.fullName,
+                email: user.email,
+                referralCompanyId,
+                referralOwnerId,
+                referralOwnerType,
+                referralCode,
+                referrerName,
+              });
+            } catch (referralError) {
+              console.error('Google account created, but referral attribution failed:', referralError);
+              referralWarning = 'Your account was created, but the referral could not be recorded.';
+            }
           }
 
           setUserProfile(createResult.data);
@@ -1977,6 +2018,7 @@ export const AuthProvider = ({ children }) => {
             profile: createResult.data,
             userType: createResult.data.userType,
             isAdmin: createResult.data.isAdmin || false,
+            referralWarning,
           };
         }
 
@@ -2162,6 +2204,16 @@ export const AuthProvider = ({ children }) => {
           throw new Error('Failed to create user profile');
         }
 
+        let referralWarning = '';
+        if (userData.referralCode && (userData.referralCompanyId || userData.referralOwnerId)) {
+          try {
+            await createReferralAttribution(user, userData);
+          } catch (referralError) {
+            console.error('Account created, but referral attribution failed:', referralError);
+            referralWarning = 'Your account was created, but the referral could not be recorded.';
+          }
+        }
+
         await syncCurrentUserToSupabase();
 
         let backendRegisterResult = {
@@ -2201,6 +2253,7 @@ export const AuthProvider = ({ children }) => {
           backendVerification: Boolean(backendRegisterResult.verificationRequired),
           emailOtp: backendRegisterResult.emailOtp,
           phoneOtp: backendRegisterResult.phoneOtp,
+          referralWarning,
         };
       } catch (error) {
         console.error('❌ Registration failed:', error);
