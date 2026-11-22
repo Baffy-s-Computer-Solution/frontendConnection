@@ -475,7 +475,14 @@ const FILE_TYPE_CONFIG = {
   'text/html': { icon: FaFileCode, color: '#eab308', label: 'HTML' },
 };
 
-const MAX_FILE_SIZE = 25 * 1024 * 1024; // 25MB
+const MAX_FILE_SIZE = 10 * 1024 * 1024; // Supabase private_documents bucket limit
+const PRIVATE_DOCUMENT_TYPES = new Set([
+  'application/pdf',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'image/jpeg',
+  'image/png',
+]);
 const MAX_TOTAL_STORAGE = 500 * 1024 * 1024; // 500MB
 const ITEMS_PER_PAGE = 12;
 
@@ -613,6 +620,10 @@ const validateFile = (file) => {
 
   if (file.size === 0) {
     return { valid: false, error: 'File is empty' };
+  }
+
+  if (!PRIVATE_DOCUMENT_TYPES.has(file.type)) {
+    return { valid: false, error: 'Only PDF, DOC, DOCX, JPG, and PNG files can be stored privately.' };
   }
 
   // Block potentially dangerous file types
@@ -1020,50 +1031,44 @@ const Documents = () => {
             ),
           }));
 
-          // Upload to Cloudinary
-          const folder = `students/${currentUser.uid}/documents/${uploadForm.category}`;
-          const cloudinaryResult = await cloudinaryService.uploadFile(file, {
-            folder,
-            resourceType: 'auto',
-            tags: uploadForm.tags,
+          const documentTitle = uploadForm.files.length === 1
+            ? uploadForm.title.trim()
+            : file.name.replace(/\.[^/.]+$/, '');
+          const uploadResult = await supabaseService.uploadPrivateDocument({
+            file,
+            contentType: file.type,
+            title: documentTitle,
+            category: uploadForm.category,
           });
-
-          if (!cloudinaryResult.success && !cloudinaryResult.url) {
-            throw new Error('Upload failed');
-          }
-
-          // Save to Firestore
-          const docRef = doc(collection(db, 'studentDocuments'));
+          const docRef = doc(db, 'studentDocuments', uploadResult.documentId);
           const documentData = {
             id: docRef.id,
             studentId: currentUser.uid,
             studentName: studentData?.fullName || userData?.fullName || 'Student',
             studentEmail: currentUser.email,
-            title:
-              uploadForm.files.length === 1
-                ? uploadForm.title.trim()
-                : file.name.replace(/\.[^/.]+$/, ''),
-            description: uploadForm.description.trim(),
-            category: uploadForm.category,
-            priority: uploadForm.priority,
-            tags: uploadForm.tags,
             fileName: file.name,
             fileSize: file.size,
             fileType: file.type,
             fileExtension: file.name.split('.').pop().toLowerCase(),
-            downloadURL: cloudinaryResult.url,
-            cloudinaryPublicId: cloudinaryResult.publicId,
-            cloudinaryResourceType: cloudinaryResult.resourceType || 'raw',
-            storagePath: `students/${currentUser.uid}/documents/${uploadForm.category}/${file.name}`,
-            status: DOCUMENT_STATUS.PENDING,
+            title: documentTitle,
+            category: uploadForm.category,
+            description: uploadForm.description.trim(),
+            tags: uploadForm.tags,
+            priority: uploadForm.priority,
             isConfidential: uploadForm.isConfidential,
             shareWithEmployers: uploadForm.shareWithEmployers,
             shareWithInstitutions: uploadForm.shareWithInstitutions,
-            expiryDate: uploadForm.expiryDate
-              ? Timestamp.fromDate(new Date(uploadForm.expiryDate))
-              : null,
+            status: DOCUMENT_STATUS.PENDING,
             uploadDate: serverTimestamp(),
             lastUpdated: serverTimestamp(),
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
+            expiryDate: uploadForm.expiryDate ? Timestamp.fromDate(new Date(uploadForm.expiryDate)) : null,
+            downloadURL: null,
+            storageType: 'supabase_private',
+            storageProvider: 'supabase',
+            storagePath: uploadResult.path,
+            storageBucket: 'private_documents',
             verifiedBy: null,
             verifiedDate: null,
             version: 1,
@@ -1088,16 +1093,8 @@ const Documents = () => {
 
           // Sync to Supabase
           try {
-            await supabaseService.saveDocument(currentUser.uid, {
-              title: documentData.title,
-              category: documentData.category,
-              file_url: cloudinaryResult.url,
-              file_name: file.name,
-              file_size: file.size,
-              file_type: file.type,
-              status: documentData.status,
-              uploaded_at: new Date().toISOString(),
-            });
+            // Private metadata is saved by the authenticated backend alongside
+            // the Firestore ownership record.
           } catch (sbError) {
             console.warn('Supabase sync failed (non-critical):', sbError);
           }
@@ -1182,7 +1179,7 @@ const Documents = () => {
 
       let downloadURL = document.downloadURL;
       if (document.storageType === 'supabase_private' && document.storagePath) {
-        downloadURL = await supabaseService.getPrivateDocumentUrl(document.storagePath);
+        downloadURL = await supabaseService.getPrivateDocumentUrl(document.id);
       }
 
       // Create link
@@ -1190,9 +1187,9 @@ const Documents = () => {
       link.href = downloadURL;
       link.download = document.fileName;
       link.target = '_blank';
-      document.body.appendChild(link);
+      window.document.body.appendChild(link);
       link.click();
-      document.body.removeChild(link);
+      window.document.body.removeChild(link);
 
       // Increment download count
       const docRef = doc(db, 'studentDocuments', document.id);
@@ -1223,7 +1220,7 @@ const Documents = () => {
     let previewDocument = document;
     try {
       if (document.storageType === 'supabase_private' && document.storagePath) {
-        previewDocument = { ...document, downloadURL: await supabaseService.getPrivateDocumentUrl(document.storagePath) };
+        previewDocument = { ...document, downloadURL: await supabaseService.getPrivateDocumentUrl(document.id) };
       }
     } catch (error) {
       toast.error(error.message || 'Unable to open this private document.');
@@ -1248,8 +1245,9 @@ const Documents = () => {
 
     setDeleting(true);
     try {
-      // Delete from Cloudinary
-      if (selectedDocument.cloudinaryPublicId) {
+      if (selectedDocument.storageType === 'supabase_private') {
+        await supabaseService.deletePrivateDocument(selectedDocument.id);
+      } else if (selectedDocument.cloudinaryPublicId) {
         try {
           await cloudinaryService.deleteFile(
             selectedDocument.cloudinaryPublicId,
@@ -1260,8 +1258,8 @@ const Documents = () => {
         }
       }
 
-      // Delete from Firebase Storage (if path exists)
-      if (selectedDocument.storagePath) {
+      // Delete legacy Firebase Storage documents when present.
+      if (selectedDocument.storagePath && selectedDocument.storageType !== 'supabase_private') {
         try {
           const storageRef = ref(storage, selectedDocument.storagePath);
           await deleteObject(storageRef);
@@ -1270,14 +1268,8 @@ const Documents = () => {
         }
       }
 
-      // Delete from Firestore
-      await deleteDoc(doc(db, 'studentDocuments', selectedDocument.id));
-
-      // Delete from Supabase
-      try {
-        await supabaseService.deleteDocument(selectedDocument.id);
-      } catch (sbError) {
-        console.warn('Supabase delete failed:', sbError);
+      if (selectedDocument.storageType !== 'supabase_private') {
+        await deleteDoc(doc(db, 'studentDocuments', selectedDocument.id));
       }
 
       // Update storage stats
@@ -1393,8 +1385,9 @@ const Documents = () => {
 
         totalSize += document.fileSize || 0;
 
-        // Delete from Cloudinary
-        if (document.cloudinaryPublicId) {
+        if (document.storageType === 'supabase_private') {
+          await supabaseService.deletePrivateDocument(document.id);
+        } else if (document.cloudinaryPublicId) {
           try {
             await cloudinaryService.deleteFile(
               document.cloudinaryPublicId,

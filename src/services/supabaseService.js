@@ -14,10 +14,11 @@ const backendRequest = async (path, options = {}) => {
     return { success: false, skipped: true, error: 'User is not authenticated' };
   }
 
+  const isFormData = typeof FormData !== 'undefined' && options.body instanceof FormData;
   const response = await fetch(`${API_BASE_URL}${path}`, {
     ...options,
     headers: {
-      'Content-Type': 'application/json',
+      ...(!isFormData ? { 'Content-Type': 'application/json' } : {}),
       Authorization: `Bearer ${token}`,
       ...options.headers,
     },
@@ -71,31 +72,31 @@ export const supabaseService = {
     return result;
   },
 
-  deletePrivateDocument: async (path) => {
-    const result = await backendRequest('/api/supabase/storage/document', {
+  deletePrivateDocument: async (documentId) => {
+    const result = await backendRequest(`/api/documents/${encodeURIComponent(documentId)}`, {
       method: 'DELETE',
-      body: JSON.stringify({ path }),
     });
-    if (!result?.success) throw new Error(result?.error || 'Supabase could not delete this private document.');
+    if (!result?.success) throw new Error(result?.message || result?.error || 'Supabase could not delete this private document.');
     return result;
   },
 
-  getPrivateDocumentUrl: async (path) => {
-    const result = await backendRequest('/api/supabase/storage/document-url', {
-      method: 'POST',
-      body: JSON.stringify({ path }),
-    });
-    if (!result?.success || !result.signedUrl) throw new Error(result?.error || 'Unable to open this private document.');
-    return result.signedUrl;
+  getPrivateDocumentUrl: async (documentId) => {
+    const result = await backendRequest(`/api/documents/${encodeURIComponent(documentId)}/url`);
+    if (!result?.success || !result.url) throw new Error(result?.message || 'Unable to open this private document.');
+    return result.url;
   },
 
-  uploadPrivateDocument: async ({ path, file, contentType }) => {
-    const result = await backendRequest('/api/supabase/storage/upload-base64', {
+  uploadPrivateDocument: async ({ file, contentType, title, category }) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    if (title) formData.append('title', title);
+    if (category) formData.append('category', category);
+    const result = await backendRequest('/api/documents', {
       method: 'POST',
-      body: JSON.stringify({ path, file, contentType }),
+      body: formData,
     });
-    if (!result?.success || result.storageType !== 'supabase_private') {
-      throw new Error(result?.error || 'Supabase could not store this private document.');
+    if (!result?.success || !result.path) {
+      throw new Error(result?.message || result?.error || 'Supabase could not store this private document.');
     }
     return result;
   },
