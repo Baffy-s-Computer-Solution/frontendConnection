@@ -186,7 +186,7 @@ const ViewApplication = () => {
           },
           {
             label: "Fees",
-            value: application.fees ? `$${application.fees}` : "Not specified",
+            value: application.fees ? `LSL ${Number(application.fees).toLocaleString('en-LS')}` : "Not specified",
           },
         ];
 

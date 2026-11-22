@@ -67,7 +67,7 @@ const ROLE_NAVIGATION = {
     { label: "Analytics", path: ROUTES.STUDENT.ANALYTICS, icon: FaChartLine },
     { label: "Job matches", path: ROUTES.STUDENT.JOB_MATCHES, icon: FaChartLine },
     { label: "Performance", path: ROUTES.STUDENT.PERFORMANCE, icon: FaChartLine },
-    { label: "Settings", path: ROUTES.SETTINGS, icon: FaCog },
+    { label: "Settings", path: ROUTES.STUDENT.SETTINGS, icon: FaCog },
   ],
   company: [
     { label: "Dashboard", path: ROUTES.COMPANY.DASHBOARD, icon: FaHome },

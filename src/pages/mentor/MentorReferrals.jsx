@@ -752,6 +752,7 @@ const StatusBadge = ({ status }) => {
 // Main Component
 const MentorReferrals = () => {
   const { currentUser, userProfile } = useAuth();
+  const userId = currentUser?.uid;
   const { showNotification } = useNotification();
   const [activeTab, setActiveTab] = useState("overview");
   const [filters, setFilters] = useState({

@@ -15,7 +15,7 @@ const jobTypeClasses = {
   remote: 'bg-violet-100 text-violet-700 dark:bg-violet-500/10 dark:text-violet-200',
 };
 
-const formatSalary = (min, max, currency = 'USD') => {
+const formatSalary = (min, max, currency = 'LSL') => {
   if (!min && !max) return 'Negotiable';
   if (!max) return `${currency} ${min?.toLocaleString() || '0'}+`;
   return `${currency} ${(min || 0).toLocaleString()} - ${(max || 0).toLocaleString()}`;

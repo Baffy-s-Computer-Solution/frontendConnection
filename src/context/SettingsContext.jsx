@@ -112,7 +112,7 @@ const initialState = {
     dateFormat: 'MM/DD/YYYY',
     timeFormat: '12h',
     firstDayOfWeek: 'monday',
-    currency: 'USD',
+    currency: 'LSL',
     measurementUnit: 'metric',
   },
   accessibility: {
@@ -124,7 +124,7 @@ const initialState = {
     lineHeight: 'normal',
   },
   billing: {
-    currency: 'USD',
+    currency: 'LSL',
     taxRate: 0,
     invoiceEmail: '',
     paymentMethods: [],

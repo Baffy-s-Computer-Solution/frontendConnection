@@ -1,0 +1,108 @@
+html.dark .mentor-reviews-page {
+  background-color: #020617;
+  color: #e2e8f0;
+}
+
+html.dark .mentor-reviews-page .bg-white {
+  background-color: #0f172a !important;
+}
+
+html.dark .mentor-reviews-page .bg-gray-50 {
+  background-color: #020617 !important;
+}
+
+html.dark .mentor-reviews-page .bg-gray-100 {
+  background-color: #1e293b !important;
+}
+
+html.dark .mentor-reviews-page .bg-gray-200 {
+  background-color: #334155 !important;
+}
+
+html.dark .mentor-reviews-page .bg-indigo-50 {
+  background-color: #1e1b4b !important;
+}
+
+html.dark .mentor-reviews-page .bg-yellow-100 {
+  background-color: #422006 !important;
+}
+
+html.dark .mentor-reviews-page .bg-red-50 {
+  background-color: #450a0a !important;
+}
+
+html.dark .mentor-reviews-page .from-yellow-50.to-orange-50 {
+  background-image: linear-gradient(135deg, #422006, #431407) !important;
+}
+
+html.dark .mentor-reviews-page .text-gray-900 {
+  color: #f1f5f9 !important;
+}
+
+html.dark .mentor-reviews-page .text-gray-800,
+html.dark .mentor-reviews-page .text-gray-700 {
+  color: #cbd5e1 !important;
+}
+
+html.dark .mentor-reviews-page .text-gray-600,
+html.dark .mentor-reviews-page .text-gray-500 {
+  color: #94a3b8 !important;
+}
+
+html.dark .mentor-reviews-page .text-gray-400 {
+  color: #94a3b8 !important;
+}
+
+html.dark .mentor-reviews-page .text-gray-300 {
+  color: #64748b !important;
+}
+
+html.dark .mentor-reviews-page .text-indigo-700 {
+  color: #c7d2fe !important;
+}
+
+html.dark .mentor-reviews-page .text-indigo-600 {
+  color: #a5b4fc !important;
+}
+
+html.dark .mentor-reviews-page .border-gray-200,
+html.dark .mentor-reviews-page .border-gray-300 {
+  border-color: #334155 !important;
+}
+
+html.dark .mentor-reviews-page .border-indigo-200 {
+  border-color: #3730a3 !important;
+}
+
+html.dark .mentor-reviews-page .border-yellow-200 {
+  border-color: #854d0e !important;
+}
+
+html.dark .mentor-reviews-page input,
+html.dark .mentor-reviews-page select,
+html.dark .mentor-reviews-page textarea {
+  color: #f1f5f9;
+  background-color: #0f172a;
+  border-color: #475569;
+}
+
+html.dark .mentor-reviews-page input::placeholder,
+html.dark .mentor-reviews-page textarea::placeholder {
+  color: #94a3b8;
+}
+
+html.dark .mentor-reviews-page .hover\:bg-gray-100:hover {
+  background-color: #1e293b !important;
+}
+
+html.dark .mentor-reviews-page .hover\:bg-gray-50:hover {
+  background-color: #1e293b !important;
+}
+
+html.dark .mentor-reviews-page .hover\:bg-gray-200:hover {
+  background-color: #334155 !important;
+}
+
+html.dark .mentor-reviews-page .hover\:text-indigo-600:hover {
+  color: #c7d2fe !important;
+}

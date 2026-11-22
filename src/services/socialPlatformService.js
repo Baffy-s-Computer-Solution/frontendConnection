@@ -1,7 +1,5 @@
 import {
   addDoc,
-  arrayRemove,
-  arrayUnion,
   auth,
   collection,
   deleteDoc,
@@ -9,10 +7,8 @@ import {
   doc,
   getDoc,
   getDocs,
-  increment,
   limit,
   onSnapshot,
-  orderBy,
   query,
   setDoc,
   Timestamp,
@@ -23,7 +19,6 @@ import {
 import { cloudinaryService } from './cloudinaryService';
 import { apiRequest } from './apiClient';
 
-const SOCIAL_COLLECTION = 'social_posts';
 
 const PROFILE_COLLECTIONS = {
   admin: 'admins',
@@ -144,15 +139,10 @@ const shapePost = (id, postData, userId) => ({
   likeCount: postData.likeCount ?? (postData.likedBy || []).length ?? 0,
   commentCount: postData.commentCount ?? (postData.comments || []).length ?? 0,
   shareCount: postData.shareCount ?? 0,
-  hasLiked: (postData.likedBy || []).includes(userId),
+  hasLiked: typeof postData.hasLiked === 'boolean'
+    ? postData.hasLiked
+    : (postData.likedBy || []).includes(userId),
 });
-
-const isSuperAdminProfile = (profile) => profile?.isSuperAdmin === true
-  || profile?.adminLevel === 'super_admin'
-  || profile?.role === 'super_admin'
-  || profile?.userRole === 'super_admin';
-
-const canViewPost = (post, userId, connectedIds = new Set(), superAdmin = false) => superAdmin || !post.visibility || post.visibility === 'public' || post.authorId === userId || (['friends', 'connections'].includes(post.visibility) && connectedIds.has(post.authorId));
 
 const getConnectedIds = async (userId) => {
   const snapshot = await getDocs(query(collection(db, 'social_connections'), where('userIds', 'array-contains', userId), limit(500)));
@@ -170,75 +160,19 @@ const getBlockedIds = async (userId) => {
   ].filter(Boolean));
 };
 
-const canAccessPost = async (post, userId, superAdmin = false) => {
-  if (superAdmin) return true;
-  if (!post || post.authorId === userId || !post.visibility || post.visibility === 'public') return true;
-  if (!['friends', 'connections'].includes(post.visibility)) return false;
-  return (await getConnectedIds(userId)).has(post.authorId);
-};
-
 export const socialPlatformService = {
   async getFeed(userProfile, pageSize = 12) {
     const currentUser = auth.currentUser;
     if (!currentUser) return { success: false, data: [], error: 'Sign in to view the community feed.' };
 
     try {
-      const postsRef = collection(db, SOCIAL_COLLECTION);
-      if (isSuperAdminProfile(userProfile)) {
-        const snapshot = await getDocs(query(postsRef, orderBy('createdAt', 'desc'), limit(pageSize)));
-        return { success: true, data: snapshot.docs.map((entry) => shapePost(entry.id, entry.data(), currentUser.uid)) };
-      }
-      const warnings = [];
-      const ownResult = await getDocs(query(postsRef, where('authorId', '==', currentUser.uid), limit(pageSize)))
-        .then((snapshot) => ({ status: 'fulfilled', value: snapshot }))
-        .catch((error) => { warnings.push('Your own posts could not be loaded.'); console.error('Own social posts query failed:', error); return { status: 'rejected' }; });
-      const [connectionsResult, blocksResult] = await Promise.allSettled([
-        getConnectedIds(currentUser.uid),
-        getBlockedIds(currentUser.uid),
-      ]);
-      const connectedIds = connectionsResult.status === 'fulfilled' ? connectionsResult.value : new Set();
-      const blockedIds = blocksResult.status === 'fulfilled' ? blocksResult.value : new Set();
-      if (connectionsResult.status === 'rejected') {
-        warnings.push('Connection-only posts are temporarily unavailable.');
-        console.error('Social connections feed lookup failed:', connectionsResult.reason);
-      }
-      if (blocksResult.status === 'rejected') {
-        warnings.push('Public posts are hidden until block settings can be checked.');
-        console.error('Social block feed lookup failed:', blocksResult.reason);
-      }
-
-      let publicDocs = [];
-      if (blocksResult.status === 'fulfilled' && blockedIds.size <= 10) {
-        try {
-          const publicSnapshot = await getDocs(query(postsRef, where('visibility', '==', 'public'), ...(blockedIds.size ? [where('authorId', 'not-in', [...blockedIds])] : []), limit(pageSize)));
-          publicDocs = publicSnapshot.docs;
-        } catch (error) {
-          warnings.push('Public posts are temporarily unavailable.');
-          console.error('Public social posts query failed:', error);
-        }
-      }
-      const connectedList = [...connectedIds].filter((friendId) => !blockedIds.has(friendId)).slice(0, 20);
-      const friendResults = connectionsResult.status === 'fulfilled' && blocksResult.status === 'fulfilled'
-        ? await Promise.allSettled(connectedList.map((friendId) => getDocs(query(postsRef, where('authorId', '==', friendId), where('visibility', 'in', ['friends', 'connections']), limit(pageSize)))))
-        : [];
-      if (friendResults.some((result) => result.status === 'rejected')) {
-        const failures = friendResults.filter((result) => result.status === 'rejected');
-        const hasPermissionDenial = failures.some((result) => result.reason?.code === 'permission-denied');
-        warnings.push(hasPermissionDenial
-          ? 'Some connection-only posts could not be loaded because their sharing permissions do not allow access.'
-          : 'Some connection posts could not be loaded.');
-        failures
-          .filter((result) => result.reason?.code !== 'permission-denied')
-          .forEach((result) => console.error('Connection-only social posts query failed:', result.reason));
-      }
-      const entries = [...publicDocs, ...(ownResult.value?.docs || []), ...friendResults.filter((result) => result.status === 'fulfilled').flatMap((result) => result.value.docs)];
-      const posts = [...new Map(entries.map((entry) => [entry.id, shapePost(entry.id, entry.data(), currentUser.uid)])).values()]
-        .filter((post) => canViewPost(post, currentUser.uid, connectedIds))
-        .sort((left, right) => new Date(right.createdAt) - new Date(left.createdAt))
-        .slice(0, pageSize);
-      return { success: true, data: posts, warning: warnings[0] || '' };
+      const data = await apiRequest(`/api/social/feed?limit=${encodeURIComponent(Math.min(Math.max(Number(pageSize) || 12, 1), 50))}`);
+      return {
+        success: true,
+        data: Array.isArray(data) ? data.map((post) => shapePost(post.id, post, currentUser.uid)) : [],
+      };
     } catch (error) {
-      console.error('Unable to load social feed from Firestore:', error);
+      console.error('Unable to load social feed:', error);
       return { success: false, data: [], error: error.message };
     }
   },
@@ -249,82 +183,21 @@ export const socialPlatformService = {
       onError?.(new Error('Sign in to view the community feed.'));
       return () => {};
     }
-    const postsRef = collection(db, SOCIAL_COLLECTION);
-    if (isSuperAdminProfile(userProfile)) {
-      return onSnapshot(query(postsRef, orderBy('createdAt', 'desc'), limit(pageSize)), (snapshot) => {
-        onData(snapshot.docs.map((entry) => shapePost(entry.id, entry.data(), currentUser.uid)));
-      }, onError);
-    }
-    const snapshots = new Map();
-    const connectedStops = new Map();
-    const deniedFriendIds = new Set();
-    let reportedPermissionIssue = false;
-    let publicStop = null;
-    let friendIds = new Set();
-    let blockedIds = new Set();
-    const blockSnapshots = { blocking: [], blockedBy: [] };
-    const blockReady = { blocking: false, blockedBy: false };
-    const refreshPublicFeed = () => {
-      publicStop?.();
-      snapshots.delete('public');
-      if (!blockReady.blocking || !blockReady.blockedBy) return;
-      if (blockedIds.size > 10) { emit(); return; }
-      const publicQuery = query(postsRef, where('visibility', '==', 'public'), ...(blockedIds.size ? [where('authorId', 'not-in', [...blockedIds])] : []), limit(pageSize));
-      publicStop = onSnapshot(publicQuery, (snapshot) => { snapshots.set('public', snapshot); emit(); }, (error) => { console.error('Public social posts subscription failed:', error); onError?.(error); });
+    let stopped = false;
+    let timerId;
+    let requestInProgress = false;
+    const refresh = async () => {
+      if (stopped || requestInProgress) return;
+      requestInProgress = true;
+      const result = await this.getFeed(userProfile, pageSize);
+      requestInProgress = false;
+      if (stopped) return;
+      if (result.success) onData(result.data);
+      else onError?.(new Error(result.error || 'Unable to load the community feed.'));
     };
-    const refreshFriendFeeds = () => {
-      connectedStops.forEach((stop) => stop());
-      connectedStops.clear();
-      if (!blockReady.blocking || !blockReady.blockedBy) { emit(); return; }
-      [...friendIds].filter((friendId) => !blockedIds.has(friendId) && !deniedFriendIds.has(friendId)).slice(0, 20).forEach((friendId) => {
-        connectedStops.set(friendId, onSnapshot(
-          query(postsRef, where('authorId', '==', friendId), where('visibility', 'in', ['friends', 'connections']), limit(pageSize)),
-          (friendSnapshot) => { snapshots.set(`friend:${friendId}`, friendSnapshot); emit(); },
-          (error) => {
-            connectedStops.get(friendId)?.();
-            connectedStops.delete(friendId);
-            snapshots.delete(`friend:${friendId}`);
-            if (error?.code === 'permission-denied') {
-              deniedFriendIds.add(friendId);
-              emit();
-              if (!reportedPermissionIssue) {
-                reportedPermissionIssue = true;
-                onError?.(new Error('Some connection-only posts are unavailable because their sharing permissions do not allow access.'));
-              }
-              return;
-            }
-            onError?.(error);
-          }
-        ));
-      });
-      emit();
-    };
-    const refreshBlockedIds = () => {
-      blockedIds = new Set([
-        ...blockSnapshots.blocking.map((entry) => entry.blockedId),
-        ...blockSnapshots.blockedBy.map((entry) => entry.blockerId),
-      ].filter(Boolean));
-      refreshPublicFeed();
-      refreshFriendFeeds();
-    };
-    const emit = () => {
-      const entries = [...new Map([...snapshots.values()].flatMap((snapshot) => snapshot.docs).map((entry) => [entry.id, entry])).values()];
-      onData(entries.map((entry) => shapePost(entry.id, entry.data(), currentUser.uid))
-        .filter((post) => canViewPost(post, currentUser.uid, friendIds))
-        .sort((left, right) => new Date(right.createdAt) - new Date(left.createdAt))
-        .slice(0, pageSize));
-    };
-    const stops = [
-      onSnapshot(query(postsRef, where('authorId', '==', currentUser.uid), limit(pageSize)), (snapshot) => { snapshots.set('own', snapshot); emit(); }, (error) => { console.error('Owned social posts subscription failed:', error); onError?.(error); }),
-      onSnapshot(query(collection(db, 'social_blocks'), where('blockerId', '==', currentUser.uid), limit(100)), (snapshot) => { blockSnapshots.blocking = snapshot.docs.map((entry) => entry.data()); blockReady.blocking = true; refreshBlockedIds(); }, (error) => { console.error('Outgoing social blocks subscription failed:', error); onError?.(error); }),
-      onSnapshot(query(collection(db, 'social_blocks'), where('blockedId', '==', currentUser.uid), limit(100)), (snapshot) => { blockSnapshots.blockedBy = snapshot.docs.map((entry) => entry.data()); blockReady.blockedBy = true; refreshBlockedIds(); }, (error) => { console.error('Incoming social blocks subscription failed:', error); onError?.(error); }),
-      onSnapshot(query(collection(db, 'social_connections'), where('userIds', 'array-contains', currentUser.uid), limit(500)), (snapshot) => {
-        friendIds = new Set(snapshot.docs.flatMap((entry) => entry.data().userIds || []).filter((id) => id !== currentUser.uid));
-        refreshFriendFeeds();
-      }, (error) => { console.error('Social connections feed subscription failed:', error); onError?.(error); }),
-    ];
-    refreshPublicFeed();
-    return () => { stops.forEach((stop) => stop()); publicStop?.(); connectedStops.forEach((stop) => stop()); };
+    refresh();
+    timerId = setInterval(refresh, 30000);
+    return () => { stopped = true; clearInterval(timerId); };
   },
 
   subscribeToNetwork(userId, onData, onError) {

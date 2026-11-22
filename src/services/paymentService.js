@@ -162,7 +162,7 @@ class PaymentService {
 
   // ==================== PAYPAL INTEGRATION ====================
 
-  async createPayPalOrder(amount, currency = 'USD', metadata = {}) {
+  async createPayPalOrder(amount, currency = 'LSL', metadata = {}) {
     try {
       const response = await axios.post(
         `${this.baseURL}/api/payments/paypal/create-order`,
@@ -305,7 +305,7 @@ class PaymentService {
       const walletData = {
         userId,
         balance: 0,
-        currency: 'USD',
+        currency: 'LSL',
         status: 'active',
         transactions: [],
         createdAt: Timestamp.now(),
@@ -335,7 +335,7 @@ class PaymentService {
 
       // Create wallet if it doesn't exist
       await this.createWallet(userId);
-      return { success: true, balance: 0, currency: 'USD' };
+      return { success: true, balance: 0, currency: 'LSL' };
     } catch (error) {
       console.error('Error getting wallet balance:', error);
       throw error;
@@ -964,8 +964,8 @@ class PaymentService {
 
   // ==================== UTILITY METHODS ====================
 
-  formatAmount(amount, currency = 'USD') {
-    return new Intl.NumberFormat('en-US', {
+  formatAmount(amount, currency = 'LSL') {
+    return new Intl.NumberFormat('en-LS', {
       style: 'currency',
       currency,
     }).format(amount);

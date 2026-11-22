@@ -83,9 +83,8 @@ const DEPARTMENTS = [
 ];
 
 const CURRENCIES = [
-  { value: 'M', label: 'Maloti (M)' },
+  { value: 'LSL', label: 'Maloti (LSL)' },
   { value: 'ZAR', label: 'South African Rand (R)' },
-  { value: 'USD', label: 'US Dollar ($)' },
   { value: 'EUR', label: 'Euro (€)' },
   { value: 'GBP', label: 'British Pound (£)' },
 ];
@@ -541,7 +540,7 @@ const JobFormModal = ({
     experience: 'entry',
     salary: '',
     salaryType: 'monthly',
-    currency: 'M',
+    currency: 'LSL',
     salaryNegotiable: false,
     remote: false,
     hybrid: false,
@@ -569,7 +568,7 @@ const JobFormModal = ({
         experience: job.experience || 'entry',
         salary: job.salary || '',
         salaryType: job.salaryType || 'monthly',
-        currency: job.currency || 'M',
+        currency: job.currency || 'LSL',
         salaryNegotiable: job.salaryNegotiable || false,
         remote: job.remote || false,
         hybrid: job.hybrid || false,

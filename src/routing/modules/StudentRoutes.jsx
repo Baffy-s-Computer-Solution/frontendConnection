@@ -66,6 +66,16 @@ export const getStudentRoutes = () => {
     />,
 
     <Route
+      key="student-settings-page"
+      path="/student/settings"
+      element={
+        <ProtectedRoute allowedUserTypes={['student']}>
+          <StudentSettings />
+        </ProtectedRoute>
+      }
+    />,
+
+    <Route
       key="student-settings"
       path="/settings"
       element={

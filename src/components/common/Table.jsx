@@ -280,9 +280,9 @@ const Table = ({
         return new Date(value).toLocaleDateString();
 
       case 'currency':
-        return new Intl.NumberFormat('en-US', {
+        return new Intl.NumberFormat('en-LS', {
           style: 'currency',
-          currency: 'USD',
+          currency: 'LSL',
         }).format(value);
 
       case 'percentage':

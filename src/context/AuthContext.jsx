@@ -581,7 +581,7 @@ export const AuthProvider = ({ children }) => {
           remote: false,
           salaryMin: null,
           salaryMax: null,
-          currency: 'USD',
+          currency: 'LSL',
           willingToRelocate: false,
         },
         skills: userData.skills || [],
@@ -621,10 +621,6 @@ export const AuthProvider = ({ children }) => {
 
   const createCompanyProfile = useCallback(async (userId, userData) => {
     try {
-      const isGoogleVerified = Boolean(
-        userData.isGoogleAuth || userData.emailVerified || userData.verified
-      );
-
       const companyProfile = {
         uid: userId,
         email: userData.email.toLowerCase(),
@@ -643,10 +639,12 @@ export const AuthProvider = ({ children }) => {
         values: [],
         logo: '',
         coverImage: '',
-        verified: isGoogleVerified,
-        isVerified: isGoogleVerified,
-        verificationStatus: isGoogleVerified ? 'verified' : ACCOUNT_STATUS.PENDING_APPROVAL,
-        status: isGoogleVerified ? ACCOUNT_STATUS.ACTIVE : ACCOUNT_STATUS.PENDING_APPROVAL,
+        // Email verification confirms account access, not legal company identity.
+        // Company verification is reserved for the trusted admin approval flow.
+        verified: false,
+        isVerified: false,
+        verificationStatus: ACCOUNT_STATUS.PENDING_APPROVAL,
+        status: ACCOUNT_STATUS.PENDING_APPROVAL,
         isActive: true,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
@@ -749,7 +747,7 @@ export const AuthProvider = ({ children }) => {
         website: userData.website || '',
         linkedin: userData.linkedin || '',
         hourlyRate: userData.hourlyRate || null,
-        currency: userData.currency || 'USD',
+        currency: userData.currency || 'LSL',
         availability: {
           monday: userData.availability?.monday || [],
           tuesday: userData.availability?.tuesday || [],

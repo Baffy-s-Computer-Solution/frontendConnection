@@ -1,20 +1,22 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import {
-  collection, doc, getDoc, getDocs, addDoc, updateDoc, deleteDoc,
+  collection, doc, getDoc, getDocs, addDoc, updateDoc,
   query, where, orderBy, limit, onSnapshot, serverTimestamp,
-  Timestamp, writeBatch, increment
+  Timestamp, writeBatch, runTransaction
 } from 'firebase/firestore';
 import { db, storage, auth } from '../../config/firebase';
 import { supabase } from '../../config/supabase';
 import { useAuth } from '../../hooks/useAuth';
+import { useTheme } from '../../context/ThemeContext';
+import './MentorReviews.css';
 import {
   Star, MessageSquare, ThumbsUp, ThumbsDown, Award, Trophy, Crown,
   Medal, Flame, Zap, Sparkles, Target, TrendingUp, BarChart3, PieChart,
   Activity, Filter, Search, ChevronLeft, ChevronRight, ChevronDown,
   ChevronUp, MoreVertical, MoreHorizontal, Loader2, AlertCircle,
   CheckCircle, XCircle, Info, HelpCircle, Settings, Bell, RefreshCw,
-  ExternalLink, Reply, Flag, Trash2, Edit3, Copy, Check, X, Send,
+  ExternalLink, Reply, Flag, Edit3, Copy, Check, X, Send,
   User as UserIcon, Users, Calendar, Clock, Video, Briefcase,
   GraduationCap, Building2, Heart, Share2, Bookmark, Eye, EyeOff,
   Download, Upload, FileText, Image as ImageIcon, Link as LinkIcon,
@@ -79,7 +81,7 @@ const renderStars = (rating, size = 'md') => {
 // ============================================================================
 
 const LoadingSpinner = () => (
-  <div className="flex items-center justify-center min-h-screen bg-gray-50">
+  <div className="mentor-reviews-page flex items-center justify-center min-h-screen bg-gray-50">
     <div className="text-center">
       <Loader2 className="w-12 h-12 text-indigo-600 animate-spin mx-auto" />
       <p className="mt-4 text-gray-600 font-medium">Loading reviews...</p>
@@ -150,13 +152,14 @@ const Card = ({ children, className, onClick, hover = false }) => (
 // REVIEW CARD
 // ============================================================================
 
-const ReviewCard = ({ review, onReply, onFlag, onDelete, isOwner }) => {
+const ReviewCard = ({ review, onReply, onFlag, onHelpful, currentUserId, isOwner }) => {
   const [showReplyBox, setShowReplyBox] = useState(false);
   const [replyText, setReplyText] = useState(review.response || '');
   const [submitting, setSubmitting] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
-  const [helpful, setHelpful] = useState(review.helpfulCount || 0);
-  const [markedHelpful, setMarkedHelpful] = useState(false);
+  const [helpfulPending, setHelpfulPending] = useState(false);
+  const markedHelpful = Array.isArray(review.helpfulBy) && review.helpfulBy.includes(currentUserId);
+  const helpful = Number(review.helpfulCount ?? review.helpfulBy?.length ?? 0);
 
   const handleSubmitReply = async () => {
     if (!replyText.trim()) return;
@@ -172,10 +175,16 @@ const ReviewCard = ({ review, onReply, onFlag, onDelete, isOwner }) => {
     }
   };
 
-  const handleHelpful = () => {
-    if (markedHelpful) return;
-    setHelpful((prev) => prev + 1);
-    setMarkedHelpful(true);
+  const handleHelpful = async () => {
+    if (markedHelpful || helpfulPending) return;
+    setHelpfulPending(true);
+    try {
+      await onHelpful(review.id);
+    } catch (error) {
+      toast.error('Could not save your helpful vote. Please try again.');
+    } finally {
+      setHelpfulPending(false);
+    }
   };
 
   return (
@@ -221,12 +230,6 @@ const ReviewCard = ({ review, onReply, onFlag, onDelete, isOwner }) => {
                         >
                           <Flag className="w-4 h-4 mr-2" /> Flag Review
                         </button>
-                        <button
-                          onClick={() => { onDelete(review.id); setShowMenu(false); }}
-                          className="w-full flex items-center px-3 py-2 text-sm text-red-600 hover:bg-red-50"
-                        >
-                          <Trash2 className="w-4 h-4 mr-2" /> Delete
-                        </button>
                       </motion.div>
                     )}
                   </AnimatePresence>
@@ -267,7 +270,7 @@ const ReviewCard = ({ review, onReply, onFlag, onDelete, isOwner }) => {
             <div className="mt-4 flex items-center space-x-4">
               <button
                 onClick={handleHelpful}
-                disabled={markedHelpful}
+                disabled={markedHelpful || helpfulPending}
                 className={cn(
                   'flex items-center space-x-1.5 text-sm font-medium transition-colors',
                   markedHelpful ? 'text-indigo-600' : 'text-gray-500 hover:text-indigo-600'
@@ -333,20 +336,29 @@ const ReviewCard = ({ review, onReply, onFlag, onDelete, isOwner }) => {
 
 const MentorReviews = () => {
   const { user, loading: authLoading } = useAuth();
+  const { isDark } = useTheme();
   const navigate = useNavigate();
   const [reviews, setReviews] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
   const [activeTab, setActiveTab] = useState('all');
   const [ratingFilter, setRatingFilter] = useState('all');
   const [sortBy, setSortBy] = useState('recent');
   const [searchTerm, setSearchTerm] = useState('');
-  const [responseFilter, setResponseFilter] = useState('all');
-
   const mentorId = user?.uid;
 
   // Fetch reviews
   useEffect(() => {
-    if (!mentorId) return;
+    if (authLoading) return undefined;
+    if (!mentorId) {
+      setReviews([]);
+      setLoadError('Sign in with a mentor account to view reviews.');
+      setLoading(false);
+      return undefined;
+    }
+
+    setLoading(true);
+    setLoadError('');
 
     const q = query(
       collection(db, 'mentorReviews'),
@@ -364,11 +376,12 @@ const MentorReviews = () => {
       setLoading(false);
     }, (error) => {
       console.error('Reviews error:', error);
+      setLoadError('Reviews could not be loaded from your account. Please refresh and try again.');
       setLoading(false);
     });
 
     return () => unsub();
-  }, [mentorId]);
+  }, [authLoading, mentorId]);
 
   // Stats
   const stats = useMemo(() => {
@@ -517,19 +530,22 @@ const MentorReviews = () => {
     }
   }, [mentorId]);
 
-  const handleDelete = useCallback(async (reviewId) => {
-    if (!window.confirm('Are you sure you want to delete this review?')) return;
-    try {
-      await deleteDoc(doc(db, 'mentorReviews', reviewId));
-      try {
-        await supabase.from('mentor_reviews').delete().eq('firebase_id', reviewId);
-      } catch (e) { console.warn('Supabase delete sync failed:', e); }
-      toast.success('Review deleted');
-    } catch (error) {
-      console.error('Delete error:', error);
-      toast.error('Failed to delete review');
-    }
-  }, []);
+  const handleHelpful = useCallback(async (reviewId) => {
+    if (!mentorId) throw new Error('A signed-in mentor account is required.');
+    const reviewRef = doc(db, 'mentorReviews', reviewId);
+    await runTransaction(db, async (transaction) => {
+      const snapshot = await transaction.get(reviewRef);
+      if (!snapshot.exists()) throw new Error('This review is no longer available.');
+      const review = snapshot.data();
+      const helpfulBy = Array.isArray(review.helpfulBy) ? review.helpfulBy : [];
+      if (helpfulBy.includes(mentorId)) return;
+      const helpfulCount = Number(review.helpfulCount ?? helpfulBy.length);
+      transaction.update(reviewRef, {
+        helpfulBy: [...helpfulBy, mentorId],
+        helpfulCount: helpfulCount + 1,
+      });
+    });
+  }, [mentorId]);
 
   if (authLoading || loading) return <LoadingSpinner />;
   if (!user) { navigate('/login'); return null; }
@@ -549,7 +565,7 @@ const MentorReviews = () => {
   ].filter((d) => d.value > 0);
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="mentor-reviews-page min-h-screen bg-gray-50">
       {/* Header */}
       <header className="bg-white border-b border-gray-200 sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -674,12 +690,18 @@ const MentorReviews = () => {
                       <stop offset="95%" stopColor="#fbbf24" stopOpacity={0} />
                     </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                  <XAxis dataKey="name" tick={{ fontSize: 12 }} />
-                  <YAxis domain={[0, 5]} tick={{ fontSize: 12 }} />
+                  <CartesianGrid strokeDasharray="3 3" stroke={isDark ? '#334155' : '#f0f0f0'} />
+                  <XAxis dataKey="name" tick={{ fontSize: 12, fill: isDark ? '#cbd5e1' : '#6b7280' }} />
+                  <YAxis domain={[0, 5]} tick={{ fontSize: 12, fill: isDark ? '#cbd5e1' : '#6b7280' }} />
                   <Tooltip
                     formatter={(value, name) => [name === 'rating' ? `${value} ⭐` : value, name === 'rating' ? 'Avg Rating' : 'Reviews']}
-                    contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }}
+                    contentStyle={{
+                      borderRadius: '8px',
+                      border: `1px solid ${isDark ? '#334155' : '#e5e7eb'}`,
+                      backgroundColor: isDark ? '#0f172a' : '#ffffff',
+                      color: isDark ? '#f1f5f9' : '#111827',
+                      boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)',
+                    }}
                   />
                   <Area
                     type="monotone"
@@ -772,7 +794,14 @@ const MentorReviews = () => {
         </Card>
 
         {/* Reviews List */}
-        {filteredReviews.length === 0 ? (
+        {loadError ? (
+          <Card className="p-6" role="alert">
+            <div className="flex items-start gap-3 text-red-700 dark:text-red-300">
+              <AlertCircle className="mt-0.5 h-5 w-5 shrink-0" />
+              <p>{loadError}</p>
+            </div>
+          </Card>
+        ) : filteredReviews.length === 0 ? (
           <Card className="p-12">
             <div className="text-center">
               <Star className="w-16 h-16 text-gray-300 mx-auto" />
@@ -794,7 +823,8 @@ const MentorReviews = () => {
                 review={review}
                 onReply={handleReply}
                 onFlag={handleFlag}
-                onDelete={handleDelete}
+                onHelpful={handleHelpful}
+                currentUserId={mentorId}
                 isOwner={true}
               />
             ))}

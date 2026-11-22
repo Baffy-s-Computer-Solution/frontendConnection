@@ -57,6 +57,7 @@ export const ROUTES = {
   // Student Routes
   STUDENT: {
     BASE: '/student',
+    SETTINGS: '/student/settings',
     ASSESSMENTS: '/student/assessments',
     DASHBOARD: '/student/dashboard',
     PROFILE: '/student/profile',

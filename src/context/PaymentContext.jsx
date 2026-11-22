@@ -65,7 +65,7 @@ const initialState = {
   userPaymentMethods: [], // RENAMED to avoid duplicate key
   wallet: {
     balance: 0,
-    currency: 'USD',
+    currency: 'LSL',
     transactions: [],
   },
   analytics: {

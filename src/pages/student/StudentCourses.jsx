@@ -206,6 +206,7 @@ const StudentCourses = () => {
   );
 };
 
-export default StudentCourses;
+// Keep the legacy import path connected to the live Firestore-backed page.
+export { default } from './StudentCoursesLive';
 
 

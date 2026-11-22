@@ -361,9 +361,9 @@ const MentorDashboardPro = () => {
 
   // Format currency
   const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('en-US', {
+    return new Intl.NumberFormat('en-LS', {
       style: 'currency',
-      currency: 'USD',
+      currency: 'LSL',
       minimumFractionDigits: 2,
     }).format(amount);
   };

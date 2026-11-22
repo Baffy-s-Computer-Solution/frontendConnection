@@ -58,9 +58,8 @@ const DEPARTMENTS = [
 ];
 
 const CURRENCIES = [
-  { value: 'M', label: 'Maloti (M)' },
+  { value: 'LSL', label: 'Maloti (LSL)' },
   { value: 'ZAR', label: 'Rand (R)' },
-  { value: 'USD', label: 'US Dollar ($)' },
   { value: 'EUR', label: 'Euro (€)' },
   { value: 'GBP', label: 'Pound (£)' },
 ];
@@ -1028,7 +1027,7 @@ const CreateNewJob = () => {
     qualifications: '',
     salary: '',
     salaryType: 'monthly',
-    currency: 'M',
+    currency: 'LSL',
     salaryNegotiable: false,
     deadline: '',
 

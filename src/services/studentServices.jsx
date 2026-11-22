@@ -35,6 +35,17 @@ const COLLECTIONS = {
   USERS: 'users',
 };
 
+const STUDENT_PROFILE_PROTECTED_FIELDS = new Set([
+  'uid', 'email', 'userType', 'role', 'userRole', 'user_role', 'user_type',
+  'isAdmin', 'isSuperAdmin', 'superAdmin', 'adminLevel', 'isVerified', 'verified',
+  'isActive', 'status', 'approvalStatus', 'accountStatus', 'approvedAt', 'approvedBy',
+  'createdAt', 'updatedAt', 'profileCompletion',
+]);
+
+const getStudentProfileFields = (data = {}) => Object.fromEntries(
+  Object.entries(data).filter(([field]) => !STUDENT_PROFILE_PROTECTED_FIELDS.has(field))
+);
+
 // ==================== HELPER FUNCTIONS ====================
 
 const safeDateConvert = (firebaseDate) => {
@@ -158,9 +169,15 @@ const checkJobQualification = (student, job) => {
     if (!hasRequiredSkills) return false;
   }
 
-  // Check experience
-  if (job.requirements?.minExperience && student.experience) {
-    if (student.experience < job.requirements.minExperience) return false;
+  // `experience` is now the profile's work-history array. Keep numeric years
+  // matching on the dedicated legacy/year fields instead of coercing that array.
+  const experienceYears = Number(
+    student.yearsOfExperience
+    ?? student.experienceYears
+    ?? (typeof student.experience === 'number' ? student.experience : 0)
+  );
+  if (job.requirements?.minExperience && experienceYears < Number(job.requirements.minExperience)) {
+    return false;
   }
 
   return true;
@@ -179,6 +196,7 @@ export const initializeStudentProfile = async (userId, userData = {}) => {
 
     if (!studentSnap.exists()) {
       const studentData = {
+        ...getStudentProfileFields(userData),
         uid: userId,
         email: userData.email || '',
         fullName: userData.fullName || userData.displayName || '',
@@ -199,8 +217,8 @@ export const initializeStudentProfile = async (userId, userData = {}) => {
           locations: [],
           minSalary: null,
         },
-        skills: [],
-        experience: 0,
+        skills: Array.isArray(userData.skills) ? userData.skills : [],
+        experience: Array.isArray(userData.experience) ? userData.experience : 0,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
         status: 'active',

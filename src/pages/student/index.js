@@ -9,7 +9,7 @@ export { default as StudentAnalytics } from './analytics/StudentAnalytics';
 export { default as Applications } from './Applications';
 export { default as ApplyJob } from './ApplyJob';
 export { default as Calendar } from './Calendar';
-export { default as Courses } from './Courses';
+export { default as Courses } from './StudentCoursesLive';
 export { default as Deadlines } from './Deadlines';
 export { default as Documents } from './Documents';
 export { default as DocumentsUpload } from './StudentDocuments';

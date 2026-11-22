@@ -1,48 +1,8 @@
 import { Container, Row, Col, Card, Button, Form, InputGroup } from '../../components/ui/tailwindCompat';
 
 const Courses = () => {
-  const allCourses = [
-    {
-      id: 1,
-      title: 'Web Development Bootcamp',
-      institution: 'Online Tech Academy',
-      duration: '12 weeks',
-      level: 'Beginner',
-      price: '$299',
-      rating: 4.8,
-      enrolled: 1250,
-    },
-    {
-      id: 2,
-      title: 'Data Science Fundamentals',
-      institution: 'Coursera',
-      duration: '8 weeks',
-      level: 'Intermediate',
-      price: '$199',
-      rating: 4.5,
-      enrolled: 890,
-    },
-    {
-      id: 3,
-      title: 'Mobile App Development',
-      institution: 'Udemy',
-      duration: '10 weeks',
-      level: 'Intermediate',
-      price: '$249',
-      rating: 4.7,
-      enrolled: 2100,
-    },
-    {
-      id: 4,
-      title: 'Digital Marketing',
-      institution: 'Google Digital Garage',
-      duration: '6 weeks',
-      level: 'Beginner',
-      price: 'Free',
-      rating: 4.3,
-      enrolled: 5000,
-    },
-  ];
+  // The routed student catalog uses StudentCoursesLive, backed by Firestore.
+  const allCourses = [];
 
   return (
     <Container className="py-4">
@@ -140,7 +100,7 @@ const Courses = () => {
   );
 };
 
-export default Courses;
+export { default } from './StudentCoursesLive';
 
 
 

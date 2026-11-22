@@ -34,8 +34,13 @@ vi.mock('../../pages/student/StudentDocumentUpload', () => ({ default: () => <di
 vi.mock('../../pages/student/SearchJobs', () => ({ default: () => <div>search-jobs</div> }));
 vi.mock('../../pages/student/SearchInternships', () => ({ default: () => <div>search-internships</div> }));
 vi.mock('../../pages/student/StudentCourses', () => ({ default: () => <div>student-courses</div> }));
+vi.mock('../../pages/student/StudentJobs', () => ({ default: () => <div>student-jobs</div> }));
+vi.mock('../../pages/student/StudentCoursesLive', () => ({ default: () => <div>student-courses-live</div> }));
+vi.mock('../../pages/FriendsNetwork', () => ({ default: () => <div>friends-network</div> }));
+vi.mock('../../pages/student/StudentAssessments', () => ({ default: () => <div>student-assessments</div> }));
 
 import { getStudentRoutes } from './StudentRoutes';
+import StudentSettings from '../../pages/student/StudentSettings';
 
 describe('Student routes', () => {
   it('includes a root student redirect to the dashboard', () => {
@@ -43,5 +48,14 @@ describe('Student routes', () => {
     expect(routes.some((route) => route.props?.path === '/student')).toBe(true);
     const rootRoute = routes.find((route) => route.props?.path === '/student');
     expect(rootRoute.props.element.props.children.props.to).toBe('/student/dashboard');
+  });
+
+  it('opens student settings on its own student route', () => {
+    const routes = getStudentRoutes();
+    const settingsRoute = routes.find((route) => route.props?.path === '/student/settings');
+
+    expect(settingsRoute).toBeDefined();
+    expect(settingsRoute.props.element.props.allowedUserTypes).toEqual(['student']);
+    expect(settingsRoute.props.element.props.children.type).toBe(StudentSettings);
   });
 });

@@ -388,7 +388,7 @@ export const Scholarship = {
   provider: '',
   description: '',
   amount: 0,
-  currency: 'USD',
+  currency: 'LSL',
 
   // Eligibility
   eligibilityCriteria: [],
@@ -452,7 +452,7 @@ export const Internship = {
   // Compensation
   paid: false,
   salary: null,
-  currency: 'USD',
+  currency: 'LSL',
 
   // Requirements
   requirements: [],
