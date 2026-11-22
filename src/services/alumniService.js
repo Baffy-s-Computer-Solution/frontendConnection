@@ -315,10 +315,12 @@ export const alumniService = {
     if (!uid) return { success: false, error: 'Not authenticated' };
     try {
       let coverImage = '';
+      let coverImagePath = '';
       if (typeof File !== 'undefined' && payload.coverImage instanceof File) {
         const uploaded = await uploadAlumniImage(payload.coverImage, uid, 'stories');
         if (!uploaded.success) return uploaded;
         coverImage = uploaded.data.url;
+        coverImagePath = uploaded.data.path;
       }
       const user = auth.currentUser;
       const profile = await getDoc(doc(db, 'alumni', uid));
@@ -326,7 +328,7 @@ export const alumniService = {
       const record = {
         title: String(payload.title || '').slice(0, 200), category: String(payload.category || 'career').slice(0, 60),
         excerpt: String(payload.excerpt || '').slice(0, 300), content: String(payload.content || '').slice(0, 10000),
-        coverImage, authorId: uid, authorName: author.name || author.displayName || user.displayName || 'Alumni',
+        coverImage, coverImagePath, authorId: uid, authorName: author.name || author.displayName || user.displayName || 'Alumni',
         authorPhoto: author.photoURL || author.profilePhoto || user.photoURL || '',
         likes: [], likesCount: 0, status: 'published', createdAt: Timestamp.now(), updatedAt: Timestamp.now(),
       };
@@ -347,6 +349,15 @@ export const alumniService = {
         const uploaded = await uploadAlumniImage(payload.coverImage, uid, 'stories');
         if (!uploaded.success) return uploaded;
         updates.coverImage = uploaded.data.url;
+        updates.coverImagePath = uploaded.data.path;
+      }
+      const oldImage = existing.data().coverImage;
+      const oldImagePath = existing.data().coverImagePath;
+      if (updates.coverImage && oldImagePath) {
+        await supabaseService.deleteObject(oldImagePath);
+      } else if (updates.coverImage && typeof oldImage === 'string' && oldImage.includes('/storage/v1/object/public/')) {
+        const objectPath = decodeURIComponent(oldImage.split('/storage/v1/object/public/')[1].split('/').slice(1).join('/'));
+        await supabaseService.deleteObject(objectPath);
       }
       await updateDoc(ref, updates);
       return { success: true, data: { id: storyId, ...updates } };
@@ -360,6 +371,14 @@ export const alumniService = {
       const existing = await getDoc(ref);
       if (!existing.exists()) return { success: false, error: 'Story not found' };
       if (existing.data().authorId !== uid) return { success: false, error: 'Not authorized to delete this story' };
+      const imageUrl = existing.data().coverImage;
+      const imagePath = existing.data().coverImagePath;
+      if (imagePath) {
+        await supabaseService.deleteObject(imagePath);
+      } else if (typeof imageUrl === 'string' && imageUrl.includes('/storage/v1/object/public/')) {
+        const objectPath = decodeURIComponent(imageUrl.split('/storage/v1/object/public/')[1].split('/').slice(1).join('/'));
+        await supabaseService.deleteObject(objectPath);
+      }
       await deleteDoc(ref);
       return { success: true, data: { id: storyId } };
     } catch (error) { return { success: false, error: error.message }; }

@@ -1180,9 +1180,14 @@ const Documents = () => {
     try {
       setDownloading(true);
 
+      let downloadURL = document.downloadURL;
+      if (document.storageType === 'supabase_private' && document.storagePath) {
+        downloadURL = await supabaseService.getPrivateDocumentUrl(document.storagePath);
+      }
+
       // Create link
       const link = document.createElement('a');
-      link.href = document.downloadURL;
+      link.href = downloadURL;
       link.download = document.fileName;
       link.target = '_blank';
       document.body.appendChild(link);
@@ -1215,7 +1220,16 @@ const Documents = () => {
   };
 
   const handlePreview = async (document) => {
-    setSelectedDocument(document);
+    let previewDocument = document;
+    try {
+      if (document.storageType === 'supabase_private' && document.storagePath) {
+        previewDocument = { ...document, downloadURL: await supabaseService.getPrivateDocumentUrl(document.storagePath) };
+      }
+    } catch (error) {
+      toast.error(error.message || 'Unable to open this private document.');
+      return;
+    }
+    setSelectedDocument(previewDocument);
     setShowPreviewModal(true);
 
     // Increment view count

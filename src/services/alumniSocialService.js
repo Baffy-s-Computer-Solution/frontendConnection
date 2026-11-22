@@ -31,7 +31,7 @@ const fileToDataUrl = (file) => new Promise((resolve, reject) => {
 
 // Helper function to upload multiple media files
 async function uploadMultipleMedia(files, userId, folder) {
-  const urls = [];
+    const urls = [];
   for (const file of files) {
     if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type) || file.size > 5 * 1024 * 1024) {
       throw new Error('Media must be a JPG, PNG, or WEBP image under 5MB');
@@ -41,7 +41,7 @@ async function uploadMultipleMedia(files, userId, folder) {
     const uploaded = await supabaseService.uploadBase64({ path: objectPath, file: await fileToDataUrl(file), contentType: file.type });
     const url = uploaded?.publicUrl || uploaded?.data?.publicUrl || uploaded?.data?.url;
     if (!uploaded?.success || !url) throw new Error(uploaded?.error || 'Supabase media upload failed');
-    urls.push(url);
+    urls.push({ url, path: objectPath });
   }
   return urls;
 }
@@ -106,7 +106,7 @@ export const alumniSocialService = {
         authorTitle: author.headline,
         authorCompany: userData.company || '',
         content: postData.content || '',
-        media: mediaUrls.map((url) => ({ url, type: 'image' })),
+        media: mediaUrls.map((asset) => ({ ...asset, storageType: 'supabase', type: 'image' })),
         mediaType: postData.mediaType || 'image',
         type: postData.type || 'post',
         privacy: postData.privacy || 'public',
@@ -290,6 +290,19 @@ export const alumniSocialService = {
 
     try {
       const postRef = doc(db, 'social_posts', postId);
+      const postSnapshot = await getDoc(postRef);
+      if (!postSnapshot.exists()) return { success: false, error: 'Post not found' };
+      const post = postSnapshot.data();
+      if ((post.authorId || post.userId) !== userId) return { success: false, error: 'You can only delete your own posts' };
+
+      for (const item of post.media || []) {
+        if (item?.path) {
+          await supabaseService.deleteObject(item.path);
+        } else if (typeof item?.url === 'string' && item.url.includes('/storage/v1/object/public/')) {
+          const objectPath = decodeURIComponent(item.url.split('/storage/v1/object/public/')[1].split('/').slice(1).join('/'));
+          await supabaseService.deleteObject(objectPath);
+        }
+      }
       await deleteDoc(postRef);
 
       return { success: true };

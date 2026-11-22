@@ -62,6 +62,44 @@ export const supabaseService = {
       body: JSON.stringify({ path, file, contentType }),
     }),
 
+  deleteObject: async (path) => {
+    const result = await backendRequest('/api/supabase/storage/object', {
+      method: 'DELETE',
+      body: JSON.stringify({ path }),
+    });
+    if (!result?.success) throw new Error(result?.error || 'Supabase could not delete this file.');
+    return result;
+  },
+
+  deletePrivateDocument: async (path) => {
+    const result = await backendRequest('/api/supabase/storage/document', {
+      method: 'DELETE',
+      body: JSON.stringify({ path }),
+    });
+    if (!result?.success) throw new Error(result?.error || 'Supabase could not delete this private document.');
+    return result;
+  },
+
+  getPrivateDocumentUrl: async (path) => {
+    const result = await backendRequest('/api/supabase/storage/document-url', {
+      method: 'POST',
+      body: JSON.stringify({ path }),
+    });
+    if (!result?.success || !result.signedUrl) throw new Error(result?.error || 'Unable to open this private document.');
+    return result.signedUrl;
+  },
+
+  uploadPrivateDocument: async ({ path, file, contentType }) => {
+    const result = await backendRequest('/api/supabase/storage/upload-base64', {
+      method: 'POST',
+      body: JSON.stringify({ path, file, contentType }),
+    });
+    if (!result?.success || result.storageType !== 'supabase_private') {
+      throw new Error(result?.error || 'Supabase could not store this private document.');
+    }
+    return result;
+  },
+
   getPublicUrl: getSupabasePublicUrl,
 };
 

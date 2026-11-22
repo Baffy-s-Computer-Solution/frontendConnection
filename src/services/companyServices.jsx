@@ -1447,6 +1447,18 @@ export const companyFirebaseService = {
   async deleteDocument(documentId) {
     try {
       const documentRef = doc(db, 'company_documents', documentId);
+      const snapshot = await getDoc(documentRef);
+      if (!snapshot.exists()) return { success: false, error: 'Document not found' };
+      const documentData = snapshot.data();
+      const companyId = getCurrentCompanyId();
+      if (documentData.companyId !== companyId) return { success: false, error: 'Permission denied' };
+
+      const publicId = documentData.cloudinaryPublicId || documentData.publicId;
+      if (publicId) {
+        const deleted = await cloudinaryMediaService.deleteImage(publicId);
+        if (!deleted.success) throw new Error(deleted.error || 'Cloudinary could not delete the document.');
+      }
+
       await deleteDoc(documentRef);
       return true;
     } catch (error) {

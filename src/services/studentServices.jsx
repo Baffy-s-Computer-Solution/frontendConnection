@@ -475,25 +475,23 @@ export const uploadResume = async (file, userId) => {
     console.log('📤 Uploading resume...');
 
     if (auth.currentUser?.uid !== userId) throw new Error('Please sign in again to upload your resume.');
-    const formData = new FormData();
-    formData.append('file', file);
-    const uploadResult = await apiRequest('/api/media/student/resume', {
-      method: 'POST',
-      body: formData,
+    const { supabaseService } = await import('./supabaseService');
+    const extension = file.name.split('.').pop().toLowerCase().replace(/[^a-z0-9]/g, '') || 'pdf';
+    const storagePath = `private_documents/${userId}/${crypto.randomUUID()}.${extension}`;
+    const fileData = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = () => reject(new Error('Unable to read the selected resume.'));
+      reader.readAsDataURL(file);
     });
-
-    if (!uploadResult?.url || !uploadResult.publicId) {
-      throw new Error('Cloudinary returned incomplete resume metadata.');
-    }
-    const publicId = uploadResult.publicId;
-
-    console.log('Resume uploaded successfully to Cloudinary');
+    await supabaseService.uploadPrivateDocument({ path: storagePath, file: fileData, contentType: file.type });
 
     // Update student profile with resume URL
     const studentRef = doc(db, COLLECTIONS.STUDENTS, userId);
     await updateDoc(studentRef, {
-      resumeUrl: uploadResult.url,
-      resumeStorageType: 'cloudinary',
+      resumeUrl: '',
+      resumeStorageType: 'supabase_private',
+      resumeStoragePath: storagePath,
       updatedAt: serverTimestamp(),
     });
 
@@ -503,11 +501,9 @@ export const uploadResume = async (file, userId) => {
       studentId: userId,
       documentType: 'resume',
       fileName: file.name,
-      fileUrl: uploadResult.url,
-      storagePath: publicId,
-      publicId,
-      cloudinaryResourceType: uploadResult.resourceType || 'raw',
-      storageType: 'cloudinary',
+      fileUrl: '',
+      storagePath,
+      storageType: 'supabase_private',
       uploadedAt: serverTimestamp(),
       fileSize: file.size,
       mimeType: file.type,
@@ -518,8 +514,9 @@ export const uploadResume = async (file, userId) => {
 
     return {
       success: true,
-      url: uploadResult.url,
-      storageType: 'cloudinary',
+      url: '',
+      storagePath,
+      storageType: 'supabase_private',
     };
   } catch (error) {
     console.error('❌ Error uploading resume:', error);
@@ -625,31 +622,25 @@ export const uploadDocument = async (userId, file, documentType) => {
       return { success: true, url: image.photoURL, storageType: 'cloudinary' };
     }
 
-    // Do not create publicly deliverable Cloudinary assets for student records.
-    return {
-      success: false,
-      code: 'PRIVATE_DELIVERY_REQUIRED',
-      error: 'Document uploads are paused until private, authenticated file delivery is enabled.',
-    };
-
-    const uploadResult = await cloudinaryService.uploadToCloudinary(file, `students/${userId}/documents`, {
-      tags: ['student-document', documentType, `student_${userId}`],
-      context: { studentId: userId, documentType, originalName: file.name },
+    const { supabaseService } = await import('./supabaseService');
+    const extension = file.name.split('.').pop().toLowerCase().replace(/[^a-z0-9]/g, '') || 'pdf';
+    const storagePath = `private_documents/${userId}/${crypto.randomUUID()}.${extension}`;
+    const fileData = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = () => reject(new Error('Unable to read the selected document.'));
+      reader.readAsDataURL(file);
     });
-    if (!uploadResult?.success || !uploadResult.url || !uploadResult.public_id) {
-      throw new Error(uploadResult?.error || 'Cloudinary could not save the file. Check the upload preset and Cloudinary configuration.');
-    }
+    await supabaseService.uploadPrivateDocument({ path: storagePath, file: fileData, contentType: file.type });
 
     const documentData = {
       studentId: userId,
       userId,
       documentType,
       fileName: file.name,
-      fileUrl: uploadResult.url,
-      storagePath: uploadResult.public_id,
-      publicId: uploadResult.public_id,
-      storageType: 'cloudinary',
-      cloudinaryResourceType: uploadResult.resource_type || 'raw',
+      fileUrl: '',
+      storagePath,
+      storageType: 'supabase_private',
       uploadedAt: serverTimestamp(),
       fileSize: file.size,
       mimeType: file.type,
@@ -667,8 +658,9 @@ export const uploadDocument = async (userId, file, documentType) => {
     return {
       success: true,
       id: docRef.id,
-      url: uploadResult.url,
-      storageType: 'cloudinary',
+      url: '',
+      storagePath,
+      storageType: 'supabase_private',
       message: 'Document uploaded successfully!',
     };
   } catch (error) {
@@ -696,7 +688,16 @@ export const deleteDocument = async (documentId, storagePath, studentId = null) 
 
     const storedPath = storagePath || documentData.storagePath;
     const cloudinaryStored = documentData.storageType === 'cloudinary' || cloudinaryService.isCloudinaryUrl(documentData.fileUrl);
-    if (cloudinaryStored) {
+    if (documentData.storageType === 'supabase_private' || documentData.storageType === 'supabase') {
+      try {
+        const { supabaseService } = await import('./supabaseService');
+        await supabaseService.deletePrivateDocument(storedPath);
+      } catch (storageError) {
+        return { success: false, error: `File deletion failed; the document record was kept. ${storageError.message}` };
+      }
+      await deleteDoc(documentRef);
+      return { success: true, message: 'Document deleted successfully!' };
+    } else if (cloudinaryStored) {
       try {
         const token = await auth.currentUser?.getIdToken();
         if (!token || auth.currentUser?.uid !== documentData.studentId) {
@@ -717,6 +718,17 @@ export const deleteDocument = async (documentId, storagePath, studentId = null) 
         }
 
         return { success: true, message: 'Document deleted successfully!' };
+      } catch (storageError) {
+        return { success: false, error: `File deletion failed; the document record was kept. ${storageError.message}` };
+      }
+    } else if (
+      typeof storedPath === 'string'
+      && !/^https?:\/\//i.test(storedPath)
+      && (documentData.storageType === 'supabase' || documentData.storageProvider === 'supabase')
+    ) {
+      try {
+        const { supabaseService } = await import('./supabaseService');
+        await supabaseService.deletePrivateDocument(storedPath);
       } catch (storageError) {
         return { success: false, error: `File deletion failed; the document record was kept. ${storageError.message}` };
       }
