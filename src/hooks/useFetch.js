@@ -10,6 +10,8 @@ export const useFetch = (url, options = {}) => {
   const [status, setStatus] = useState(null);
 
   const abortControllerRef = useRef();
+  const optionsRef = useRef(options);
+  optionsRef.current = options;
 
   const fetchData = useCallback(async () => {
     // Cancel previous request
@@ -25,7 +27,7 @@ export const useFetch = (url, options = {}) => {
 
     try {
       const response = await fetch(url, {
-        ...options,
+        ...optionsRef.current,
         signal: abortControllerRef.current.signal,
       });
 
@@ -44,7 +46,7 @@ export const useFetch = (url, options = {}) => {
     } finally {
       setLoading(false);
     }
-  }, [url, options]);
+  }, [url]);
 
   useEffect(() => {
     fetchData();

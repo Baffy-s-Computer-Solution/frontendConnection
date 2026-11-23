@@ -371,6 +371,12 @@ export const updateStudentProfile = async (userId, updates) => {
       return { success: false, error: 'User ID is required' };
     }
 
+    if (auth.currentUser?.uid !== userId) {
+      return { success: false, error: 'You can only update your own student profile' };
+    }
+
+    const safeUpdates = getStudentProfileFields(updates);
+
     const studentRef = doc(db, COLLECTIONS.STUDENTS, userId);
 
     // Check if document exists
@@ -378,12 +384,12 @@ export const updateStudentProfile = async (userId, updates) => {
 
     if (!studentSnap.exists()) {
       // Initialize first
-      await initializeStudentProfile(userId, updates);
+      await initializeStudentProfile(userId, safeUpdates);
     } else {
       // Update existing
       await updateDoc(studentRef, {
-        ...updates,
-        profileCompletion: calculateProfileCompletion({ ...(studentSnap.data() || {}), ...updates }),
+        ...safeUpdates,
+        profileCompletion: calculateProfileCompletion({ ...(studentSnap.data() || {}), ...safeUpdates }),
         updatedAt: serverTimestamp(),
       });
     }

@@ -38,17 +38,14 @@ jobs:
 
       - name: Install dependencies
         run: |
-          cd frontend
           npm ci --legacy-peer-deps
 
       - name: Setup environment variables
         run: |
-          cd frontend
           if [ "${{ github.event.inputs.environment }}" == "production" ]; then
             echo "VITE_FIREBASE_API_KEY=${{ secrets.VITE_FIREBASE_API_KEY }}" >> .env
             echo "VITE_FIREBASE_AUTH_DOMAIN=${{ secrets.VITE_FIREBASE_AUTH_DOMAIN }}" >> .env
             echo "VITE_FIREBASE_PROJECT_ID=${{ secrets.VITE_FIREBASE_PROJECT_ID }}" >> .env
-            echo "VITE_FIREBASE_STORAGE_BUCKET=${{ secrets.VITE_FIREBASE_STORAGE_BUCKET }}" >> .env
             echo "VITE_FIREBASE_MESSAGING_SENDER_ID=${{ secrets.VITE_FIREBASE_MESSAGING_SENDER_ID }}" >> .env
             echo "VITE_FIREBASE_APP_ID=${{ secrets.VITE_FIREBASE_APP_ID }}" >> .env
             echo "VITE_FIREBASE_MEASUREMENT_ID=${{ secrets.VITE_FIREBASE_MEASUREMENT_ID }}" >> .env
@@ -58,7 +55,6 @@ jobs:
             echo "VITE_FIREBASE_API_KEY=${{ secrets.VITE_FIREBASE_API_KEY_STAGING }}" >> .env
             echo "VITE_FIREBASE_AUTH_DOMAIN=${{ secrets.VITE_FIREBASE_AUTH_DOMAIN_STAGING }}" >> .env
             echo "VITE_FIREBASE_PROJECT_ID=${{ secrets.VITE_FIREBASE_PROJECT_ID_STAGING }}" >> .env
-            echo "VITE_FIREBASE_STORAGE_BUCKET=${{ secrets.VITE_FIREBASE_STORAGE_BUCKET_STAGING }}" >> .env
             echo "VITE_FIREBASE_MESSAGING_SENDER_ID=${{ secrets.VITE_FIREBASE_MESSAGING_SENDER_ID_STAGING }}" >> .env
             echo "VITE_FIREBASE_APP_ID=${{ secrets.VITE_FIREBASE_APP_ID_STAGING }}" >> .env
             echo "VITE_FIREBASE_MEASUREMENT_ID=${{ secrets.VITE_FIREBASE_MEASUREMENT_ID_STAGING }}" >> .env
@@ -68,7 +64,6 @@ jobs:
 
       - name: Build application
         run: |
-          cd frontend
           npm run build
 
       - name: Deploy to Firebase
@@ -78,7 +73,7 @@ jobs:
           firebaseServiceAccount: '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}'
           channelId: live
           projectId: ${{ github.event.inputs.environment == 'production' && 'career-connect-lesotho' || 'career-connect-lesotho-staging' }}
-          entryPoint: ./frontend
+          entryPoint: .
 
       - name: Run smoke tests
         run: |

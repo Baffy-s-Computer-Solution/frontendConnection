@@ -3,7 +3,7 @@ export const validation = {
   email: (email) => {
     const errors = [];
 
-    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+.[a-zA-Z]{2,}$/;
+    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
     if (!emailRegex.test(email)) {
       errors.push('Please enter a valid email address');
       return { isValid: false, errors };
@@ -46,27 +46,28 @@ export const validation = {
 
   // Enhanced password validation
   password: (password) => {
+    const normalizedPassword = typeof password === 'string' ? password : '';
     const errors = [];
 
-    if (password.length < 8) {
+    if (normalizedPassword.length < 8) {
       errors.push('At least 8 characters');
     }
-    if (password.length > 128) {
+    if (normalizedPassword.length > 128) {
       errors.push('Password too long (max 128 characters)');
     }
-    if (!/[A-Z]/.test(password)) {
+    if (!/[A-Z]/.test(normalizedPassword)) {
       errors.push('One uppercase letter');
     }
-    if (!/[a-z]/.test(password)) {
+    if (!/[a-z]/.test(normalizedPassword)) {
       errors.push('One lowercase letter');
     }
-    if (!/[0-9]/.test(password)) {
+    if (!/[0-9]/.test(normalizedPassword)) {
       errors.push('One number');
     }
-    if (!/[!@#$%^&*()_+.=[.{};':".|,.<>/?]/.test(password)) {
+    if (!/[!@#$%^&*()_+.=[.{};':".|,.<>/?]/.test(normalizedPassword)) {
       errors.push('One special character');
     }
-    if (/(.).{3,}/.test(password)) {
+    if (/(.)\1{3,}/.test(normalizedPassword)) {
       errors.push("No repeated characters (e.g., 'aaaa')");
     }
 
@@ -88,14 +89,14 @@ export const validation = {
       'baseball123',
       'sunshine123',
     ];
-    if (commonPasswords.includes(password.toLowerCase())) {
+    if (commonPasswords.includes(normalizedPassword.toLowerCase())) {
       errors.push('This password is too common and easily guessable');
     }
 
     return {
       isValid: errors.length === 0,
       errors,
-      strength: calculatePasswordStrength(password),
+      strength: calculatePasswordStrength(normalizedPassword),
     };
   },
 

@@ -9,7 +9,7 @@ export const validators = {
    * @returns {boolean} - True if valid
    */
   email(email) {
-    const re = /^[^.@]+@[^.@]+.[^.@]+$/;
+    const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     return re.test(String(email).toLowerCase());
   },
 

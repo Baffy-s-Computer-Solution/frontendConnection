@@ -1,7 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
 
 export default defineConfig({
-  testDir: './tests/e2e',
+  testDir: './src/test/e2e',
   testMatch: '**/*.spec.js',
 
   timeout: 30000,
@@ -11,16 +11,16 @@ export default defineConfig({
   workers: process.env.CI ? 1 : undefined,
 
   reporter: [
-    ['html', { outputFolder: 'test/reports/playwright-report' }],
-    ['json', { outputFile: 'test/reports/playwright-results.json' }],
-    ['junit', { outputFile: 'test/reports/playwright-junit.xml' }],
+    ['html', { outputFolder: 'src/test/reports/playwright-report' }],
+    ['json', { outputFile: 'src/test/reports/playwright-results.json' }],
+    ['junit', { outputFile: 'src/test/reports/playwright-junit.xml' }],
     ['list'],
   ],
 
   use: {
     baseURL: process.env.CI
       ? 'https://staging.career-connect-lesotho.web.app'
-      : 'http://localhost:3000',
+      : 'http://localhost:5173',
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
@@ -52,12 +52,10 @@ export default defineConfig({
   ],
 
   webServer: {
-    command: 'cd frontend && npm run dev',
-    url: 'http://localhost:3000',
+    command: 'npm run dev -- --host 127.0.0.1 --port 5173',
+    url: 'http://127.0.0.1:5173',
     reuseExistingServer: !process.env.CI,
     timeout: 120000,
   },
 
-  globalSetup: './tests/e2e/global-setup.js',
-  globalTeardown: './tests/e2e/global-teardown.js',
 });

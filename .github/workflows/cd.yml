@@ -27,28 +27,22 @@ jobs:
 
       - name: Install dependencies
         run: |
-          cd frontend
           npm ci --legacy-peer-deps
 
       - name: Create production .env file
         run: |
-          cd frontend
           echo "VITE_FIREBASE_API_KEY=${{ secrets.VITE_FIREBASE_API_KEY }}" >> .env
           echo "VITE_FIREBASE_AUTH_DOMAIN=${{ secrets.VITE_FIREBASE_AUTH_DOMAIN }}" >> .env
           echo "VITE_FIREBASE_PROJECT_ID=${{ secrets.VITE_FIREBASE_PROJECT_ID }}" >> .env
-          echo "VITE_FIREBASE_STORAGE_BUCKET=${{ secrets.VITE_FIREBASE_STORAGE_BUCKET }}" >> .env
           echo "VITE_FIREBASE_MESSAGING_SENDER_ID=${{ secrets.VITE_FIREBASE_MESSAGING_SENDER_ID }}" >> .env
           echo "VITE_FIREBASE_APP_ID=${{ secrets.VITE_FIREBASE_APP_ID }}" >> .env
           echo "VITE_FIREBASE_MEASUREMENT_ID=${{ secrets.VITE_FIREBASE_MEASUREMENT_ID }}" >> .env
           echo "VITE_FIREBASE_DATABASE_URL=${{ secrets.VITE_FIREBASE_DATABASE_URL }}" >> .env
-          echo "VITE_CLOUDINARY_CLOUD_NAME=${{ secrets.VITE_CLOUDINARY_CLOUD_NAME }}" >> .env
-          echo "VITE_CLOUDINARY_UPLOAD_PRESET=${{ secrets.VITE_CLOUDINARY_UPLOAD_PRESET }}" >> .env
           echo "VITE_APP_ENVIRONMENT=production" >> .env
           echo "VITE_APP_BASE_URL=https://career-connect-lesotho.web.app" >> .env
 
       - name: Build application
         run: |
-          cd frontend
           npm run build
 
       - name: Deploy to Firebase Hosting (Production)
@@ -58,7 +52,7 @@ jobs:
           firebaseServiceAccount: '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}'
           channelId: live
           projectId: career-connect-lesotho
-          entryPoint: ./frontend
+          entryPoint: .
 
       - name: Create GitHub Release
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
@@ -98,28 +92,22 @@ jobs:
 
       - name: Install dependencies
         run: |
-          cd frontend
           npm ci --legacy-peer-deps
 
       - name: Create staging .env file
         run: |
-          cd frontend
           echo "VITE_FIREBASE_API_KEY=${{ secrets.VITE_FIREBASE_API_KEY_STAGING }}" >> .env
           echo "VITE_FIREBASE_AUTH_DOMAIN=${{ secrets.VITE_FIREBASE_AUTH_DOMAIN_STAGING }}" >> .env
           echo "VITE_FIREBASE_PROJECT_ID=${{ secrets.VITE_FIREBASE_PROJECT_ID_STAGING }}" >> .env
-          echo "VITE_FIREBASE_STORAGE_BUCKET=${{ secrets.VITE_FIREBASE_STORAGE_BUCKET_STAGING }}" >> .env
           echo "VITE_FIREBASE_MESSAGING_SENDER_ID=${{ secrets.VITE_FIREBASE_MESSAGING_SENDER_ID_STAGING }}" >> .env
           echo "VITE_FIREBASE_APP_ID=${{ secrets.VITE_FIREBASE_APP_ID_STAGING }}" >> .env
           echo "VITE_FIREBASE_MEASUREMENT_ID=${{ secrets.VITE_FIREBASE_MEASUREMENT_ID_STAGING }}" >> .env
           echo "VITE_FIREBASE_DATABASE_URL=${{ secrets.VITE_FIREBASE_DATABASE_URL_STAGING }}" >> .env
-          echo "VITE_CLOUDINARY_CLOUD_NAME=${{ secrets.VITE_CLOUDINARY_CLOUD_NAME_STAGING }}" >> .env
-          echo "VITE_CLOUDINARY_UPLOAD_PRESET=${{ secrets.VITE_CLOUDINARY_UPLOAD_PRESET_STAGING }}" >> .env
           echo "VITE_APP_ENVIRONMENT=staging" >> .env
           echo "VITE_APP_BASE_URL=https://staging.career-connect-lesotho.web.app" >> .env
 
       - name: Build application
         run: |
-          cd frontend
           npm run build
 
       - name: Deploy to Firebase Hosting (Staging)
@@ -129,7 +117,7 @@ jobs:
           firebaseServiceAccount: '${{ secrets.FIREBASE_SERVICE_ACCOUNT_STAGING }}'
           channelId: live
           projectId: career-connect-lesotho-staging
-          entryPoint: ./frontend
+          entryPoint: .
 
   notify:
     name: Send Deployment Notification

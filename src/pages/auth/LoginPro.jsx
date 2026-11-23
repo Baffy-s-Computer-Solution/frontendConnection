@@ -23,7 +23,6 @@ const LoginPro = () => {
   // Form State
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
 
   // UI State
@@ -41,27 +40,25 @@ const LoginPro = () => {
   // ==================== INITIALIZATION ====================
   useEffect(() => {
     // Handle redirect messages
-    if (location.state?.message) {
-      if (location.state.type === 'success') {
-        setSuccess(location.state.message);
+    const { message, type } = location.state || {};
+    if (message) {
+      if (type === 'success') {
+        setSuccess(message);
       } else {
-        setError(location.state.message);
+        setError(message);
       }
       window.history.replaceState({}, document.title);
     }
+  }, [location.state?.message, location.state?.type]);
 
+  useEffect(() => {
     // Load remembered email
     const saved = localStorage.getItem('rememberedEmail');
     if (saved) {
       setEmail(saved);
       setRememberMe(true);
     }
-
-    // Clear sensitive data on unmount
-    return () => {
-      if (!rememberMe) setPassword('');
-    };
-  }, [location, rememberMe]);
+  }, []);
 
   // ==================== LOCKOUT TIMER ====================
   useEffect(() => {
@@ -315,7 +312,7 @@ const LoginPro = () => {
                 </div>
 
                 {/* Login Form */}
-                <form onSubmit={handleLogin} className="space-y-5">
+                <form noValidate onSubmit={handleLogin} className="space-y-5">
                   {/* Email */}
                   <Input
                     id="login-email"

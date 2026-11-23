@@ -82,7 +82,8 @@ export default defineConfig(({ command, mode }) => {
     test: {
       globals: true,
       environment: 'jsdom',
-      setupFiles: ['./test/setupTests.js'],
+      setupFiles: ['./src/test/setupTests.js'],
+      exclude: ['**/node_modules/**', '**/dist/**', 'src/test/e2e/**', '_remote_review/**'],
       css: true,
       testTimeout: 15000,
       hookTimeout: 15000,

@@ -45,11 +45,15 @@ vi.mock('../../services/settingsService', () => ({
   },
 }));
 
+vi.mock('../../services/studentServices', () => ({
+  updateStudentProfile: vi.fn().mockResolvedValue({ success: true }),
+}));
+
 describe('StudentProfile', () => {
   it('saves updated student profile data in real time', async () => {
     render(<StudentProfile />);
 
-    const programInput = screen.getByLabelText(/program/i);
+    const programInput = await screen.findByDisplayValue('Computer Science');
     fireEvent.change(programInput, { target: { value: 'Software Engineering' } });
 
     fireEvent.click(screen.getByRole('button', { name: /save profile/i }));
