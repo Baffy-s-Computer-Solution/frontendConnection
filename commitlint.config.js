@@ -1,4 +1,4 @@
-module.exports = {
+export default {
   extends: ['@commitlint/config-conventional'],
   rules: {
     'body-leading-blank': [1, 'always'],
@@ -6,7 +6,7 @@ module.exports = {
     'footer-leading-blank': [1, 'always'],
     'footer-max-line-length': [2, 'always', 100],
     'header-max-length': [2, 'always', 100],
-    'subject-case': [0], // Disabled: conflicts with custom plugin 'commit-message-format' requirement for Uppercase
+    'subject-case': [0],
     'subject-empty': [2, 'never'],
     'subject-full-stop': [2, 'never', '.'],
     'type-case': [2, 'always', 'lower-case'],
@@ -29,7 +29,6 @@ module.exports = {
         'wip',
       ],
     ],
-    // Custom rules
     'scope-enum': [
       2,
       'always',
@@ -59,10 +58,8 @@ module.exports = {
     {
       rules: {
         'commit-message-format': (parsed) => {
-          const { type, scope, subject } = parsed;
-          const regex = /^[A-Z0-9].*[^.]$/;
-          const isValid = regex.test(subject);
-
+          const { subject } = parsed;
+          const isValid = /^[A-Z0-9].*[^.]$/.test(subject);
           return [
             isValid,
             `Subject must start with uppercase letter/number and not end with period. Got: "${subject}"`,
@@ -84,21 +81,9 @@ module.exports = {
       type: {
         description: "Select the type of change that you're committing:",
         enum: {
-          feat: {
-            description: 'A new feature',
-            title: 'Features',
-            emoji: '✨',
-          },
-          fix: {
-            description: 'A bug fix',
-            title: 'Bug Fixes',
-            emoji: '🐛',
-          },
-          docs: {
-            description: 'Documentation only changes',
-            title: 'Documentation',
-            emoji: '📚',
-          },
+          feat: { description: 'A new feature', title: 'Features', emoji: '✨' },
+          fix: { description: 'A bug fix', title: 'Bug Fixes', emoji: '🐛' },
+          docs: { description: 'Documentation only changes', title: 'Documentation', emoji: '📚' },
           style: {
             description:
               'Changes that do not affect the meaning of the code (white-space, formatting, etc)',
@@ -106,7 +91,7 @@ module.exports = {
             emoji: '💎',
           },
           refactor: {
-            description: 'A code change that neither fixes a bug nor adds a feature',
+            description: 'A code change that neither adds a feature nor fixes a bug',
             title: 'Code Refactoring',
             emoji: '📦',
           },
@@ -126,7 +111,7 @@ module.exports = {
             emoji: '🛠',
           },
           ci: {
-            description: 'Changes to our CI configuration files and scripts',
+            description: 'Changes to CI configuration files and scripts',
             title: 'Continuous Integrations',
             emoji: '⚙️',
           },
@@ -135,16 +120,8 @@ module.exports = {
             title: 'Chores',
             emoji: '♻️',
           },
-          revert: {
-            description: 'Reverts a previous commit',
-            title: 'Reverts',
-            emoji: '🗑',
-          },
-          wip: {
-            description: 'Work in progress',
-            title: 'WIP',
-            emoji: '🚧',
-          },
+          revert: { description: 'Reverts a previous commit', title: 'Reverts', emoji: '🗑' },
+          wip: { description: 'Work in progress', title: 'WIP', emoji: '🚧' },
         },
       },
       scope: {

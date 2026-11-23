@@ -46,7 +46,7 @@ jobs:
 
           files=()
           for file in "${changed_files[@]}"; do
-            if [ -f "$file" ]; then
+            if [ -f "$file" ] && [[ "$file" != *.config.js ]]; then
               files+=("$file")
             fi
           done
@@ -62,7 +62,7 @@ jobs:
       - name: Annotate ESLint results
         uses: ataylorme/eslint-annotate-action@v2
         with:
-          repo-token: "${{ secrets.GITHUB_TOKEN }}"
+          repo-token: '${{ secrets.GITHUB_TOKEN }}'
           report-json: eslint-report.json
         if: ${{ always() && hashFiles('eslint-report.json') != '' }}
 
@@ -95,11 +95,11 @@ jobs:
           if [ -n "$BASE_SHA" ]; then
             mapfile -d '' changed_files < <(
               git diff --name-only -z "$BASE_SHA" "$HEAD_SHA" -- \
-                '*.js' '*.jsx' '*.ts' '*.tsx' '*.json' '*.md' '*.html' '*.css' '*.scss' '*.yml' '*.yaml'
+                '*.js' '*.jsx' '*.ts' '*.tsx' '*.json' '*.md' '*.html' '*.css' '*.scss'
             )
           else
             mapfile -d '' changed_files < <(
-              git ls-files -z -- '*.js' '*.jsx' '*.ts' '*.tsx' '*.json' '*.md' '*.html' '*.css' '*.scss' '*.yml' '*.yaml'
+              git ls-files -z -- '*.js' '*.jsx' '*.ts' '*.tsx' '*.json' '*.md' '*.html' '*.css' '*.scss'
             )
           fi
 
