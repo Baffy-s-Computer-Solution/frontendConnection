@@ -567,7 +567,7 @@ const CompanyProfile = () => {
   const { currentUser, userProfile, refreshUserProfile } = useAuth();
   const { showNotification } = useNotification();
 
-  const companyId = currentUser?.uid;
+  const companyId = userProfile?.companyId || currentUser?.companyId || currentUser?.uid;
   const { profile, loading: profileLoading, error: profileError } = useCompanyProfile(companyId);
   const stats = useCompanyStats(companyId);
 

@@ -508,16 +508,12 @@ const MentorMessages = () => {
           return;
         }
 
-        const [studentProfile, userProfile] = await Promise.all([
-          getDoc(doc(db, 'students', requestedMenteeId)).catch(() => null),
-          getDoc(doc(db, 'users', requestedMenteeId)).catch(() => null),
-        ]);
+        const studentProfile = await getDoc(doc(db, 'students', requestedMenteeId)).catch(() => null);
         const profile = studentProfile?.exists() ? studentProfile.data() : {};
-        const account = userProfile?.exists() ? userProfile.data() : {};
-        const studentName = profile.fullName || profile.displayName || profile.name || account.displayName || account.name || 'Student';
+        const studentName = profile.fullName || profile.displayName || profile.name || 'Student';
         const participantsData = [
           { id: mentorId, displayName: user.displayName || user.email || 'Mentor', photoURL: user.photoURL || '', role: 'mentor' },
-          { id: requestedMenteeId, displayName: studentName, photoURL: profile.photoURL || profile.profilePhoto || account.photoURL || '', role: 'mentee' },
+          { id: requestedMenteeId, displayName: studentName, photoURL: profile.photoURL || profile.profilePhoto || '', role: 'mentee' },
         ];
         const conversation = await addDoc(collection(db, 'conversations'), {
           mentorshipId: requestedMentorshipId,

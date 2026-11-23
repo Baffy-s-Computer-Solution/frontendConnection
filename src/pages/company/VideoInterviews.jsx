@@ -28,6 +28,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useNotification } from '../../context/NotificationContext';
 import { db } from '../../config/firebase';
 import { supabase } from '../../config/supabase';
+import { getCompanyCandidateProfile } from '../../services/companyCandidateService';
 import { FaHourglassHalf } from 'react-icons/fa';
 
 // ============================================
@@ -189,10 +190,7 @@ const useVideoInterviews = (companyId) => {
 
                   let candidate = null;
                   if (appData.candidateId) {
-                    const candidateDoc = await getDoc(doc(db, 'users', appData.candidateId));
-                    if (candidateDoc.exists()) {
-                      candidate = { id: candidateDoc.id, ...candidateDoc.data() };
-                    }
+                    candidate = await getCompanyCandidateProfile(appData.candidateId);
                   }
 
                   let job = null;
@@ -625,10 +623,10 @@ const DetailModal = ({ interview, show, onClose, onJoin, onCopyLink }) => {
 const VideoInterviews = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { currentUser } = useAuth();
+  const { currentUser, userProfile } = useAuth();
   const { showNotification } = useNotification();
 
-  const companyId = currentUser?.uid;
+  const companyId = userProfile?.companyId || currentUser?.companyId || currentUser?.uid;
   const { interviews, loading, error } = useVideoInterviews(companyId);
 
   // State

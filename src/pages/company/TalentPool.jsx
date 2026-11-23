@@ -26,6 +26,7 @@ import {
 import { useAuth } from '../../context/AuthContext';
 import { useNotification } from '../../context/NotificationContext';
 import { db } from '../../config/firebase';
+import { getCompanyCandidateProfile } from '../../services/companyCandidateService';
 import { supabase } from '../../config/supabase';
 
 // ============================================
@@ -133,17 +134,7 @@ const useTalentPool = (companyId) => {
             let candidate = null;
             if (data.candidateId) {
               try {
-                const candidateDoc = await getDoc(doc(db, 'users', data.candidateId));
-                if (candidateDoc.exists()) {
-                  const candidateData = candidateDoc.data();
-                  candidate = {
-                    id: candidateDoc.id,
-                    ...candidateData,
-                    lastActive: candidateData.lastActive?.toDate?.() || candidateData.lastActive,
-                    createdAt: candidateData.createdAt?.toDate?.() || candidateData.createdAt,
-                    updatedAt: candidateData.updatedAt?.toDate?.() || candidateData.updatedAt,
-                  };
-                }
+                candidate = await getCompanyCandidateProfile(data.candidateId);
               } catch (err) {
                 console.error('Error fetching candidate:', err);
               }
@@ -660,10 +651,10 @@ const CandidateCard = ({
 
 const TalentPool = () => {
   const navigate = useNavigate();
-  const { currentUser } = useAuth();
+  const { currentUser, userProfile } = useAuth();
   const { showNotification } = useNotification();
 
-  const companyId = currentUser?.uid;
+  const companyId = userProfile?.companyId || currentUser?.companyId || currentUser?.uid;
   const { candidates, loading, error } = useTalentPool(companyId);
 
   // State

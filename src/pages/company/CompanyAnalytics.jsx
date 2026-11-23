@@ -537,7 +537,7 @@ const CompanyAnalytics = () => {
   const { currentUser, userProfile } = useAuth();
   const { showNotification } = useNotification();
 
-  const companyId = currentUser?.uid;
+  const companyId = userProfile?.companyId || currentUser?.companyId || currentUser?.uid;
 
   // State
   const [timeRange, setTimeRange] = useState('30d');

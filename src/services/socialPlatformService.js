@@ -216,28 +216,8 @@ export const socialPlatformService = {
     const currentUser = auth.currentUser;
     if (!currentUser) return { success: false, data: [], error: 'Sign in to view the network.' };
     try {
-      const [usersSnapshot, blockedIds, connectedIds] = await Promise.all([
-        getDocs(query(collection(db, 'users'), limit(200))),
-        getBlockedIds(currentUser.uid),
-        getConnectedIds(currentUser.uid),
-      ]);
-      const eligibleRoles = new Set(['student', 'mentor', 'company']);
-      const data = usersSnapshot.docs.flatMap((entry) => {
-        const user = entry.data() || {};
-        const role = String(user.userType || user.role || '').toLowerCase();
-        if (entry.id === currentUser.uid || !eligibleRoles.has(role) || blockedIds.has(entry.id)) return [];
-        const isConnection = ['student', 'mentor'].includes(role) && connectedIds.has(entry.id);
-        const profileVisibility = user.privacySettings?.profileVisibility || user.profileVisibility || user.profile?.visibility || 'public';
-        if (profileVisibility !== 'public' && !isConnection) return [];
-        return [{
-          id: entry.id,
-          name: user.displayName || user.fullName || user.companyName || 'Community member',
-          role,
-          avatar: user.photoURL || user.profilePhoto || user.logo || '',
-          headline: user.title || user.currentPosition || user.industry || user.fieldOfStudy || '',
-          isConnection,
-        }];
-      });
+      const result = await apiRequest('/api/social/suggestions?limit=50');
+      const data = (result?.data || result || []).filter((person) => person.id !== currentUser.uid);
       return { success: true, data };
     } catch (error) {
       console.error('Unable to load network directory:', error);

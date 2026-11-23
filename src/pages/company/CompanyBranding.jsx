@@ -256,7 +256,7 @@ const CompanyBranding = () => {
   const { currentUser, userProfile } = useAuth();
   const { showNotification } = useNotification();
 
-  const companyId = currentUser?.uid;
+  const companyId = userProfile?.companyId || currentUser?.companyId || currentUser?.uid;
 
   // State
   const [activeTab, setActiveTab] = useState('identity');

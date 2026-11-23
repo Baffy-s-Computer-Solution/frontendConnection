@@ -16,8 +16,11 @@ import {
 import { collection, getDocs, query, where, doc, updateDoc } from 'firebase/firestore';
 
 import { db } from '../../config/firebase';
+import { useAuth } from '../../context/AuthContext';
+import { institutionService } from '../../services/institutionServices';
 
 function StudentManagement() {
+  const { currentUser } = useAuth();
   const [loading, setLoading] = useState(true);
   const [students, setStudents] = useState([]);
   const [filteredStudents, setFilteredStudents] = useState([]);
@@ -33,7 +36,7 @@ function StudentManagement() {
 
   useEffect(() => {
     fetchStudents();
-  }, []);
+  }, [currentUser?.uid]);
 
   useEffect(() => {
     filterStudents();
@@ -42,16 +45,18 @@ function StudentManagement() {
   const fetchStudents = async () => {
     try {
       setLoading(true);
-      const studentsCollection = collection(db, 'users');
-      const q = query(studentsCollection, where('role', '==', 'student'));
+      if (!currentUser?.uid) throw new Error('Sign in with your institution account to continue.');
+      const institution = await institutionService.getInstitutionProfile(currentUser.uid);
+      const studentsCollection = collection(db, 'students');
+      const q = query(studentsCollection, where('institutionId', '==', institution.id));
       const studentsSnapshot = await getDocs(q);
 
       const studentsList = studentsSnapshot.docs.map((doc) => ({
         id: doc.id,
         ...doc.data(),
-        enrollmentDate:
-          doc.data().createdAt?.toDate().toLocaleDateString() || new Date().toLocaleDateString(),
-        lastActivity: doc.data().lastLogin?.toDate().toLocaleDateString() || 'Never',
+          enrollmentDate:
+            doc.data().enrolledDate?.toDate?.().toLocaleDateString() || doc.data().createdAt?.toDate?.().toLocaleDateString() || '—',
+          lastActivity: doc.data().lastLogin?.toDate?.().toLocaleDateString() || 'Never',
       }));
 
       setStudents(studentsList);
@@ -97,10 +102,10 @@ function StudentManagement() {
   const handleSave = async () => {
     try {
       if (selectedStudent) {
-        const studentRef = doc(db, 'users', selectedStudent.id);
+        const studentRef = doc(db, 'students', selectedStudent.id);
         await updateDoc(studentRef, {
           status: formData.status,
-          adminNotes: formData.notes,
+          adminNotes: String(formData.notes || '').slice(0, 2000),
           lastContact: formData.lastContact,
           updatedAt: new Date(),
         });

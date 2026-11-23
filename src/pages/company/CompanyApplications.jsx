@@ -28,6 +28,7 @@ import {
 import { useAuth } from '../../context/AuthContext';
 import { useNotification } from '../../context/NotificationContext';
 import { db } from '../../config/firebase';
+import { getCompanyCandidateProfile } from '../../services/companyCandidateService';
 import { supabase } from '../../config/supabase';
 import supabaseMediaService from '../../services/supabaseMediaService';
 
@@ -207,10 +208,7 @@ const useCompanyApplications = (companyId, filters = {}) => {
             let candidate = null;
             if (data.candidateId) {
               try {
-                const candidateDoc = await getDoc(doc(db, 'users', data.candidateId));
-                if (candidateDoc.exists()) {
-                  candidate = { id: candidateDoc.id, ...candidateDoc.data() };
-                }
+                candidate = await getCompanyCandidateProfile(data.candidateId);
               } catch (err) {
                 console.log('Could not fetch candidate:', err);
               }
@@ -275,10 +273,7 @@ const useCompanyApplications = (companyId, filters = {}) => {
           let candidate = null;
           if (data.candidateId) {
             try {
-              const candidateDoc = await getDoc(doc(db, 'users', data.candidateId));
-              if (candidateDoc.exists()) {
-                candidate = { id: candidateDoc.id, ...candidateDoc.data() };
-              }
+              candidate = await getCompanyCandidateProfile(data.candidateId);
             } catch (err) {
               console.log('Could not fetch candidate:', err);
             }
@@ -978,7 +973,7 @@ const CompanyApplications = () => {
   const { currentUser, userProfile } = useAuth();
   const { showNotification } = useNotification();
   
-  const companyId = currentUser?.uid;
+  const companyId = userProfile?.companyId || currentUser?.companyId || currentUser?.uid;
 
   // Get initial filter from URL
   const initialStatus = searchParams.get('status') || 'all';

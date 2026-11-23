@@ -862,7 +862,7 @@ const CompanyDashboard = () => {
   const { showNotification } = useNotification();
   const { theme } = useTheme();
   
-  const companyId = currentUser?.uid;
+  const companyId = userProfile?.companyId || currentUser?.companyId || currentUser?.uid;
   
   // Real-time data hooks
   const { 

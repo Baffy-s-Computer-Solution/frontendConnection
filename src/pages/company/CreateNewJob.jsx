@@ -997,7 +997,7 @@ const CreateNewJob = () => {
   const { currentUser, userProfile } = useAuth();
   const { addSuccessNotification, addErrorNotification } = useNotification();
 
-  const companyId = currentUser?.uid;
+  const companyId = userProfile?.companyId || currentUser?.companyId || currentUser?.uid;
   const companyName = userProfile?.companyName || userProfile?.displayName || 'Your Company';
   const companyLogo = userProfile?.logo || userProfile?.photoURL || null;
 

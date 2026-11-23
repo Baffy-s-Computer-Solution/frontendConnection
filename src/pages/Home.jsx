@@ -32,6 +32,7 @@ import {
 import { supabase } from '../config/supabase';
 import { useAuth } from '../context/AuthContext';
 import { getUserDashboardPath } from '../utils/dashboardConstants';
+import { normalizeUserType } from '../utils/authRoleUtils';
 
 const NAV_LINKS = [
   { label: 'Platform', href: '#platform' },
@@ -267,13 +268,13 @@ const Home = () => {
       if (!userStats || Object.values(firestoreData).some((snapshot) => !snapshot)) return;
 
       const activeJobs = firestoreData.jobs.docs.filter((item) => {
-        const status = normalizeUserType(item.data()?.status);
+        const status = String(item.data()?.status || '').trim().toLowerCase();
         return status && !['closed', 'draft', 'archived'].includes(status);
       }).length;
 
       const activeOpportunities = firestoreData.opportunities.docs.filter((item) => {
         const data = item.data() || {};
-        const status = normalizeUserType(data.status || (data.published === true ? 'published' : ''));
+        const status = String(data.status || (data.published === true ? 'published' : '')).trim().toLowerCase();
         return status === 'active' || status === 'published' || data.published === true;
       }).length;
 

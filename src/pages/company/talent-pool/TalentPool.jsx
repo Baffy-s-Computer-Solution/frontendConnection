@@ -24,6 +24,7 @@ import {
 
 import { useAuth } from "../../../context/AuthContext";
 import { db } from "../../../config/firebase";
+import { getCompanyCandidateProfile } from "../../../services/companyCandidateService";
 
 const PAGE_SIZE = 30;
 
@@ -42,8 +43,7 @@ const getCandidate = async (savedDoc) => {
   const saved = savedDoc.data();
   let profile = {};
   if (saved.candidateId) {
-    const profileSnapshot = await getDoc(doc(db, "users", saved.candidateId));
-    if (profileSnapshot.exists()) profile = profileSnapshot.data();
+    profile = await getCompanyCandidateProfile(saved.candidateId);
   }
 
   return {
@@ -66,9 +66,10 @@ const getCandidate = async (savedDoc) => {
 
 export default function TalentPool() {
   const { currentUser, userProfile, loading: authLoading } = useAuth();
-  const canManage =
-    String(userProfile?.role || userProfile?.userType || "").toLowerCase() ===
-    "company";
+  const companyId = userProfile?.companyId || currentUser?.companyId || currentUser?.uid;
+  const canManage = ['company', 'company_admin', 'supervisor'].includes(
+    String(userProfile?.companyRole || userProfile?.role || userProfile?.userType || '').toLowerCase(),
+  );
   const [candidates, setCandidates] = useState([]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
@@ -83,7 +84,7 @@ export default function TalentPool() {
 
   const loadPage = useCallback(
     async (cursor = null, append = false) => {
-      if (!currentUser?.uid) {
+      if (!companyId) {
         setLoading(false);
         return;
       }
@@ -94,7 +95,7 @@ export default function TalentPool() {
       try {
         const savedCandidatesQuery = query(
           collection(db, "savedCandidates"),
-          where("companyId", "==", currentUser.uid),
+          where("companyId", "==", companyId),
           orderBy("savedAt", "desc"),
           ...(cursor ? [startAfter(cursor)] : []),
           limit(PAGE_SIZE),
@@ -119,7 +120,7 @@ export default function TalentPool() {
         setLoadingMore(false);
       }
     },
-    [currentUser?.uid],
+    [companyId],
   );
 
   useEffect(() => {

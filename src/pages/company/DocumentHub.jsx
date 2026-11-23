@@ -905,7 +905,7 @@ const DocumentHub = () => {
   const { currentUser, userProfile } = useAuth();
   const { showNotification } = useNotification();
 
-  const companyId = currentUser?.uid;
+  const companyId = userProfile?.companyId || currentUser?.companyId || currentUser?.uid;
   const { documents, loading, error } = useDocuments(companyId);
 
   // Local state

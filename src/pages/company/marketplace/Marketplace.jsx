@@ -397,7 +397,7 @@ const ServiceDetailModal = ({ service, show, onClose, onContact, onToggleSave, i
 const Marketplace = () => {
   const { currentUser, userProfile } = useAuth();
   const { showNotification } = useNotification();
-  const companyId = currentUser?.uid;
+  const companyId = userProfile?.companyId || currentUser?.companyId || currentUser?.uid;
   const { services, loading } = useMarketplace();
 
   const [searchTerm, setSearchTerm] = useState('');

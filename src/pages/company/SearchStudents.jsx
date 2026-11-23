@@ -28,6 +28,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useNotification } from '../../context/NotificationContext';
 import { db } from '../../config/firebase';
 import { supabase } from '../../config/supabase';
+import { apiRequest } from '../../services/apiClient';
 
 // ============================================
 // CONSTANTS
@@ -136,7 +137,7 @@ const useStudents = (companyId) => {
   const [students, setStudents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [lastDoc, setLastDoc] = useState(null);
+  const [nextCursor, setNextCursor] = useState(null);
   const [hasMore, setHasMore] = useState(true);
 
   useEffect(() => {
@@ -145,66 +146,31 @@ const useStudents = (companyId) => {
       return;
     }
 
-    const q = query(
-      collection(db, 'users'),
-      where('userType', 'in', ['student', 'candidate']),
-      orderBy('updatedAt', 'desc'),
-      limit(ITEMS_PER_PAGE * 3)
-    );
-
-    const unsubscribe = onSnapshot(
-      q,
-      (snapshot) => {
-        const studentsData = snapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data(),
-          updatedAt: doc.data().updatedAt?.toDate?.() || doc.data().updatedAt,
-          createdAt: doc.data().createdAt?.toDate?.() || doc.data().createdAt,
-          lastActive: doc.data().lastActive?.toDate?.() || doc.data().lastActive,
-        }));
-        setStudents(studentsData);
-        setLastDoc(snapshot.docs[snapshot.docs.length - 1]);
-        setHasMore(snapshot.docs.length === ITEMS_PER_PAGE * 3);
-        setLoading(false);
-      },
-      (err) => {
-        console.error('Error fetching students:', err);
-        setError(err.message);
-        setLoading(false);
-      }
-    );
-
-    return () => unsubscribe();
+    let cancelled = false;
+    apiRequest(`/api/company/students?limit=${ITEMS_PER_PAGE * 3}`)
+      .then((result) => {
+        if (cancelled) return;
+        setStudents(result.students || []);
+        setNextCursor(result.nextCursor || null);
+        setHasMore(Boolean(result.hasMore));
+      })
+      .catch((err) => { if (!cancelled) setError(err.message); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
   }, [companyId]);
 
   const loadMore = useCallback(async () => {
-    if (!companyId || !lastDoc || !hasMore) return;
+    if (!companyId || !nextCursor || !hasMore) return;
 
     try {
-      const moreQuery = query(
-        collection(db, 'users'),
-        where('userType', 'in', ['student', 'candidate']),
-        orderBy('updatedAt', 'desc'),
-        startAfter(lastDoc),
-        limit(ITEMS_PER_PAGE)
-      );
-
-      const snapshot = await getDocs(moreQuery);
-      const moreStudents = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-        updatedAt: doc.data().updatedAt?.toDate?.() || doc.data().updatedAt,
-        createdAt: doc.data().createdAt?.toDate?.() || doc.data().createdAt,
-        lastActive: doc.data().lastActive?.toDate?.() || doc.data().lastActive,
-      }));
-
-      setStudents(prev => [...prev, ...moreStudents]);
-      setLastDoc(snapshot.docs[snapshot.docs.length - 1]);
-      setHasMore(snapshot.docs.length === ITEMS_PER_PAGE);
+      const result = await apiRequest(`/api/company/students?limit=${ITEMS_PER_PAGE}&cursor=${encodeURIComponent(nextCursor)}`);
+      setStudents((prev) => [...prev, ...(result.students || [])]);
+      setNextCursor(result.nextCursor || null);
+      setHasMore(Boolean(result.hasMore));
     } catch (err) {
       console.error('Error loading more students:', err);
     }
-  }, [companyId, lastDoc, hasMore]);
+  }, [companyId, nextCursor, hasMore]);
 
   return { students, loading, error, hasMore, loadMore };
 };
@@ -867,7 +833,7 @@ const SearchStudents = () => {
   const { currentUser, userProfile } = useAuth();
   const { showNotification } = useNotification();
 
-  const companyId = currentUser?.uid;
+  const companyId = userProfile?.companyId || currentUser?.companyId || currentUser?.uid;
   const { students, loading, error, hasMore, loadMore } = useStudents(companyId);
   const { saved, setSaved } = useSavedCandidates(companyId);
 

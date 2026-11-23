@@ -17,6 +17,7 @@ import {
   writeBatch,
 } from "firebase/firestore";
 import { supabaseMediaService } from './supabaseMediaService';
+import { apiRequest } from './apiClient';
 
 import { db, auth } from "../config/firebase";
 
@@ -24,6 +25,9 @@ const ownsInstitution = async (institutionId, userId) => {
   const snapshot = await getDoc(doc(db, "institutions", institutionId));
   return snapshot.exists() && snapshot.data().userId === userId;
 };
+
+const getInstitutionStudentProfile = (studentUid) =>
+  apiRequest(`/api/institute/students/${encodeURIComponent(studentUid)}/profile`);
 
 export const institutionService = {
   // === DASHBOARD METHODS ===
@@ -425,17 +429,11 @@ export const institutionService = {
 
         if (appData.studentId) {
           try {
-            const studentDoc = await getDoc(
-              doc(db, "users", appData.studentId),
-            );
-            if (studentDoc.exists()) {
-              const studentData = studentDoc.data();
-              studentName =
-                `${studentData.firstName || ""} ${studentData.lastName || ""}`.trim() ||
-                "Unknown Student";
-              studentEmail = studentData.email || "";
-              studentPhoto = studentData.photoURL || "";
-            }
+            const studentData = await getInstitutionStudentProfile(appData.studentId);
+            studentName = `${studentData.firstName || ""} ${studentData.lastName || ""}`.trim()
+              || studentData.displayName || "Unknown Student";
+            studentEmail = studentData.email || "";
+            studentPhoto = studentData.photoURL || "";
           } catch (err) {
             console.warn("Error fetching student info:", err);
           }
@@ -587,16 +585,10 @@ export const institutionService = {
 
               if (appData.studentId) {
                 try {
-                  const studentDoc = await getDoc(
-                    doc(db, "users", appData.studentId),
-                  );
-                  if (studentDoc.exists()) {
-                    const studentData = studentDoc.data();
-                    studentName =
-                      `${studentData.firstName || ""} ${studentData.lastName || ""}`.trim() ||
-                      "Unknown Student";
-                    studentEmail = studentData.email || "";
-                  }
+                  const studentData = await getInstitutionStudentProfile(appData.studentId);
+                  studentName = `${studentData.firstName || ""} ${studentData.lastName || ""}`.trim()
+                    || studentData.displayName || "Unknown Student";
+                  studentEmail = studentData.email || "";
                 } catch (err) {
                   console.warn("Error fetching student info:", err);
                 }
@@ -1340,13 +1332,9 @@ export const institutionService = {
 
           if (activity.userId) {
             try {
-              const userDoc = await getDoc(doc(db, "users", activity.userId));
-              if (userDoc.exists()) {
-                const userData = userDoc.data();
-                userName =
-                  `${userData.firstName || ""} ${userData.lastName || ""}`.trim() ||
-                  "User";
-              }
+              const userData = await getInstitutionStudentProfile(activity.userId);
+              userName = `${userData.firstName || ""} ${userData.lastName || ""}`.trim()
+                || userData.displayName || "User";
             } catch (err) {
               console.warn("Error fetching user info:", err);
             }
@@ -1434,13 +1422,9 @@ export const institutionService = {
 
           if (student.userId) {
             try {
-              const userDoc = await getDoc(doc(db, "users", student.userId));
-              if (userDoc.exists()) {
-                const userData = userDoc.data();
-                studentName =
-                  `${userData.firstName || ""} ${userData.lastName || ""}`.trim() ||
-                  "Unknown Student";
-              }
+              const userData = await getInstitutionStudentProfile(student.userId);
+              studentName = `${userData.firstName || ""} ${userData.lastName || ""}`.trim()
+                || userData.displayName || "Unknown Student";
             } catch (err) {
               console.warn("Error fetching user info:", err);
             }

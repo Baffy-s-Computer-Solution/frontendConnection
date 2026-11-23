@@ -217,7 +217,7 @@ const RadarChart = ({ companies, metrics, height = 300 }) => {
 const CompetitorAnalysis = () => {
   const { currentUser, userProfile } = useAuth();
   const { showNotification } = useNotification();
-  const companyId = currentUser?.uid;
+  const companyId = userProfile?.companyId || currentUser?.companyId || currentUser?.uid;
   const { competitors, myCompany, loading, error } = useCompetitorData(companyId);
 
   const [activeTab, setActiveTab] = useState('overview');

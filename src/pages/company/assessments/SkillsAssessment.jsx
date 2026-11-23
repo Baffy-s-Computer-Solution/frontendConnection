@@ -12,6 +12,7 @@ import {
 import { useAuth } from '../../../context/AuthContext';
 import { useNotification } from '../../../context/NotificationContext';
 import { db } from '../../../config/firebase';
+import { getCompanyCandidateProfile } from '../../../services/companyCandidateService';
 
 const ASSESSMENT_TYPES = [
   { value: 'technical', label: 'Technical Skills', icon: FaCode, color: 'blue' },
@@ -120,10 +121,7 @@ const useAssessmentCandidates = (companyId) => {
       try {
         const candidates = await Promise.all(
           [...relationshipsByCandidate].map(async ([candidateId, sources]) => {
-            const profileSnapshot = await getDoc(doc(db, 'users', candidateId));
-            if (!profileSnapshot.exists()) return null;
-
-            const profile = profileSnapshot.data();
+            const profile = await getCompanyCandidateProfile(candidateId);
             const userType = profile.userType || profile.role || 'student';
             if (!isAssessmentCandidate(userType)) return null;
 
@@ -316,7 +314,7 @@ const AssessmentCard = ({ assessment, onView, onDelete, onEdit }) => {
 const SkillsAssessment = () => {
   const { currentUser, userProfile } = useAuth();
   const { showNotification } = useNotification();
-  const companyId = currentUser?.uid;
+  const companyId = userProfile?.companyId || currentUser?.companyId || currentUser?.uid;
   const { assessments, templates, loading } = useAssessments(companyId);
   const { candidates, loading: candidatesLoading, error: candidatesError } =
     useAssessmentCandidates(companyId);

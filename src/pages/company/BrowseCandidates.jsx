@@ -29,6 +29,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useNotification } from '../../context/NotificationContext';
 import { db } from '../../config/firebase';
 import { supabase } from '../../config/supabase';
+import { apiRequest } from '../../services/apiClient';
 
 // ============================================
 // CONSTANTS
@@ -129,7 +130,7 @@ const useCandidates = (companyId, filters = {}) => {
   const [candidates, setCandidates] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [lastDoc, setLastDoc] = useState(null);
+  const [nextCursor, setNextCursor] = useState(null);
   const [hasMore, setHasMore] = useState(true);
 
   useEffect(() => {
@@ -138,67 +139,31 @@ const useCandidates = (companyId, filters = {}) => {
       return;
     }
 
-    let q = query(
-      collection(db, 'users'),
-      where('userType', '==', 'student'),
-      where('profileComplete', '==', true),
-      orderBy('updatedAt', 'desc'),
-      limit(ITEMS_PER_PAGE * 3)
-    );
-
-    const unsubscribe = onSnapshot(
-      q,
-      (snapshot) => {
-        const candidatesData = snapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data(),
-          updatedAt: doc.data().updatedAt?.toDate?.() || doc.data().updatedAt,
-          createdAt: doc.data().createdAt?.toDate?.() || doc.data().createdAt,
-        }));
-        
-        setCandidates(candidatesData);
-        setLastDoc(snapshot.docs[snapshot.docs.length - 1]);
-        setHasMore(snapshot.docs.length === ITEMS_PER_PAGE * 3);
-        setLoading(false);
-      },
-      (err) => {
-        console.error('Error fetching candidates:', err);
-        setError(err.message);
-        setLoading(false);
-      }
-    );
-
-    return () => unsubscribe();
+    let cancelled = false;
+    apiRequest(`/api/company/students?limit=${ITEMS_PER_PAGE * 3}&profileComplete=true`)
+      .then((result) => {
+        if (cancelled) return;
+        setCandidates(result.students || []);
+        setNextCursor(result.nextCursor || null);
+        setHasMore(Boolean(result.hasMore));
+      })
+      .catch((err) => { if (!cancelled) setError(err.message); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
   }, [companyId]);
 
   const loadMore = useCallback(async () => {
-    if (!companyId || !lastDoc || !hasMore) return;
+    if (!companyId || !nextCursor || !hasMore) return;
 
     try {
-      const moreQuery = query(
-        collection(db, 'users'),
-        where('userType', '==', 'student'),
-        where('profileComplete', '==', true),
-        orderBy('updatedAt', 'desc'),
-        startAfter(lastDoc),
-        limit(ITEMS_PER_PAGE)
-      );
-
-      const snapshot = await getDocs(moreQuery);
-      const moreCandidates = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-        updatedAt: doc.data().updatedAt?.toDate?.() || doc.data().updatedAt,
-        createdAt: doc.data().createdAt?.toDate?.() || doc.data().createdAt,
-      }));
-
-      setCandidates(prev => [...prev, ...moreCandidates]);
-      setLastDoc(snapshot.docs[snapshot.docs.length - 1]);
-      setHasMore(snapshot.docs.length === ITEMS_PER_PAGE);
+      const result = await apiRequest(`/api/company/students?limit=${ITEMS_PER_PAGE}&profileComplete=true&cursor=${encodeURIComponent(nextCursor)}`);
+      setCandidates((prev) => [...prev, ...(result.students || [])]);
+      setNextCursor(result.nextCursor || null);
+      setHasMore(Boolean(result.hasMore));
     } catch (err) {
       console.error('Error loading more candidates:', err);
     }
-  }, [companyId, lastDoc, hasMore]);
+  }, [companyId, nextCursor, hasMore]);
 
   return { candidates, loading, error, hasMore, loadMore };
 };
@@ -753,7 +718,7 @@ const BrowseCandidates = () => {
   const { currentUser, userProfile } = useAuth();
   const { showNotification } = useNotification();
   
-  const companyId = currentUser?.uid;
+  const companyId = userProfile?.companyId || currentUser?.companyId || currentUser?.uid;
   const { candidates, loading, error, hasMore, loadMore } = useCandidates(companyId);
 
   // Local state

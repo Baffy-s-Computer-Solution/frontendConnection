@@ -85,6 +85,11 @@ vi.mock('firebase/app', () => ({
 }));
 
 vi.mock('firebase/auth', () => ({
+  initializeAuth: vi.fn(() => ({ currentUser: null })),
+  indexedDBLocalPersistence: {},
+  browserLocalPersistence: {},
+  browserSessionPersistence: {},
+  browserPopupRedirectResolver: {},
   getAuth: vi.fn(() => ({
     currentUser: null,
     onAuthStateChanged: vi.fn((cb) => {
@@ -105,7 +110,10 @@ vi.mock('firebase/auth', () => ({
   signOut: vi.fn(),
   sendPasswordResetEmail: vi.fn(),
   updateProfile: vi.fn(),
-  GoogleAuthProvider: vi.fn(),
+  GoogleAuthProvider: vi.fn(() => ({
+    addScope: vi.fn(),
+    setCustomParameters: vi.fn(),
+  })),
   signInWithPopup: vi.fn(),
 }));
 

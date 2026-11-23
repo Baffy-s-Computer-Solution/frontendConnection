@@ -489,10 +489,10 @@ const InsightCard = ({ insight }) => {
 // ============================================
 
 const SearchMarket = () => {
-  const { currentUser } = useAuth();
+  const { currentUser, userProfile } = useAuth();
   const { showNotification } = useNotification();
 
-  const companyId = currentUser?.uid;
+  const companyId = userProfile?.companyId || currentUser?.companyId || currentUser?.uid;
   const { insights, trends, jobs, loading, error } = useMarketData(companyId);
 
   // State

@@ -1099,7 +1099,7 @@ const CompanyJobs = () => {
   const { currentUser, userProfile } = useAuth();
   const { showNotification } = useNotification();
   
-  const companyId = currentUser?.uid;
+  const companyId = userProfile?.companyId || currentUser?.companyId || currentUser?.uid;
   const { jobs, loading, error, hasMore, loadMore } = useCompanyJobs(companyId);
 
   // Local state

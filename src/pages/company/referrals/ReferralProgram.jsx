@@ -609,7 +609,7 @@ const ReferralProgram = () => {
   const { currentUser, userProfile } = useAuth();
   const { showNotification } = useNotification();
 
-  const companyId = currentUser?.uid;
+  const companyId = userProfile?.companyId || currentUser?.companyId || currentUser?.uid;
   const { program, referrals, loading, error } = useReferralProgram(companyId);
 
   // State

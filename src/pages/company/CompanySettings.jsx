@@ -200,7 +200,6 @@ import {
   serverTimestamp,
   addDoc,
   getDocs,
-  writeBatch,
 } from 'firebase/firestore';
 import {
   updateProfile,
@@ -215,6 +214,7 @@ import { useNotification } from '../../context/NotificationContext';
 import { useTheme } from '../../context/ThemeContext';
 import { db, auth } from '../../config/firebase';
 import { supabase } from '../../config/supabase';
+import { apiRequest } from '../../services/apiClient';
 
 // ============================================
 // CONSTANTS
@@ -484,11 +484,13 @@ const Button = ({
 
 const CompanySettings = () => {
   const navigate = useNavigate();
-  const { currentUser, userProfile, refreshUserProfile, logout } = useAuth();
+  const { currentUser, userProfile, refreshUserProfile } = useAuth();
   const { showNotification } = useNotification();
   const { theme, setTheme } = useTheme();
 
-  const companyId = currentUser?.uid;
+  const companyId = userProfile?.companyId || currentUser?.companyId || currentUser?.uid;
+  const companyRole = String(userProfile?.companyRole || userProfile?.role || '').toLowerCase();
+  const canManageCompanyTeam = ['company_admin', 'supervisor'].includes(companyRole);
 
   // State
   const [activeTab, setActiveTab] = useState('general');
@@ -496,7 +498,6 @@ const CompanySettings = () => {
   const [saving, setSaving] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [deleteConfirmText, setDeleteConfirmText] = useState('');
   const [teamMembers, setTeamMembers] = useState([]);
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [inviteEmail, setInviteEmail] = useState('');
@@ -576,8 +577,6 @@ const CompanySettings = () => {
       return;
     }
 
-    let unsubscribeTeam = null;
-
     const loadSettings = async () => {
       try {
         setLoading(true);
@@ -597,27 +596,13 @@ const CompanySettings = () => {
           }));
         }
 
-        // Real-time listener for team members
-        const teamQuery = query(
-          collection(db, 'companyTeamMembers'),
-          where('companyId', '==', companyId)
-        );
-
-        unsubscribeTeam = onSnapshot(
-          teamQuery,
-          (snapshot) => {
-            const members = snapshot.docs.map((docSnap) => ({
-              id: docSnap.id,
-              ...docSnap.data(),
-              invitedAt: docSnap.data().invitedAt?.toDate?.() || docSnap.data().invitedAt,
-              joinedAt: docSnap.data().joinedAt?.toDate?.() || docSnap.data().joinedAt,
-            }));
-            setTeamMembers(members);
-          },
-          (error) => {
-            console.error('Team listener error:', error);
-          }
-        );
+        try {
+          const members = await apiRequest('/api/company/team');
+          setTeamMembers(Array.isArray(members) ? members : []);
+        } catch (teamError) {
+          setTeamMembers([]);
+          if (teamError.status !== 403) console.error('Team list request failed:', teamError);
+        }
 
         setHasUnsavedChanges(false);
       } catch (error) {
@@ -630,9 +615,6 @@ const CompanySettings = () => {
 
     loadSettings();
 
-    return () => {
-      if (unsubscribeTeam) unsubscribeTeam();
-    };
   }, [companyId]);
 
   // ============================================
@@ -668,13 +650,6 @@ const CompanySettings = () => {
       };
 
       await setDoc(doc(db, 'companySettings', companyId), settingsToSave, { merge: true });
-      await updateDoc(doc(db, 'users', companyId), {
-        privacySettings: {
-          profileVisibility: settings.profileVisibility === 'private' ? 'private' : 'public',
-          mediaVisibility: settings.mediaVisibility || 'public',
-          messageConsent: settings.allowMessages === 'everyone' ? 'everyone' : settings.allowMessages === 'candidates' ? 'followers' : 'nobody',
-        },
-      });
 
       // Sync to Supabase (non-blocking)
       try {
@@ -806,63 +781,12 @@ const CompanySettings = () => {
     try {
       setInviting(true);
 
-      // Check if already invited
-      const existingQuery = query(
-        collection(db, 'companyTeamMembers'),
-        where('companyId', '==', companyId),
-        where('email', '==', inviteEmail.toLowerCase().trim())
-      );
-
-      const existingSnapshot = await getDocs(existingQuery);
-
-      if (!existingSnapshot.empty) {
-        showNotification('warning', 'This email has already been invited');
-        return;
-      }
-
-      // Create invitation
-      await addDoc(collection(db, 'companyTeamMembers'), {
-        companyId,
-        email: inviteEmail.toLowerCase().trim(),
-        role: inviteRole,
-        status: 'pending',
-        invitedBy: companyId,
-        invitedAt: serverTimestamp(),
-        permissions: {
-          viewJobs: true,
-          manageJobs: inviteRole === 'admin' || inviteRole === 'manager',
-          viewApplications: true,
-          manageApplications: ['admin', 'manager', 'recruiter'].includes(inviteRole),
-          scheduleInterviews: inviteRole !== 'viewer',
-          viewAnalytics: inviteRole === 'admin' || inviteRole === 'manager',
-          manageTeam: inviteRole === 'admin',
-        },
+      await apiRequest('/api/company/team/invitations', {
+        method: 'POST',
+        body: { email: inviteEmail.toLowerCase().trim(), role: inviteRole },
       });
-
-      // Notify the invited user if they exist
-      try {
-        const userQuery = query(
-          collection(db, 'users'),
-          where('email', '==', inviteEmail.toLowerCase().trim())
-        );
-
-        const userSnapshot = await getDocs(userQuery);
-
-        if (!userSnapshot.empty) {
-          const userId = userSnapshot.docs[0].id;
-          await addDoc(collection(db, 'notifications'), {
-            userId,
-            type: 'team_invitation',
-            title: 'Team Invitation',
-            message: `${userProfile?.companyName || 'A company'} has invited you to join their team`,
-            companyId,
-            read: false,
-            createdAt: serverTimestamp(),
-          });
-        }
-      } catch (notifyError) {
-        console.warn('Failed to notify user:', notifyError);
-      }
+      const updatedMembers = await apiRequest('/api/company/team');
+      setTeamMembers(Array.isArray(updatedMembers) ? updatedMembers : []);
 
       showNotification('success', `Invitation sent to ${inviteEmail}`);
       setShowInviteModal(false);
@@ -878,7 +802,8 @@ const CompanySettings = () => {
 
   const handleRemoveTeamMember = async (memberId) => {
     try {
-      await deleteDoc(doc(db, 'companyTeamMembers', memberId));
+      await apiRequest(`/api/company/team/${encodeURIComponent(memberId)}`, { method: 'DELETE' });
+      setTeamMembers((members) => members.map((member) => member.id === memberId ? { ...member, status: 'revoked' } : member));
       showNotification('success', 'Team member removed');
     } catch (error) {
       console.error('Error removing team member:', error);
@@ -888,19 +813,11 @@ const CompanySettings = () => {
 
   const handleUpdateMemberRole = async (memberId, newRole) => {
     try {
-      await updateDoc(doc(db, 'companyTeamMembers', memberId), {
-        role: newRole,
-        updatedAt: serverTimestamp(),
-        permissions: {
-          viewJobs: true,
-          manageJobs: newRole === 'admin' || newRole === 'manager',
-          viewApplications: true,
-          manageApplications: ['admin', 'manager', 'recruiter'].includes(newRole),
-          scheduleInterviews: newRole !== 'viewer',
-          viewAnalytics: newRole === 'admin' || newRole === 'manager',
-          manageTeam: newRole === 'admin',
-        },
+      await apiRequest(`/api/company/team/${encodeURIComponent(memberId)}`, {
+        method: 'PATCH',
+        body: { role: newRole },
       });
+      setTeamMembers((members) => members.map((member) => member.id === memberId ? { ...member, role: newRole } : member));
       showNotification('success', 'Role updated');
     } catch (error) {
       console.error('Error updating role:', error);
@@ -909,57 +826,8 @@ const CompanySettings = () => {
   };
 
   const handleDeleteAccount = async () => {
-    if (deleteConfirmText !== 'DELETE') {
-      showNotification('error', 'Please type DELETE to confirm');
-      return;
-    }
-
-    try {
-      setSaving(true);
-
-      const batch = writeBatch(db);
-
-      // Delete jobs
-      const jobsQuery = query(collection(db, 'jobs'), where('companyId', '==', companyId));
-      const jobsSnapshot = await getDocs(jobsQuery);
-      jobsSnapshot.docs.forEach((docSnap) => batch.delete(docSnap.ref));
-
-      // Delete applications
-      const appsQuery = query(collection(db, 'applications'), where('companyId', '==', companyId));
-      const appsSnapshot = await getDocs(appsQuery);
-      appsSnapshot.docs.forEach((docSnap) => batch.delete(docSnap.ref));
-
-      // Delete team members
-      const teamQuery = query(
-        collection(db, 'companyTeamMembers'),
-        where('companyId', '==', companyId)
-      );
-      const teamSnapshot = await getDocs(teamQuery);
-      teamSnapshot.docs.forEach((docSnap) => batch.delete(docSnap.ref));
-
-      // Delete company profile and settings
-      batch.delete(doc(db, 'companies', companyId));
-      batch.delete(doc(db, 'companySettings', companyId));
-
-      await batch.commit();
-
-      // Delete from Supabase (non-blocking)
-      try {
-        await supabase.from('companies').delete().eq('id', companyId);
-      } catch (supabaseError) {
-        console.warn('Supabase delete failed:', supabaseError);
-      }
-
-      showNotification('success', 'Account deleted successfully');
-
-      await logout();
-      navigate('/');
-    } catch (error) {
-      console.error('Error deleting account:', error);
-      showNotification('error', 'Failed to delete account');
-    } finally {
-      setSaving(false);
-    }
+    showNotification('info', 'Contact platform support to request a company archive review.');
+    setShowDeleteConfirm(false);
   };
 
   const handleExportData = async () => {
@@ -1509,24 +1377,25 @@ const CompanySettings = () => {
                 </div>
               </div>
               <div className="flex items-center gap-3 flex-shrink-0">
-                <select
+                {['company_admin', 'supervisor'].includes(member.role) ? (
+                  <span className="text-sm text-gray-500">{member.role.replace('_', ' ')}</span>
+                ) : <select
                   value={member.role}
                   onChange={(e) => handleUpdateMemberRole(member.id, e.target.value)}
                   className="px-3 py-1.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 dark:text-white"
                 >
-                  <option value="admin">Admin</option>
                   <option value="manager">Manager</option>
                   <option value="recruiter">Recruiter</option>
                   <option value="interviewer">Interviewer</option>
                   <option value="viewer">Viewer</option>
-                </select>
-                <button
+                </select>}
+                {!['company_admin', 'supervisor'].includes(member.role) && <button
                   onClick={() => handleRemoveTeamMember(member.id)}
                   className="p-2 text-gray-400 hover:text-red-500 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
                   title="Remove member"
                 >
                   <FaTrashAlt className="w-4 h-4" />
-                </button>
+                </button>}
               </div>
             </motion.div>
           ))}
@@ -1798,7 +1667,7 @@ const CompanySettings = () => {
             className="lg:col-span-1"
           >
             <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden sticky top-6">
-              {SETTINGS_TABS.map((tab) => (
+              {SETTINGS_TABS.filter((tab) => tab.id !== 'team' || canManageCompanyTeam).map((tab) => (
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
@@ -1886,7 +1755,6 @@ const CompanySettings = () => {
                   value={inviteRole}
                   onChange={(e) => setInviteRole(e.target.value)}
                   options={[
-                    { value: 'admin', label: 'Admin - Full access' },
                     { value: 'manager', label: 'Manager - Manage jobs & applications' },
                     { value: 'recruiter', label: 'Recruiter - Manage applications' },
                     { value: 'interviewer', label: 'Interviewer - Conduct interviews' },
@@ -1933,7 +1801,7 @@ const CompanySettings = () => {
         )}
       </AnimatePresence>
 
-      {/* Delete Account Modal */}
+      {/* Company archive is controlled by platform super administrators. */}
       <AnimatePresence>
         {showDeleteConfirm && (
           <motion.div
@@ -1957,37 +1825,22 @@ const CompanySettings = () => {
                 </div>
                 <div>
                   <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                    Delete Account
+                    Request Company Archive
                   </h3>
-                  <p className="text-sm text-gray-500">This action cannot be undone</p>
+                  <p className="text-sm text-gray-500">A platform administrator must review this request.</p>
                 </div>
               </div>
 
               <div className="p-3 bg-red-50 dark:bg-red-900/20 rounded-xl mb-4">
                 <p className="text-sm text-red-700 dark:text-red-300">
-                  This will permanently delete your company account, all job postings,
-                  applications, and team members.
+                  Company accounts cannot delete themselves. Contact platform support to request an archive review.
                 </p>
               </div>
-
-              <p className="text-sm text-gray-600 dark:text-gray-300 mb-3">
-                Type <strong className="text-red-600">DELETE</strong> to confirm:
-              </p>
-
-              <input
-                type="text"
-                value={deleteConfirmText}
-                onChange={(e) => setDeleteConfirmText(e.target.value)}
-                placeholder="Type DELETE to confirm"
-                className="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent mb-4 text-gray-900 dark:text-white placeholder-gray-400"
-                autoFocus
-              />
 
               <div className="flex items-center gap-3">
                 <Button
                   onClick={() => {
                     setShowDeleteConfirm(false);
-                    setDeleteConfirmText('');
                   }}
                   variant="secondary"
                   size="md"
@@ -1997,13 +1850,12 @@ const CompanySettings = () => {
                 </Button>
                 <Button
                   onClick={handleDeleteAccount}
-                  disabled={deleteConfirmText !== 'DELETE' || saving}
-                  loading={saving}
+                  disabled={saving}
                   variant="danger"
                   size="md"
                   className="flex-1"
                 >
-                  Delete Account
+                  Close
                 </Button>
               </div>
             </motion.div>

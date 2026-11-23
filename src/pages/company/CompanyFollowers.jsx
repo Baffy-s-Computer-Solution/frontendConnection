@@ -31,6 +31,7 @@ import {
 import { useAuth } from '../../context/AuthContext';
 import { useNotification } from '../../context/NotificationContext';
 import { db } from '../../config/firebase';
+import { getCompanyCandidateProfile } from '../../services/companyCandidateService';
 import { supabase } from '../../config/supabase';
 
 // ============================================
@@ -153,14 +154,7 @@ const useFollowers = (companyId) => {
             const followerUid = data.userId || data.studentId;
             if (followerUid) {
               try {
-                const userDoc = await getDoc(doc(db, 'users', followerUid));
-                if (userDoc.exists()) {
-                  const userData = userDoc.data();
-                  user = {
-                    id: userDoc.id,
-                    ...userData,
-                  };
-                }
+                user = await getCompanyCandidateProfile(followerUid);
               } catch (err) {
                 console.log('Error fetching user:', err);
               }
@@ -697,7 +691,7 @@ const CompanyFollowers = () => {
   const { currentUser, userProfile } = useAuth();
   const { showNotification } = useNotification();
 
-  const companyId = currentUser?.uid;
+  const companyId = userProfile?.companyId || currentUser?.companyId || currentUser?.uid;
   const { followers, loading, error } = useFollowers(companyId);
 
   // Local state

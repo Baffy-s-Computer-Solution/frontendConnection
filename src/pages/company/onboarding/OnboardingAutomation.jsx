@@ -153,7 +153,7 @@ const OnboardingCard = ({ onboarding, onToggleStep, onView }) => {
 const OnboardingAutomation = () => {
   const { currentUser, userProfile } = useAuth();
   const { showNotification } = useNotification();
-  const companyId = currentUser?.uid;
+  const companyId = userProfile?.companyId || currentUser?.companyId || currentUser?.uid;
   const { onboardings, loading } = useOnboardingData(companyId);
 
   const [searchTerm, setSearchTerm] = useState('');

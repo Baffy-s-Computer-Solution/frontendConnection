@@ -166,7 +166,7 @@ const TaskCard = ({ task, onStatusChange, onDelete }) => {
 const TeamWorkspace = () => {
   const { currentUser, userProfile } = useAuth();
   const { showNotification } = useNotification();
-  const companyId = currentUser?.uid;
+  const companyId = userProfile?.companyId || currentUser?.companyId || currentUser?.uid;
   const { teamMembers, tasks, messages, activities, loading } = useWorkspaceData(companyId);
 
   const [activeTab, setActiveTab] = useState('tasks');

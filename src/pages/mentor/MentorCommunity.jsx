@@ -9,6 +9,7 @@ import { db, auth } from '../../config/firebase';
 import { supabaseMediaService } from '../../services/supabaseMediaService';
 import { supabase } from '../../config/supabase';
 import { useAuth } from '../../context/AuthContext';
+import { apiRequest } from '../../services/apiClient';
 import { useNotification } from '../../context/NotificationContext';
 import {
   Users, UserPlus, UserMinus, UserCheck, MessageCircle, MessageSquare,
@@ -108,19 +109,14 @@ const useCommunityMembers = (userId) => {
 
   useEffect(() => {
     if (!userId) return;
-    const q = query(
-      collection(db, 'users'),
-      where('role', '==', 'mentor'),
-      limit(MEMBERS_PER_PAGE)
-    );
-    const unsub = onSnapshot(q, (snap) => {
-      const data = snap.docs
-        .map(d => ({ id: d.id, ...d.data() }))
-        .filter(m => m.id !== userId);
-      setMembers(data);
-      setLoading(false);
-    }, err => { console.error(err); setLoading(false); });
-    return () => unsub();
+    let cancelled = false;
+    apiRequest('/api/mentorship/mentors')
+      .then((result) => {
+        if (!cancelled) setMembers((result?.data || result || []).filter((member) => member.id !== userId));
+      })
+      .catch((err) => { if (!cancelled) console.error('Unable to load mentor directory:', err); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
   }, [userId]);
 
   return { members, loading };

@@ -28,6 +28,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useNotification } from '../../context/NotificationContext';
 import { db } from '../../config/firebase';
 import { supabase } from '../../config/supabase';
+import { getCompanyCandidateProfile } from '../../services/companyCandidateService';
 
 // ============================================
 // CONSTANTS
@@ -229,10 +230,7 @@ const useInterviews = (companyId, filters = {}) => {
                   // Fetch candidate
                   let candidate = null;
                   if (appData.candidateId) {
-                    const candidateDoc = await getDoc(doc(db, 'users', appData.candidateId));
-                    if (candidateDoc.exists()) {
-                      candidate = { id: candidateDoc.id, ...candidateDoc.data() };
-                    }
+                    candidate = await getCompanyCandidateProfile(appData.candidateId);
                   }
                   
                   // Fetch job
@@ -300,10 +298,7 @@ const useAvailableApplications = (companyId) => {
           
           let candidate = null;
           if (data.candidateId) {
-            const candidateDoc = await getDoc(doc(db, 'users', data.candidateId));
-            if (candidateDoc.exists()) {
-              candidate = { id: candidateDoc.id, ...candidateDoc.data() };
-            }
+            candidate = await getCompanyCandidateProfile(data.candidateId);
           }
           
           let job = null;
@@ -999,7 +994,7 @@ const ScheduleInterview = () => {
   const { currentUser, userProfile } = useAuth();
   const { showNotification } = useNotification();
 
-  const companyId = currentUser?.uid;
+  const companyId = userProfile?.companyId || currentUser?.companyId || currentUser?.uid;
   const preselectedAppId = searchParams.get('application');
 
   const [statusFilter, setStatusFilter] = useState('all');

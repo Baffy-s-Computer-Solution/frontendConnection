@@ -402,10 +402,10 @@ const InsightCard = ({ insight }) => {
 
 const PredictiveAnalytics = () => {
   const navigate = useNavigate();
-  const { currentUser } = useAuth();
+  const { currentUser, userProfile } = useAuth();
   const { showNotification } = useNotification();
 
-  const companyId = currentUser?.uid;
+  const companyId = userProfile?.companyId || currentUser?.companyId || currentUser?.uid;
   const { applications, jobs, interviews, loading } = useAnalyticsData(companyId);
 
   // State

@@ -30,6 +30,7 @@ import {
 import { useAuth } from '../../context/AuthContext';
 import { useNotification } from '../../context/NotificationContext';
 import { db } from '../../config/firebase';
+import { getCompanyCandidateProfile } from '../../services/companyCandidateService';
 import supabaseMediaService from '../../services/supabaseMediaService';
 import socialPlatformService from '../../services/socialPlatformService';
 
@@ -109,14 +110,18 @@ const useConversations = (userId) => {
             const participants = await Promise.all(
               otherParticipantIds.map(async (pid) => {
                 try {
-                  const userDoc = await getDoc(doc(db, 'users', pid));
-                  if (userDoc.exists()) {
-                    return { id: pid, ...userDoc.data() };
-                  }
+                  const profile = await getCompanyCandidateProfile(pid);
+                  const savedDetails = data.participantDetails?.[pid] || {};
+                  return { ...profile, displayName: profile.displayName || savedDetails.name || savedDetails.displayName };
                 } catch (err) {
-                  console.log('Error fetching participant:', err);
+                  const savedDetails = data.participantDetails?.[pid] || {};
+                  return {
+                    id: pid,
+                    displayName: savedDetails.name || savedDetails.displayName || 'Company member',
+                    profileImage: savedDetails.avatar || savedDetails.photoURL || '',
+                    role: savedDetails.type || savedDetails.role || 'member',
+                  };
                 }
-                return { id: pid, name: 'Unknown User' };
               })
             );
 
@@ -367,6 +372,7 @@ const CompanyChat = () => {
   const { showNotification } = useNotification();
 
   const userId = currentUser?.uid;
+  const companyId = userProfile?.companyId || currentUser?.companyId || userId;
   const preselectedCandidateId = searchParams.get('candidate');
 
   const { conversations, loading: conversationsLoading, error: conversationsError } = useConversations(userId);
@@ -395,23 +401,20 @@ const CompanyChat = () => {
   useEffect(() => {
     if (!userId) return undefined;
     setFollowersReady(false);
-    const followersQuery = query(collection(db, 'companyFollowers'), where('companyId', '==', userId), orderBy('followedAt', 'desc'), limit(200));
+    const followersQuery = query(collection(db, 'companyFollowers'), where('companyId', '==', companyId), orderBy('followedAt', 'desc'), limit(200));
     return onSnapshot(followersQuery, async (snapshot) => {
       const followers = await Promise.all(snapshot.docs.map(async (item) => {
         const data = item.data();
         const followerId = data.studentId || data.userId;
         if (!followerId || data.status === 'inactive') return null;
-        const edgeSnapshot = await getDoc(doc(db, 'company_chat_followers', `${userId}_${followerId}`)).catch(() => null);
+        const edgeSnapshot = await getDoc(doc(db, 'company_chat_followers', `${companyId}_${followerId}`)).catch(() => null);
         if (!edgeSnapshot?.exists() || edgeSnapshot.data()?.status === 'inactive') return null;
-        const [userSnapshot, blockSnapshot] = await Promise.all([
-          getDoc(doc(db, 'users', followerId)).catch(() => null),
+        const [userProfile, blockSnapshot] = await Promise.all([
+          getCompanyCandidateProfile(followerId).catch(() => null),
           getDoc(doc(db, 'social_blocks', `${followerId}_${userId}`)).catch(() => null),
         ]);
-        if (!userSnapshot?.exists() || blockSnapshot?.exists()) return null;
-        const user = userSnapshot.data();
-        const consent = user.privacySettings?.messageConsent || user.privacy?.messageConsent || 'connections';
-        if (consent !== 'followers' && consent !== 'everyone') return null;
-        return { id: followerId, ...userSnapshot.data() };
+        if (!userProfile || blockSnapshot?.exists() || !userProfile.canReceiveCompanyMessages) return null;
+        return { id: followerId, ...userProfile };
       }));
       setFollowerCandidates(followers.filter(Boolean));
       setFollowersReady(true);
@@ -419,7 +422,7 @@ const CompanyChat = () => {
       console.error('Unable to load company followers for chat:', error);
       showNotification('error', 'Unable to load company followers. Please try again later.');
     });
-  }, [userId]);
+  }, [userId, companyId]);
 
   // Check mobile
   useEffect(() => {
@@ -495,10 +498,8 @@ const CompanyChat = () => {
       }
 
       // Fetch other user details
-      const otherUserDoc = await getDoc(doc(db, 'users', otherUserId));
-      const otherUser = otherUserDoc.exists() ? otherUserDoc.data() : {};
-      const consent = otherUser.privacySettings?.messageConsent || otherUser.privacy?.messageConsent || 'connections';
-      if (consent !== 'followers' && consent !== 'everyone') {
+      const otherUser = await getCompanyCandidateProfile(otherUserId);
+      if (!otherUser?.canReceiveCompanyMessages) {
         showNotification('warning', 'This member is not accepting new messages from company followers.');
         return;
       }

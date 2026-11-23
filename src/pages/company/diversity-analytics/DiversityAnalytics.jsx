@@ -200,9 +200,9 @@ const BarChart = ({ data, height = 240 }) => {
 };
 
 const DiversityAnalytics = () => {
-  const { currentUser } = useAuth();
+  const { currentUser, userProfile } = useAuth();
   const { showNotification } = useNotification();
-  const companyId = currentUser?.uid;
+  const companyId = userProfile?.companyId || currentUser?.companyId || currentUser?.uid;
 
   const [timeRange, setTimeRange] = useState('90d');
   const { applications, jobs, loading, error } = useDiversityData(companyId, timeRange);

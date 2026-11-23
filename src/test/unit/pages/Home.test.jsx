@@ -30,7 +30,7 @@ vi.mock('firebase/firestore', () => ({
 }));
 
 vi.mock('../../../config/supabase', () => ({
-  supabase: { from: vi.fn() },
+  supabase: { from: vi.fn(), rpc: vi.fn() },
 }));
 
 vi.mock('../../../context/AuthContext', () => ({
@@ -52,6 +52,10 @@ describe('Home page', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     useAuth.mockReturnValue({ currentUser: null, userProfile: null });
+    supabase.rpc.mockResolvedValue({
+      data: { student: 2, company: 0, mentor: 0, institute: 0 },
+      error: null,
+    });
     const snapshots = {
       companies: { docs: [{ data: () => ({}) }, { data: () => ({}) }], size: 2 },
       jobs: {
@@ -116,7 +120,7 @@ describe('Home page', () => {
   it('loads live platform metrics from Supabase and Firestore', async () => {
     renderHome(<Home />);
 
-    expect(supabase.from).toHaveBeenCalledTimes(4);
+    expect(supabase.rpc).toHaveBeenCalledWith('get_public_user_counts');
     expect(onSnapshot).toHaveBeenCalledTimes(4);
     expect(await screen.findByText(/students ready/i)).toBeInTheDocument();
     expect(screen.getAllByText(/active opportunities/i).length).toBeGreaterThan(0);

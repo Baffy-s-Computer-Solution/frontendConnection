@@ -708,7 +708,7 @@ const SearchPartners = () => {
   const { currentUser, userProfile } = useAuth();
   const { showNotification } = useNotification();
 
-  const companyId = currentUser?.uid;
+  const companyId = userProfile?.companyId || currentUser?.companyId || currentUser?.uid;
   const { partners, loading, error } = usePartners(companyId);
   const { saved, setSaved } = useSavedPartners(companyId);
 
