@@ -1,7 +1,7 @@
 import { doc, getDoc, onSnapshot, serverTimestamp, setDoc } from 'firebase/firestore';
 
 import { auth, db } from '../config/firebase';
-import { cloudinaryService } from './cloudinaryService';
+import { supabaseMediaService } from './supabaseMediaService';
 import API_BASE_URL from './apiConfig';
 
 const DEFAULT_NOTIFICATION_PREFERENCES = {
@@ -228,11 +228,11 @@ export const uploadProfileMedia = async (file, options = {}) => {
     });
     const result = await response.json().catch(() => ({}));
     if (!response.ok || !result.success || !result.photoURL) throw new Error(result.message || 'Unable to upload your profile image.');
-    return { success: true, source: 'cloudinary', url: result.photoURL, publicId: result.publicId };
+    return { success: true, source: 'supabase', url: result.photoURL, publicId: result.publicId };
   }
 
   try {
-    const result = await cloudinaryService.uploadImage(file, {
+    const result = await supabaseMediaService.uploadImage(file, {
       folder,
       public_id: publicId,
       transformation: [{ quality: 'auto', fetch_format: 'auto' }],
@@ -241,16 +241,16 @@ export const uploadProfileMedia = async (file, options = {}) => {
     if (result?.success) {
       return {
         success: true,
-        source: 'cloudinary',
+        source: 'supabase',
         url: result.url || result.secure_url,
         publicId: result.public_id || publicId,
       };
     }
 
-    throw new Error(result?.error || 'Cloudinary upload failed.');
-  } catch (cloudinaryError) {
-    console.error('Cloudinary profile media upload failed:', cloudinaryError);
-    throw new Error(cloudinaryError.message || 'Unable to upload media to Cloudinary.');
+    throw new Error(result?.error || 'supabase upload failed.');
+  } catch (supabaseError) {
+    console.error('supabase profile media upload failed:', supabaseError);
+    throw new Error(supabaseError.message || 'Unable to upload media to supabase.');
   }
 };
 

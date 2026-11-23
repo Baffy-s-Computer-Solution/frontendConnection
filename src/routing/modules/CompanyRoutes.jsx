@@ -5,6 +5,7 @@ import ProtectedRoute from '../../components/layout/ProtectedRoute';
 
 // Lazy loaded company components
 const CompanyDashboard = lazy(() => import('../../pages/company/CompanyDashboard'));
+const AcceptCompanyInvitation = lazy(() => import('../../pages/company/AcceptCompanyInvitation'));
 const CompanySettings = lazy(() => import('../../pages/company/CompanySettings'));
 const CompanyJobs = lazy(() => import('../../pages/company/CompanyJobs'));
 const CompanyApplications = lazy(() => import('../../pages/company/CompanyApplications'));
@@ -56,6 +57,12 @@ const TeamWorkspace = lazy(() => import('../../pages/company/team-workspace/Team
  * Contains all company-specific routes (requires company authentication)
  */
 export const getCompanyRoutes = () => [
+  <Route
+    key="company-invitation-accept"
+    path="/company/invitations/accept"
+    element={<AcceptCompanyInvitation />}
+  />,
+
   <Route
     key="company-root"
     path="/company"
@@ -199,7 +206,7 @@ export const getCompanyRoutes = () => [
     key="company-teams"
     path="/company/teams"
     element={
-      <ProtectedRoute allowedUserTypes={['company']}>
+      <ProtectedRoute allowedUserTypes={['company', 'company_staff']}>
         <ManageTeams />
       </ProtectedRoute>
     }

@@ -6,7 +6,7 @@ import {
   Timestamp, writeBatch, increment
 } from 'firebase/firestore';
 import { db, auth } from '../../config/firebase';
-import cloudinaryService from '../../services/cloudinaryService';
+import supabaseMediaService from '../../services/supabaseMediaService';
 import socialPlatformService from '../../services/socialPlatformService';
 import { useAuth } from '../../hooks/useAuth';
 import {
@@ -710,7 +710,7 @@ const MentorMessages = () => {
           continue;
         }
 
-        const upload = await cloudinaryService.uploadToCloudinary(file, `mentor-messages/${mentorId}`);
+        const upload = await supabaseMediaService.uploadToSupabase(file, `mentor-messages/${mentorId}`);
         if (!upload?.success || !upload.url) {
           throw new Error(upload?.error || `Could not upload ${file.name}.`);
         }

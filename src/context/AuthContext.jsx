@@ -83,6 +83,34 @@ const normalizeUserTypeForFirestore = (userType) => {
   return FIRESTORE_SUPPORTED_USER_TYPES.has(userType) ? userType : USER_TYPES.STUDENT;
 };
 
+const isPlatformAdminClaim = (claims = {}) =>
+  claims.admin === true ||
+  claims.isAdmin === true ||
+  claims.superAdmin === true ||
+  claims.isSuperAdmin === true ||
+  ['admin', 'super_admin'].includes(String(claims.role || '').toLowerCase());
+
+const getPlatformAdminProfile = (user, claims = {}) => {
+  if (!isPlatformAdminClaim(claims)) return null;
+  const isSuperAdmin =
+    claims.superAdmin === true ||
+    claims.isSuperAdmin === true ||
+    String(claims.role || '').toLowerCase() === 'super_admin';
+
+  return {
+    uid: user.uid,
+    id: user.uid,
+    email: user.email || '',
+    displayName: user.displayName || user.email?.split('@')[0] || 'Administrator',
+    userType: USER_TYPES.ADMIN,
+    role: isSuperAdmin ? 'super_admin' : 'admin',
+    isAdmin: true,
+    isSuperAdmin,
+    status: 'active',
+    emailVerified: user.emailVerified,
+  };
+};
+
 const createReferralAttribution = async (user, userData) => {
   const ownerId = userData.referralCompanyId || userData.referralOwnerId;
   const ownerType = userData.referralCompanyId ? 'company' : userData.referralOwnerType;
@@ -985,7 +1013,32 @@ export const AuthProvider = ({ children }) => {
           try {
             const userSnap = await getDoc(userRef);
             if (userSnap.exists()) {
-              return { success: true, data: userSnap.data() };
+              const existingProfile = userSnap.data();
+              if (
+                normalizeUserTypeForFirestore(additionalData.userType) !== USER_TYPES.COMPANY ||
+                existingProfile.userType !== USER_TYPES.COMPANY
+              ) {
+                return { success: true, data: existingProfile };
+              }
+
+              const companyRef = doc(db, 'companies', user.uid);
+              const companySnap = await getDoc(companyRef);
+              if (companySnap.exists()) {
+                return { success: true, data: existingProfile };
+              }
+
+              const companyProfileResult = await createCompanyProfile(user.uid, {
+                ...existingProfile,
+                ...additionalData,
+                email: user.email,
+              });
+              if (!companyProfileResult.success) {
+                return {
+                  success: false,
+                  error: `Company profile could not be created: ${companyProfileResult.error || 'unknown Firestore error'}`,
+                };
+              }
+              return { success: true, data: existingProfile };
             }
           } catch (lookupError) {
             if (!isPermissionDeniedError(lookupError)) {
@@ -1161,6 +1214,23 @@ export const AuthProvider = ({ children }) => {
 
             const existingUserSnap = await getDoc(userRef).catch(() => null);
             if (existingUserSnap?.exists()) {
+              if (userType === USER_TYPES.COMPANY) {
+                const companyRef = doc(db, 'companies', user.uid);
+                const companySnap = await getDoc(companyRef);
+                if (!companySnap.exists()) {
+                  const companyProfileResult = await createCompanyProfile(user.uid, {
+                    ...existingUserSnap.data(),
+                    ...additionalData,
+                    email: user.email,
+                  });
+                  if (!companyProfileResult.success) {
+                    return {
+                      success: false,
+                      error: `Company profile could not be created: ${companyProfileResult.error || 'unknown Firestore error'}`,
+                    };
+                  }
+                }
+              }
               return { success: true, data: existingUserSnap.data() };
             }
 
@@ -1251,6 +1321,12 @@ export const AuthProvider = ({ children }) => {
           }
 
           if (!typeProfileResult.success) {
+            if (userType === USER_TYPES.COMPANY) {
+              return {
+                success: false,
+                error: `Company profile could not be created: ${typeProfileResult.error || 'unknown Firestore error'}`,
+              };
+            }
             console.warn('Type-specific profile creation failed:', typeProfileResult.error);
           }
 
@@ -1703,6 +1779,28 @@ export const AuthProvider = ({ children }) => {
           );
         }
 
+        const tokenResult = await user.getIdTokenResult();
+        const claimedAdminProfile = getPlatformAdminProfile(user, tokenResult.claims);
+        if (claimedAdminProfile) {
+          setUserProfile(claimedAdminProfile);
+          sessionStorage.setItem(
+            STORAGE_KEYS.SESSION_DATA,
+            JSON.stringify({
+              userId: user.uid,
+              email: user.email,
+              userType: USER_TYPES.ADMIN,
+              timestamp: Date.now(),
+            })
+          );
+          return {
+            success: true,
+            user,
+            profile: claimedAdminProfile,
+            userType: USER_TYPES.ADMIN,
+            isAdmin: true,
+          };
+        }
+
         if (ENABLE_BACKEND_AUTH) {
           const verificationStatus = await authAPI.getVerificationStatus({
             email: credentials.email,
@@ -1874,6 +1972,15 @@ export const AuthProvider = ({ children }) => {
             ? userTypeData
             : userTypeData?.userType || USER_TYPES.STUDENT;
 
+        const normalizedRequestedType = String(selectedUserType).trim().toLowerCase();
+        if (
+          normalizedRequestedType === USER_TYPES.COMPANY ||
+          normalizedRequestedType === 'employer' ||
+          normalizedRequestedType === 'company / employer'
+        ) {
+          throw new Error('Company accounts must sign up with email and password.');
+        }
+
         const additionalData = typeof userTypeData === 'object' ? userTypeData : {};
         const {
           referralCompanyId,
@@ -1903,6 +2010,17 @@ export const AuthProvider = ({ children }) => {
         const profileResult = await getUserProfile(user.uid);
 
         if (profileResult.success) {
+          if (
+            ['company', 'company_staff', 'employer'].includes(
+              String(profileResult.data.userType || '').trim().toLowerCase()
+            ) ||
+            profileResult.data.companyRole ||
+            profileResult.data.companyId
+          ) {
+            await signOut(auth);
+            throw new Error('Company accounts must sign in with email and password.');
+          }
+
           // Update last login
           const userRef = doc(db, 'users', user.uid);
           try {
@@ -1975,7 +2093,7 @@ export const AuthProvider = ({ children }) => {
           const createResult = await createUserProfile(user, profileData);
 
           if (!createResult.success) {
-            throw new Error('Failed to create user profile');
+            throw new Error(createResult.error || 'Failed to create user profile');
           }
 
           let referralWarning = '';
@@ -2371,6 +2489,9 @@ export const AuthProvider = ({ children }) => {
     if (userProfile.isAdmin || userProfile.userType === USER_TYPES.ADMIN) {
       return '/admin/dashboard';
     }
+    if (userProfile.userType === 'company_staff') {
+      return '/company/teams';
+    }
 
     switch (userProfile.userType) {
       case USER_TYPES.STUDENT:
@@ -2454,9 +2575,15 @@ export const AuthProvider = ({ children }) => {
         if (user) {
           setCurrentUser(user);
 
-          const profileResult = await getUserProfile(user.uid);
+          const tokenResult = await user.getIdTokenResult();
+          const claimedAdminProfile = getPlatformAdminProfile(user, tokenResult.claims);
+          const profileResult = claimedAdminProfile
+            ? null
+            : await getUserProfile(user.uid);
 
-          if (profileResult.success) {
+          if (claimedAdminProfile) {
+            setUserProfile(claimedAdminProfile);
+          } else if (profileResult.success) {
             setUserProfile(profileResult.data);
             void syncCurrentUserToSupabase();
           } else {

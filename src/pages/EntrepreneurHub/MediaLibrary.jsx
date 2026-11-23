@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 
 import { useAuth } from '../../context/AuthContext';
+import { supabaseMediaService } from '../../services/supabaseMediaService';
 import {
   deleteEntrepreneurMedia,
   listEntrepreneurMedia,
@@ -33,7 +34,7 @@ const safeMediaUrl = (value) => {
   if (typeof value !== 'string') return null;
   try {
     const url = new URL(value);
-    return url.protocol === 'https:' && url.hostname === 'res.cloudinary.com' ? url.toString() : null;
+    return url.protocol === 'https:' && supabaseMediaService.isSupabaseUrl(url.toString()) ? url.toString() : null;
   } catch {
     return null;
   }

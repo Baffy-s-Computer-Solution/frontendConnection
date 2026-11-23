@@ -16,7 +16,7 @@ import {
   onSnapshot,
   writeBatch,
 } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
+import { supabaseMediaService } from '../../supabaseMediaService';
 
 import {
   getCurrentCompanyId,
@@ -26,7 +26,7 @@ import {
   generateUniqueId,
   paginateResults,
 } from '../utils/baseService';
-import { db, storage } from '../../../config/firebase';
+import { db } from '../../../config/firebase';
 
 // ============================
 // FOLLOWERS SERVICE
@@ -403,17 +403,15 @@ export const chatService = {
       const uploadedAttachments = await Promise.all(
         attachments.map(async (file) => {
           const storagePath = `company_chats/${companyId}/${studentId}/${Date.now()}_${file.name}`;
-          const storageRef = ref(storage, storagePath);
-
-          await uploadBytes(storageRef, file);
-          const downloadURL = await getDownloadURL(storageRef);
+          const uploaded = await supabaseMediaService.uploadFile(file, { path: `company_chats/${companyId}/${studentId}` });
+          const downloadURL = uploaded.url;
 
           return {
             name: file.name,
             type: file.type,
             size: file.size,
             url: downloadURL,
-            storagePath,
+            storagePath: uploaded.path,
           };
         })
       );
@@ -595,10 +593,9 @@ export const companyBrandingService = {
       const timestamp = Date.now();
       const fileExtension = file.name.split('.').pop();
       const storagePath = `company_branding/${companyId}/${assetType}_${timestamp}.${fileExtension}`;
-      const storageRef = ref(storage, storagePath);
-
-      await uploadBytes(storageRef, file);
-      const downloadURL = await getDownloadURL(storageRef);
+      const uploaded = await supabaseMediaService.uploadFile(file, { path: `company_branding/${companyId}` });
+      const downloadURL = uploaded.url;
+      const actualStoragePath = uploaded.path;
 
       // Save to Firestore
       const assetsRef = collection(db, COLLECTIONS.COMPANY_BRANDING_ASSETS);
@@ -607,7 +604,7 @@ export const companyBrandingService = {
         assetType,
         name: file.name,
         url: downloadURL,
-        storagePath,
+        storagePath: actualStoragePath,
         fileType: file.type,
         fileSize: file.size,
         tags: metadata.tags || [],
@@ -677,8 +674,7 @@ export const companyBrandingService = {
       // Delete from storage
       if (assetData.storagePath) {
         try {
-          const storageRef = ref(storage, assetData.storagePath);
-          await deleteObject(storageRef);
+          await supabaseMediaService.deleteFile(assetData.storagePath);
         } catch (storageError) {
           console.warn('Could not delete from storage:', storageError);
         }

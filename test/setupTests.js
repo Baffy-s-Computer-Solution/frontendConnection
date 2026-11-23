@@ -139,15 +139,6 @@ vi.mock('firebase/firestore', () => ({
   increment: vi.fn(),
 }));
 
-vi.mock('firebase/storage', () => ({
-  getStorage: vi.fn(() => ({})),
-  ref: vi.fn(),
-  uploadBytes: vi.fn(),
-  getDownloadURL: vi.fn(),
-  deleteObject: vi.fn(),
-  uploadBytesResumable: vi.fn(),
-}));
-
 // Mock Supabase
 vi.mock('@supabase/supabase-js', () => ({
   createClient: vi.fn(() => ({

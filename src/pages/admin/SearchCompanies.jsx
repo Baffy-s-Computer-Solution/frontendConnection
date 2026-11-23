@@ -9,7 +9,7 @@ import Modal from '../../components/ui/Modal';
 import { useAuth } from '../../context/AuthContext';
 import { useNotification } from '../../context/NotificationContext';
 import adminService from '../../services/adminService';
-import cloudinaryService from '../../services/cloudinaryService';
+import supabaseMediaService from '../../services/supabaseMediaService';
 
 const statusConfig = {
   pending: { label: 'Pending Review', color: 'bg-amber-100 text-amber-700', icon: FaClock },

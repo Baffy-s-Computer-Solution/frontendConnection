@@ -5,7 +5,7 @@ import {
   query, where, orderBy, limit, onSnapshot, serverTimestamp,
   Timestamp, writeBatch, runTransaction
 } from 'firebase/firestore';
-import { db, storage, auth } from '../../config/firebase';
+import { db, auth } from '../../config/firebase';
 import { supabase } from '../../config/supabase';
 import { useAuth } from '../../hooks/useAuth';
 import { useTheme } from '../../context/ThemeContext';

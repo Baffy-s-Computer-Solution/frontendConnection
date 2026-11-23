@@ -222,8 +222,8 @@ export const useProfileUpload = (options = {}) => {
         const result = await profileService.uploadProfilePhoto(currentUser.uid, file, {
           maxSize,
           optimize: true,
-          useCloudinary: true,
-          fallbackToFirebase: enableFallback,
+          usesupabase: true,
+          fallbackToSupabase: enableFallback,
         });
 
         if (progressInterval.current) {

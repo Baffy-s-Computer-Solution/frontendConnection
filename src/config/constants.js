@@ -71,12 +71,6 @@ export const API_CONFIG = {
   retryDelay: 1000,
 };
 
-export const CLOUDINARY_CONFIG = {
-  cloudName: import.meta.env.VITE_CLOUDINARY_CLOUD_NAME,
-  uploadPreset: import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET,
-  folder: import.meta.env.VITE_CLOUDINARY_FOLDER,
-};
-
 export const VALIDATION_RULES = {
   password: {
     minLength: 8,

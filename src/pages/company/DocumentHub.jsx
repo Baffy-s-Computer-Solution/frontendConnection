@@ -28,7 +28,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useNotification } from '../../context/NotificationContext';
 import { db } from '../../config/firebase';
 import { supabase } from '../../config/supabase';
-import cloudinaryService from '../../services/cloudinaryService';
+import supabaseMediaService from '../../services/supabaseMediaService';
 
 // ============================================
 // CONSTANTS
@@ -1025,14 +1025,14 @@ const DocumentHub = () => {
     try {
       setUploading(true);
 
-      // Upload to Cloudinary
+      // Upload to supabase
       const isImage = formData.file.type.startsWith('image/');
       const result = isImage
-        ? await cloudinaryService.uploadImage(formData.file, {
+        ? await supabaseMediaService.uploadImage(formData.file, {
             folder: `career-connect/company-documents/${companyId}`,
             publicId: `${companyId}-${Date.now()}-${formData.file.name.replace(/[^a-z0-9]/gi, '_')}`,
           })
-        : await cloudinaryService.uploadFile(formData.file, {
+        : await supabaseMediaService.uploadFile(formData.file, {
             folder: `career-connect/company-documents/${companyId}`,
             publicId: `${companyId}-${Date.now()}-${formData.file.name.replace(/[^a-z0-9]/gi, '_')}`,
             resourceType: 'raw',
@@ -1054,7 +1054,7 @@ const DocumentHub = () => {
         fileType: formData.file.type,
         fileSize: formData.file.size,
         downloadURL: result.url,
-        cloudinaryId: result.publicId,
+        supabaseId: result.publicId,
         uploadedBy: companyId,
         uploadedByName: userProfile?.displayName || userProfile?.companyName || 'Company',
         uploadedAt: serverTimestamp(),
@@ -1146,15 +1146,15 @@ const DocumentHub = () => {
     if (!documentToDelete) return;
 
     try {
-      // Delete from Cloudinary
-      if (documentToDelete.cloudinaryId) {
+      // Delete from supabase
+      if (documentToDelete.supabaseId) {
         try {
-          await cloudinaryService.deleteFile(
-            documentToDelete.cloudinaryId,
+          await supabaseMediaService.deleteFile(
+            documentToDelete.supabaseId,
             documentToDelete.fileType?.startsWith('image/') ? 'image' : 'raw'
           );
         } catch (err) {
-          console.log('Could not delete from Cloudinary:', err);
+          console.log('Could not delete from supabase:', err);
         }
       }
 

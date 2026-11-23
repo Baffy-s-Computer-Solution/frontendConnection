@@ -7,29 +7,17 @@ import { useNavigate, Link } from 'react-router-dom';
 import { FaUsers, FaUserPlus, FaUserMinus, FaUserTimes, FaUserCheck, FaUserCog, FaUserEdit, FaUserShield, FaUserLock, FaUserTie, FaUserFriends, FaUsersCog, FaUserCircle, FaRegUser, FaRegUserCircle, FaEnvelope, FaPhone, FaMapMarkerAlt, FaBriefcase, FaCalendarAlt, FaClock, FaCheckCircle, FaTimesCircle, FaExclamationTriangle, FaInfoCircle, FaSearch, FaFilter, FaSort, FaSortAmountDown, FaSortAmountUp, FaEllipsisV, FaEllipsisH, FaEdit, FaTrash, FaTrashAlt, FaCopy, FaShare, FaShareAlt, FaPaperPlane, FaSpinner, FaSync, FaPlus, FaMinus, FaTimes, FaCheck, FaBan, FaUnlock, FaLock, FaKey, FaFingerprint, FaShieldAlt, FaUserTag, FaIdCard, FaAddressCard, FaBuilding, FaRegBuilding, FaGlobe, FaLinkedin, FaTwitter, FaExternalLinkAlt, FaEye, FaEyeSlash, FaCog, FaSlidersH, FaToggleOn, FaToggleOff, FaBell, FaRegBell, FaBookmark, FaRegBookmark, FaStar, FaRegStar, FaCrown, FaGem, FaAward, FaMedal, FaTrophy, FaHandshake, FaHandsHelping, FaHeart, FaRegHeart, FaThumbsUp, FaRegThumbsUp, FaComment, FaRegCommentDots, FaCommentDots, FaChartLine, FaChartBar, FaChartPie, FaPercentage, FaHistory, FaRegClock, FaHourglass, FaUndo, FaRedo, FaDownload, FaUpload, FaFileExport, FaFileImport, FaFileAlt, FaRegFileAlt, FaFolder, FaFolderOpen, FaDatabase, FaServer, FaCloud, FaWifi, FaSignal, FaCircle, FaDotCircle, FaRegCircle, FaArrowUp, FaArrowDown, FaArrowLeft, FaArrowRight, FaChevronLeft, FaChevronRight, FaChevronDown, FaChevronUp, FaCheckDouble, FaRegSmile, FaSmile, FaRegFrown, FaFrown, FaRegMeh, FaMeh, FaBolt, FaRocket, FaFire, FaSnowflake, FaSun, FaMoon, FaRegMoon, FaRegSun, FaMagic, FaBrain, FaRobot, FaLightbulb, FaClipboard, FaClipboardCheck, FaClipboardList, FaTasks, FaProjectDiagram, FaSitemap, FaNetworkWired, FaLaptopCode, FaDesktop, FaLaptop, FaTabletAlt, FaMobileAlt, FaKeyboard, FaMouse, FaPrint, FaFax, FaVoicemail, FaInbox, FaPaperclip, FaLink, FaUnlink, FaAnchor, FaCompass, FaMap, FaMapMarked, FaMapMarkedAlt, FaMapPin, FaDirections, FaRoute, FaCrosshairs, FaLocationArrow, FaPlane, FaCar, FaBus, FaTrain, FaSubway, FaBicycle, FaWalking, FaRunning, FaHome, FaWarehouse, FaIndustry, FaStore, FaShoppingCart, FaShoppingBag, FaShoppingBasket, FaCashRegister, FaBox, FaBoxes, FaPallet, FaTruck, FaTruckLoading, FaTruckMoving, FaShip, FaRocket as FaRocketSolid, FaSatellite, FaSatelliteDish, FaBroadcastTower, FaRss, FaPodcast, FaMicrophone, FaMicrophoneAlt, FaHeadphones, FaHeadphonesAlt, FaVolumeUp, FaVolumeMute, FaVolumeDown, FaMusic, FaFilm, FaVideo, FaCamera, FaCameraRetro, FaPhotoVideo, FaImages, FaImage, FaRegImage, FaFile, FaFilePdf, FaFileWord, FaFileExcel, FaFilePowerpoint, FaFileArchive, FaFileCode, FaFileAudio, FaFileVideo, FaFileImage, FaHdd, FaMemory, FaMicrochip, FaPlug, FaChargingStation, FaBatteryFull, FaBatteryHalf, FaBatteryEmpty, FaFilter as FaFilterSolid } from "react-icons/fa";
 import {
   collection,
-  doc,
   query,
   where,
   orderBy,
   limit,
   onSnapshot,
-  getDocs,
-  getDoc,
-  addDoc,
-  updateDoc,
-  deleteDoc,
-  serverTimestamp,
-  Timestamp,
-  increment,
-  writeBatch,
-  arrayUnion,
-  arrayRemove,
 } from 'firebase/firestore';
 
 import { useAuth } from '../../context/AuthContext';
 import { useNotification } from '../../context/NotificationContext';
 import { db } from '../../config/firebase';
-import { supabase } from '../../config/supabase';
+import { apiRequest } from '../../services/apiClient';
 
 // ============================================
 // CONSTANTS
@@ -37,9 +25,9 @@ import { supabase } from '../../config/supabase';
 
 const TEAM_ROLES = [
   {
-    value: 'admin',
-    label: 'Admin',
-    description: 'Full access to all features and settings',
+    value: 'company_admin',
+    label: 'Company Admin',
+    description: 'Company administration is assigned by the platform administrator',
     color: 'red',
     permissions: {
       viewJobs: true,
@@ -51,6 +39,26 @@ const TEAM_ROLES = [
       manageTeam: true,
       manageBilling: true,
       manageSettings: true,
+    },
+  },
+  {
+    value: 'supervisor',
+    label: 'Supervisor',
+    description: 'Manage ordinary staff and daily hiring operations, not company administrators, billing, or security',
+    color: 'orange',
+    permissions: {
+      viewJobs: true,
+      manageJobs: true,
+      viewApplications: true,
+      manageApplications: true,
+      scheduleInterviews: true,
+      viewAnalytics: true,
+      manageTeam: true,
+      inviteStaff: true,
+      assignOrdinaryRoles: true,
+      editCompanyProfile: true,
+      manageBilling: false,
+      manageSettings: false,
     },
   },
   {
@@ -141,6 +149,9 @@ const PERMISSION_LABELS = {
   manageTeam: 'Manage Team',
   manageBilling: 'Manage Billing',
   manageSettings: 'Manage Settings',
+  inviteStaff: 'Invite ordinary staff',
+  assignOrdinaryRoles: 'Assign ordinary staff roles',
+  editCompanyProfile: 'Edit non-security company details',
 };
 
 // ============================================
@@ -269,7 +280,7 @@ const LoadingSkeleton = () => (
   </div>
 );
 
-const EmptyState = ({ onInvite, hasFilters }) => (
+const EmptyState = ({ onInvite, hasFilters, canManage }) => (
   <motion.div
     initial={{ opacity: 0, y: 20 }}
     animate={{ opacity: 1, y: 0 }}
@@ -286,24 +297,26 @@ const EmptyState = ({ onInvite, hasFilters }) => (
         ? 'Try adjusting your search or filter criteria.'
         : 'Invite team members to help manage your hiring process.'}
     </p>
-    <button
-      onClick={onInvite}
-      className="px-6 py-3 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 transition-colors inline-flex items-center gap-2"
-    >
-      <FaUserPlus className="w-4 h-4" />
-      Invite Team Member
-    </button>
+    {canManage && (
+      <button
+        onClick={onInvite}
+        className="px-6 py-3 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 transition-colors inline-flex items-center gap-2"
+      >
+        <FaUserPlus className="w-4 h-4" />
+        Invite Team Member
+      </button>
+    )}
   </motion.div>
 );
 
 const MemberCard = ({
   member,
-  onEdit,
   onRemove,
   onResendInvite,
   onToggleStatus,
   onUpdateRole,
   canManage,
+  currentUserRole,
 }) => {
   const roleConfig = getRoleConfig(member.role);
   const statusConfig = getStatusConfig(member.status);
@@ -312,6 +325,9 @@ const MemberCard = ({
 
   const memberName = member.name || member.email?.split('@')[0] || 'Team Member';
   const memberInitial = memberName.charAt(0).toUpperCase();
+  const assignableRoles = TEAM_ROLES.filter((role) => currentUserRole === 'company_admin'
+    ? ['manager', 'recruiter', 'interviewer', 'viewer'].includes(role.value)
+    : ['manager', 'recruiter', 'interviewer', 'viewer'].includes(role.value));
 
   return (
     <motion.div
@@ -345,7 +361,7 @@ const MemberCard = ({
               <h4 className="font-semibold text-gray-900 dark:text-white truncate">
                 {memberName}
               </h4>
-              {member.role === 'admin' && (
+              {member.role === 'company_admin' && (
                 <FaCrown className="w-3.5 h-3.5 text-yellow-500 flex-shrink-0" />
               )}
             </div>
@@ -418,7 +434,7 @@ const MemberCard = ({
         </div>
 
         {/* Actions */}
-        {canManage && (
+        {canManage && member.role !== 'company_admin' && (
           <div className="relative flex-shrink-0">
             <button
               onClick={() => setShowMenu(!showMenu)}
@@ -453,22 +469,11 @@ const MemberCard = ({
                       </button>
                     )}
 
-                    <button
-                      onClick={() => {
-                        onEdit(member);
-                        setShowMenu(false);
-                      }}
-                      className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-2"
-                    >
-                      <FaEdit className="w-4 h-4" />
-                      Edit Details
-                    </button>
-
                     <div className="border-t border-gray-100 dark:border-gray-700 my-1" />
                     <p className="px-4 py-1 text-xs font-medium text-gray-400 uppercase tracking-wider">
                       Change Role
                     </p>
-                    {TEAM_ROLES.map((role) => (
+                    {assignableRoles.map((role) => (
                       <button
                         key={role.value}
                         onClick={() => {
@@ -537,13 +542,10 @@ const MemberCard = ({
   );
 };
 
-const InviteModal = ({ show, onClose, onSubmit, loading, companyName }) => {
+const InviteModal = ({ show, onClose, onSubmit, loading, companyName, currentUserRole }) => {
   const [formData, setFormData] = useState({
     email: '',
     role: 'recruiter',
-    department: '',
-    sendEmail: true,
-    customMessage: '',
   });
   const [errors, setErrors] = useState({});
 
@@ -566,6 +568,9 @@ const InviteModal = ({ show, onClose, onSubmit, loading, companyName }) => {
   };
 
   const selectedRole = TEAM_ROLES.find(r => r.value === formData.role);
+  const assignableRoles = TEAM_ROLES.filter((role) => currentUserRole === 'company_admin'
+    ? ['manager', 'recruiter', 'interviewer', 'viewer'].includes(role.value)
+    : ['manager', 'recruiter', 'interviewer', 'viewer'].includes(role.value));
 
   if (!show) return null;
 
@@ -632,7 +637,7 @@ const InviteModal = ({ show, onClose, onSubmit, loading, companyName }) => {
                 Role *
               </label>
               <div className="space-y-2">
-                {TEAM_ROLES.map((role) => (
+                {assignableRoles.map((role) => (
                   <button
                     key={role.value}
                     type="button"
@@ -665,23 +670,6 @@ const InviteModal = ({ show, onClose, onSubmit, loading, companyName }) => {
               </div>
             </div>
 
-            {/* Department */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Department (optional)
-              </label>
-              <div className="relative">
-                <FaBriefcase className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                <input
-                  type="text"
-                  value={formData.department}
-                  onChange={(e) => setFormData({ ...formData, department: e.target.value })}
-                  placeholder="e.g., Human Resources, Engineering"
-                  className="w-full pl-10 pr-4 py-2.5 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-            </div>
-
             {/* Permissions preview */}
             {selectedRole && (
               <div className="p-4 bg-gray-50 dark:bg-gray-700 rounded-xl">
@@ -706,31 +694,6 @@ const InviteModal = ({ show, onClose, onSubmit, loading, companyName }) => {
               </div>
             )}
 
-            {/* Custom Message */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Personal Message (optional)
-              </label>
-              <textarea
-                value={formData.customMessage}
-                onChange={(e) => setFormData({ ...formData, customMessage: e.target.value })}
-                rows={3}
-                placeholder="Add a personal note to the invitation email..."
-                className="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
-              />
-            </div>
-
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={formData.sendEmail}
-                onChange={(e) => setFormData({ ...formData, sendEmail: e.target.checked })}
-                className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
-              />
-              <span className="text-sm text-gray-700 dark:text-gray-300">
-                Send invitation email
-              </span>
-            </label>
           </form>
 
           <div className="flex items-center justify-end gap-3 p-6 border-t border-gray-100 dark:border-gray-700">
@@ -773,7 +736,7 @@ const ManageTeams = () => {
   const { currentUser, userProfile } = useAuth();
   const { showNotification } = useNotification();
 
-  const companyId = currentUser?.uid;
+  const companyId = userProfile?.companyId || currentUser?.uid;
   const companyName = userProfile?.companyName || userProfile?.displayName || 'Your Company';
 
   const { members, loading, error } = useTeamMembers(companyId);
@@ -792,17 +755,22 @@ const ManageTeams = () => {
   // Current user's role in the team (admin/owner)
   const currentUserRole = useMemo(() => {
     const me = members.find(m => m.userId === companyId || m.email === currentUser?.email);
-    return me?.role || 'admin'; // Default to admin for owner
-  }, [members, companyId, currentUser]);
+    return userProfile?.companyRole || me?.role || 'viewer';
+  }, [members, companyId, currentUser, userProfile?.companyRole]);
 
-  const canManage = currentUserRole === 'admin';
+  const canManage = ['company_admin', 'supervisor'].includes(currentUserRole);
+  const canManageMember = (member) => canManage
+    && member.role !== 'company_admin'
+    && member.relationship !== 'owner'
+    && (currentUserRole === 'company_admin'
+      || ['manager', 'recruiter', 'interviewer', 'viewer'].includes(member.role));
 
   // Stats
   const stats = useMemo(() => ({
     total: members.length,
     active: members.filter(m => m.status === 'active').length,
     pending: members.filter(m => m.status === 'pending').length,
-    admins: members.filter(m => m.role === 'admin').length,
+    admins: members.filter(m => m.role === 'company_admin').length,
   }), [members]);
 
   // Filtered members
@@ -835,7 +803,7 @@ const ManageTeams = () => {
         case 'name':
           return (a.name || a.email || '').localeCompare(b.name || b.email || '');
         case 'role': {
-          const roleOrder = { admin: 0, manager: 1, recruiter: 2, interviewer: 3, viewer: 4 };
+          const roleOrder = { company_admin: 0, manager: 1, recruiter: 2, interviewer: 3, viewer: 4 };
           return (roleOrder[a.role] ?? 99) - (roleOrder[b.role] ?? 99);
         }
         default:
@@ -855,80 +823,15 @@ const ManageTeams = () => {
 
     try {
       setInviting(true);
-
-      // Check if already a member
-      const existingQuery = query(
-        collection(db, 'companyTeamMembers'),
-        where('companyId', '==', companyId),
-        where('email', '==', formData.email.toLowerCase())
-      );
-      const existing = await getDocs(existingQuery);
-
-      if (!existing.empty) {
-        showNotification('warning', 'This email has already been invited');
-        return;
-      }
-
-      const roleConfig = getRoleConfig(formData.role);
-
-      // Create team member record
-      const memberData = {
-        companyId,
-        companyName,
-        email: formData.email.toLowerCase(),
-        name: formData.email.split('@')[0],
-        role: formData.role,
-        department: formData.department,
-        status: 'pending',
-        permissions: roleConfig.permissions,
-        invitedBy: companyId,
-        invitedByName: userProfile?.displayName || companyName,
-        invitedAt: serverTimestamp(),
-        emailSent: formData.sendEmail,
-        customMessage: formData.customMessage,
-      };
-
-      await addDoc(collection(db, 'companyTeamMembers'), memberData);
-
-      // Check if user exists and send notification
-      const userQuery = query(
-        collection(db, 'users'),
-        where('email', '==', formData.email.toLowerCase())
-      );
-      const userSnapshot = await getDocs(userQuery);
-
-      if (!userSnapshot.empty) {
-        const userId = userSnapshot.docs[0].id;
-
-        await addDoc(collection(db, 'notifications'), {
-          userId,
-          type: 'team_invitation',
-          title: 'Team Invitation',
-          message: `${companyName} has invited you to join their team as a ${roleConfig.label}`,
-          companyId,
-          read: false,
-          createdAt: serverTimestamp(),
-        });
-      }
-
-      // Log to Supabase
-      await supabase
-        .from('company_activities')
-        .insert({
-          company_id: companyId,
-          activity_type: 'team_member_invited',
-          metadata: {
-            email: formData.email,
-            role: formData.role,
-          },
-          created_at: new Date().toISOString(),
-        });
-
+      await apiRequest('/api/company/team/invitations', {
+        method: 'POST',
+        body: { email: formData.email.trim().toLowerCase(), role: formData.role },
+      });
       showNotification('success', `Invitation sent to ${formData.email}`);
       setShowInviteModal(false);
     } catch (error) {
       console.error('Error inviting team member:', error);
-      showNotification('error', 'Failed to send invitation');
+      showNotification('error', error.message || 'Failed to send invitation');
     } finally {
       setInviting(false);
     }
@@ -936,15 +839,12 @@ const ManageTeams = () => {
 
   const handleUpdateRole = async (member, newRole) => {
     try {
-      const roleConfig = getRoleConfig(newRole);
-
-      await updateDoc(doc(db, 'companyTeamMembers', member.id), {
-        role: newRole,
-        permissions: roleConfig.permissions,
-        updatedAt: serverTimestamp(),
+      await apiRequest(`/api/company/team/${encodeURIComponent(member.id)}`, {
+        method: 'PATCH',
+        body: { role: newRole },
       });
 
-      showNotification('success', `Role updated to ${roleConfig.label}`);
+      showNotification('success', `Role updated to ${getRoleConfig(newRole).label}`);
     } catch (error) {
       console.error('Error updating role:', error);
       showNotification('error', 'Failed to update role');
@@ -953,9 +853,9 @@ const ManageTeams = () => {
 
   const handleToggleStatus = async (member, newStatus) => {
     try {
-      await updateDoc(doc(db, 'companyTeamMembers', member.id), {
-        status: newStatus,
-        updatedAt: serverTimestamp(),
+      await apiRequest(`/api/company/team/${encodeURIComponent(member.id)}`, {
+        method: 'PATCH',
+        body: { status: newStatus },
       });
 
       showNotification('success', `Member ${newStatus === 'suspended' ? 'suspended' : 'restored'}`);
@@ -967,33 +867,11 @@ const ManageTeams = () => {
 
   const handleResendInvite = async (member) => {
     try {
-      // Send notification
-      const userQuery = query(
-        collection(db, 'users'),
-        where('email', '==', member.email)
-      );
-      const userSnapshot = await getDocs(userQuery);
-
-      if (!userSnapshot.empty) {
-        const userId = userSnapshot.docs[0].id;
-
-        await addDoc(collection(db, 'notifications'), {
-          userId,
-          type: 'team_invitation',
-          title: 'Team Invitation Reminder',
-          message: `${companyName} has re-sent your team invitation`,
-          companyId,
-          read: false,
-          createdAt: serverTimestamp(),
-        });
-      }
-
-      await updateDoc(doc(db, 'companyTeamMembers', member.id), {
-        lastInviteSentAt: serverTimestamp(),
-        inviteCount: increment(1),
+      await apiRequest(`/api/company/team/${encodeURIComponent(member.id)}/resend`, {
+        method: 'POST',
       });
 
-      showNotification('success', 'Invitation re-sent');
+      showNotification('success', 'Invitation email sent again');
     } catch (error) {
       console.error('Error resending invite:', error);
       showNotification('error', 'Failed to resend invitation');
@@ -1009,20 +887,9 @@ const ManageTeams = () => {
     if (!memberToRemove) return;
 
     try {
-      await deleteDoc(doc(db, 'companyTeamMembers', memberToRemove.id));
-
-      // Log to Supabase
-      await supabase
-        .from('company_activities')
-        .insert({
-          company_id: companyId,
-          activity_type: 'team_member_removed',
-          metadata: {
-            email: memberToRemove.email,
-            role: memberToRemove.role,
-          },
-          created_at: new Date().toISOString(),
-        });
+      await apiRequest(`/api/company/team/${encodeURIComponent(memberToRemove.id)}`, {
+        method: 'DELETE',
+      });
 
       showNotification('success', 'Team member removed');
       setShowRemoveConfirm(false);
@@ -1031,12 +898,6 @@ const ManageTeams = () => {
       console.error('Error removing member:', error);
       showNotification('error', 'Failed to remove team member');
     }
-  };
-
-  const handleEdit = (member) => {
-    // Navigate to edit page or open edit modal
-    // For simplicity, just show a notification
-    showNotification('info', 'Edit functionality coming soon');
   };
 
   const clearFilters = () => {
@@ -1191,6 +1052,7 @@ const ManageTeams = () => {
           <EmptyState
             onInvite={() => setShowInviteModal(true)}
             hasFilters={hasFilters}
+            canManage={canManage}
           />
         ) : (
           <div className="space-y-3">
@@ -1198,12 +1060,12 @@ const ManageTeams = () => {
               <MemberCard
                 key={member.id}
                 member={member}
-                onEdit={handleEdit}
                 onRemove={handleRemoveClick}
                 onResendInvite={handleResendInvite}
                 onToggleStatus={handleToggleStatus}
                 onUpdateRole={handleUpdateRole}
-                canManage={canManage}
+                canManage={canManageMember(member)}
+                currentUserRole={currentUserRole}
               />
             ))}
           </div>
@@ -1211,13 +1073,16 @@ const ManageTeams = () => {
       </div>
 
       {/* Invite Modal */}
-      <InviteModal
-        show={showInviteModal}
-        onClose={() => setShowInviteModal(false)}
-        onSubmit={handleInvite}
-        loading={inviting}
-        companyName={companyName}
-      />
+      {canManage && (
+        <InviteModal
+          show={showInviteModal}
+          onClose={() => setShowInviteModal(false)}
+          onSubmit={handleInvite}
+          loading={inviting}
+          companyName={companyName}
+          currentUserRole={currentUserRole}
+        />
+      )}
 
       {/* Remove Confirmation Modal */}
       <AnimatePresence>

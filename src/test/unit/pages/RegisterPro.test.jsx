@@ -25,6 +25,37 @@ describe('RegisterPro role selection', () => {
     expect(screen.queryByText('Select your account type')).not.toBeInTheDocument();
   });
 
+  it('uses email/password rather than Google signup for company accounts', () => {
+    renderAtRegistrationPath('/register?role=company');
+
+    expect(screen.getByText(/You can use your Gmail address/i)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Sign up with Google' })).not.toBeInTheDocument();
+  });
+
+  it('keeps the company website optional during signup', () => {
+    renderAtRegistrationPath('/register?role=company');
+
+    fireEvent.change(screen.getByLabelText('Full Name'), { target: { value: 'Company Admin' } });
+    fireEvent.change(screen.getByLabelText('Email Address'), { target: { value: 'company@example.com' } });
+    fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'Strong123' } });
+    fireEvent.change(screen.getByLabelText('Confirm Password'), { target: { value: 'Strong123' } });
+    fireEvent.click(screen.getByRole('checkbox'));
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+    fireEvent.change(screen.getByLabelText('Company Name'), { target: { value: 'Example Company' } });
+    fireEvent.change(screen.getByLabelText('Industry'), { target: { value: 'Healthcare' } });
+
+    expect(screen.getByLabelText('Website')).not.toBeRequired();
+  });
+
+  it('locks the email address supplied by a company invitation', () => {
+    renderAtRegistrationPath('/register?role=student&email=invited%40example.com');
+
+    const emailField = screen.getByLabelText('Email Address');
+    expect(emailField).toHaveValue('invited@example.com');
+    expect(emailField).toBeDisabled();
+    expect(screen.getByText(/verify it and return to your invitation/i)).toBeInTheDocument();
+  });
+
   it('does not allow an unlisted role to skip role selection', () => {
     renderAtRegistrationPath('/register?role=entrepreneur');
 

@@ -1,8 +1,9 @@
 // frontend/src/pages/parent/ParentCommunity.jsx
+import { supabaseMediaService } from '../../services/supabaseMediaService';
 // ============================================================================
 // PARENT COMMUNITY - Production Ready
 // Social feed | Posts | Likes | Comments | Shares | Realtime | Media gallery
-// Firebase | Supabase | Cloudinary | Tailwind CSS
+// Firebase | Supabase | supabase | Tailwind CSS
 // ============================================================================
 
 import React, {
@@ -298,44 +299,19 @@ function useRealtimeCollection(collectionName, constraints = [], deps = []) {
   return { items, loading, error };
 }
 
-function useCloudinaryUpload(folder = 'parent-uploads') {
+function useSupabaseUpload(folder = 'parent-uploads') {
   const [progress, setProgress] = useState(0);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState(null);
-
   const upload = useCallback(async (file, onComplete) => {
     if (!file) return null;
     setUploading(true); setError(null); setProgress(0);
     try {
-      const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
-      const preset = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET;
-      if (!cloudName || !preset) throw new Error('Cloudinary env missing');
-
-      const form = new FormData();
-      form.append('file', file);
-      form.append('upload_preset', preset);
-      form.append('folder', folder);
-
-      const xhr = new XMLHttpRequest();
-      const url = `https://api.cloudinary.com/v1_1/${cloudName}/auto/upload`;
-
-      const result = await new Promise((resolve, reject) => {
-        xhr.open('POST', url);
-        xhr.upload.onprogress = (e) => { if (e.lengthComputable) setProgress(Math.round((e.loaded / e.total) * 100)); };
-        xhr.onload = () => {
-          if (xhr.status >= 200 && xhr.status < 300) resolve(JSON.parse(xhr.responseText));
-          else reject(new Error(`Cloudinary upload failed: ${xhr.status}`));
-        };
-        xhr.onerror = () => reject(new Error('Network error during upload'));
-        xhr.send(form);
-      });
-
-      onComplete?.(result);
-      setUploading(false);
-      return result;
-    } catch (err) { setError(err.message); setUploading(false); throw err; }
+      const result = await supabaseMediaService.uploadToSupabase(file, folder);
+      setProgress(100); onComplete?.(result); return result;
+    } catch (uploadError) { setError(uploadError.message); throw uploadError; }
+    finally { setUploading(false); }
   }, [folder]);
-
   return { upload, uploading, progress, error };
 }
 
@@ -377,7 +353,7 @@ const ParentCommunity = () => {
   const { user, profile } = useAuth();
   const { refresh: refreshParent } = useParent();
   const { push: pushNotification } = useNotifications();
-  const { upload: uploadToCloudinary, uploading, progress } = useCloudinaryUpload(`parents/${user?.uid ?? 'anon'}/community`);
+  const { upload: uploadToSupabase, uploading, progress } = useSupabaseUpload(`parents/${user?.uid ?? 'anon'}/community`);
   const parentId = user?.uid ?? profile?.uid;
 
   // ---------- Realtime ----------
@@ -612,7 +588,7 @@ const ParentCommunity = () => {
     const uploaded = [];
     for (const f of files) {
       try {
-        const result = await uploadToCloudinary(f);
+        const result = await uploadToSupabase(f);
         uploaded.push({ url: result.secure_url, type: f.type, name: f.name });
       } catch (err) {
         showToast(err.message, 'error');
@@ -624,7 +600,7 @@ const ParentCommunity = () => {
 
   const handleGroupAvatarUpload = async (file) => {
     try {
-      const result = await uploadToCloudinary(file);
+      const result = await uploadToSupabase(file);
       setGroupForm((f) => ({ ...f, avatarUrl: result?.secure_url || '' }));
       showToast('Group avatar uploaded');
     } catch (err) { showToast(err.message, 'error'); }

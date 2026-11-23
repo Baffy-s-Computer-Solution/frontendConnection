@@ -21,13 +21,8 @@ import {
   arrayUnion,
   arrayRemove
 } from 'firebase/firestore';
-import { 
-  ref, 
-  uploadBytesResumable, 
-  getDownloadURL, 
-  deleteObject 
-} from 'firebase/storage';
-import { db, storage, auth } from '../../config/firebase';
+import { db, auth } from '../../config/firebase';
+import { supabaseMediaService } from '../../services/supabaseMediaService';
 import { supabase } from '../../config/supabase';
 import { useAuth } from '../../context/AuthContext';
 import { useNotification } from '../../context/NotificationContext';
@@ -620,27 +615,9 @@ const MentorHelp = () => {
 
     try {
       const uploadPromises = Array.from(files).map(async (file) => {
-        const storageRef = ref(storage, `support-tickets/${currentUser.uid}/${Date.now()}_${file.name}`);
-        const uploadTask = uploadBytesResumable(storageRef, file);
-
-        return new Promise((resolve, reject) => {
-          uploadTask.on('state_changed',
-            (snapshot) => {
-              const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-              setUploadProgress(progress);
-            },
-            (error) => reject(error),
-            async () => {
-              const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
-              resolve({
-                name: file.name,
-                url: downloadURL,
-                size: file.size,
-                type: file.type
-              });
-            }
-          );
-        });
+        const uploaded = await supabaseMediaService.uploadFile(file, { folder: 'support-tickets' });
+        setUploadProgress((progress) => Math.min(100, progress + 100 / files.length));
+        return { name: file.name, url: uploaded.url, storagePath: uploaded.path, size: file.size, type: file.type };
       });
 
       const uploadedFiles = await Promise.all(uploadPromises);

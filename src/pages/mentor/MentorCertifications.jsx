@@ -5,10 +5,8 @@ import {
   query, where, orderBy, limit, onSnapshot, serverTimestamp,
   Timestamp, writeBatch
 } from 'firebase/firestore';
-import {
-  ref, uploadBytesResumable, getDownloadURL, deleteObject
-} from 'firebase/storage';
-import { db, storage, auth } from '../../config/firebase';
+import { db, auth } from '../../config/firebase';
+import { supabaseMediaService } from '../../services/supabaseMediaService';
 import { supabase } from '../../config/supabase';
 import { useAuth } from '../../hooks/useAuth';
 import {
@@ -576,30 +574,10 @@ const MentorCertifications = () => {
     let storagePath = data.storagePath || '';
 
     if (file) {
-      const path = `mentor-certifications/${mentorId}/${Date.now()}_${file.name}`;
-      const storageRef = ref(storage, path);
-      const task = uploadBytesResumable(storageRef, file);
-      fileUrl = await new Promise((resolve, reject) => {
-        task.on('state_changed', null, reject, async () => {
-          const url = await getDownloadURL(task.snapshot.ref);
-          resolve(url);
-        });
-      });
-      storagePath = path;
+      const uploaded = await supabaseMediaService.uploadFile(file, { folder: 'mentor-certifications' });
+      fileUrl = uploaded.url;
+      storagePath = uploaded.path;
 
-      // Cloudinary backup
-      try {
-        const fd = new FormData();
-        fd.append('file', file);
-        fd.append('upload_preset', process.env.REACT_APP_CLOUDINARY_UPLOAD_PRESET);
-        fd.append('folder', `mentor-certifications/${mentorId}`);
-        const res = await fetch(
-          `https://api.cloudinary.com/v1_1/${process.env.REACT_APP_CLOUDINARY_CLOUD_NAME}/auto/upload`,
-          { method: 'POST', body: fd }
-        );
-        const cld = await res.json();
-        if (cld.secure_url) fileUrl = cld.secure_url;
-      } catch (e) { console.warn('Cloudinary backup failed:', e); }
     }
 
     const payload = {
@@ -646,7 +624,7 @@ const MentorCertifications = () => {
     if (!window.confirm('Delete this certification?')) return;
     try {
       if (cert.storagePath) {
-        try { await deleteObject(ref(storage, cert.storagePath)); } catch (e) {}
+        try { await supabaseMediaService.deleteFile(cert.storagePath); } catch (e) {}
       }
       await deleteDoc(doc(db, 'mentorCertifications', cert.id));
       try { await supabase.from('mentor_certifications').delete().eq('firebase_id', cert.id); } catch (e) {}

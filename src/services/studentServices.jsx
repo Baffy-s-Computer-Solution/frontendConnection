@@ -17,13 +17,10 @@ import {
   writeBatch,
   where,
 } from 'firebase/firestore';
-import { deleteObject, ref } from 'firebase/storage';
-
-import { auth, db, storage } from '../config/firebase';
+import { auth, db } from '../config/firebase';
 
 import { apiRequest } from './apiClient';
-import { cloudinaryService } from './cloudinaryService';
-import { storageService } from './storageService';
+import { supabaseMediaService } from './supabaseMediaService';
 
 const COLLECTIONS = {
   STUDENTS: 'students',
@@ -476,15 +473,14 @@ export const uploadResume = async (file, userId) => {
 
     if (auth.currentUser?.uid !== userId) throw new Error('Please sign in again to upload your resume.');
     const { supabaseService } = await import('./supabaseService');
-    const extension = file.name.split('.').pop().toLowerCase().replace(/[^a-z0-9]/g, '') || 'pdf';
-    const storagePath = `private_documents/${userId}/${crypto.randomUUID()}.${extension}`;
-    const fileData = await new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result);
-      reader.onerror = () => reject(new Error('Unable to read the selected resume.'));
-      reader.readAsDataURL(file);
+    const uploadedDocument = await supabaseService.uploadPrivateDocument({
+      file,
+      title: file.name,
+      category: 'resume',
+      contentType: file.type,
     });
-    await supabaseService.uploadPrivateDocument({ path: storagePath, file: fileData, contentType: file.type });
+    const storagePath = uploadedDocument.path;
+    if (!storagePath) throw new Error('Supabase did not return the private resume path.');
 
     // Update student profile with resume URL
     const studentRef = doc(db, COLLECTIONS.STUDENTS, userId);
@@ -619,7 +615,7 @@ export const uploadDocument = async (userId, file, documentType) => {
         method: 'POST',
         body: formData,
       });
-      return { success: true, url: image.photoURL, storageType: 'cloudinary' };
+      return { success: true, url: image.photoURL, storageType: 'supabase' };
     }
 
     const { supabaseService } = await import('./supabaseService');
@@ -687,64 +683,17 @@ export const deleteDocument = async (documentId, storagePath, studentId = null) 
     }
 
     const storedPath = storagePath || documentData.storagePath;
-    const cloudinaryStored = documentData.storageType === 'cloudinary' || cloudinaryService.isCloudinaryUrl(documentData.fileUrl);
-    if (documentData.storageType === 'supabase_private' || documentData.storageType === 'supabase') {
-      try {
-        const { supabaseService } = await import('./supabaseService');
-        await supabaseService.deletePrivateDocument(storedPath);
-      } catch (storageError) {
-        return { success: false, error: `File deletion failed; the document record was kept. ${storageError.message}` };
-      }
-      await deleteDoc(documentRef);
-      return { success: true, message: 'Document deleted successfully!' };
-    } else if (cloudinaryStored) {
-      try {
-        const token = await auth.currentUser?.getIdToken();
-        if (!token || auth.currentUser?.uid !== documentData.studentId) {
-          throw new Error('Please sign in again to delete this document.');
-        }
-
-        const response = await fetch(`${storageService.baseUrl}/media/cloudinary/delete-student-document`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({ documentId }),
-        });
-        const result = await response.json().catch(() => ({}));
-        if (!response.ok || !result.success) {
-          throw new Error(result.message || 'Cloudinary could not delete this file.');
-        }
-
-        return { success: true, message: 'Document deleted successfully!' };
-      } catch (storageError) {
-        return { success: false, error: `File deletion failed; the document record was kept. ${storageError.message}` };
-      }
-    } else if (
-      typeof storedPath === 'string'
-      && !/^https?:\/\//i.test(storedPath)
-      && (documentData.storageType === 'supabase' || documentData.storageProvider === 'supabase')
-    ) {
-      try {
-        const { supabaseService } = await import('./supabaseService');
-        await supabaseService.deletePrivateDocument(storedPath);
-      } catch (storageError) {
-        return { success: false, error: `File deletion failed; the document record was kept. ${storageError.message}` };
-      }
-    } else if (
-      storedPath
-      || /^https:\/\/(?:firebasestorage\.googleapis\.com|storage\.googleapis\.com)\//i.test(documentData.fileUrl || '')
-    ) {
-      try {
-        const fileRef = ref(storage, storedPath || documentData.fileUrl);
-        await deleteObject(fileRef);
-      } catch (storageError) {
-        if (storageError?.code !== 'storage/object-not-found') {
-          return { success: false, error: `File deletion failed; the document record was kept. ${storageError.message}` };
-        }
-      }
+    const isSupabaseObject = ['supabase', 'supabase_private'].includes(documentData.storageType)
+      || documentData.storageProvider === 'supabase'
+      || supabaseMediaService.isSupabaseUrl(documentData.fileUrl);
+    if (!isSupabaseObject || typeof storedPath !== 'string' || !storedPath) {
+      return { success: false, error: 'This document has no Supabase storage path.' };
     }
+    if (auth.currentUser?.uid !== ownerId) {
+      return { success: false, error: 'Please sign in again to delete this document.' };
+    }
+    const { supabaseService } = await import('./supabaseService');
+    await supabaseService.deleteObject(storedPath);
 
     await deleteDoc(documentRef);
 

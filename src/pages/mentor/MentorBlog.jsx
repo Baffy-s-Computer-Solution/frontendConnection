@@ -5,10 +5,8 @@ import {
   query, where, orderBy, limit, startAfter, onSnapshot, serverTimestamp,
   increment, arrayUnion, arrayRemove, writeBatch
 } from 'firebase/firestore';
-import {
-  ref, uploadBytesResumable, getDownloadURL, deleteObject
-} from 'firebase/storage';
-import { db, storage } from '../../config/firebase';
+import { db } from '../../config/firebase';
+import { supabaseMediaService } from '../../services/supabaseMediaService';
 import { supabase } from '../../config/supabase';
 import { useAuth } from '../../context/AuthContext';
 import { useNotification } from '../../context/NotificationContext';
@@ -302,14 +300,8 @@ const BlogEditor = ({ initialBlog, onClose, onSave, userId, userProfile, setToas
     if (!file) return;
     setUploadingCover(true);
     try {
-      const storageRef = ref(storage, `blog-covers/${userId}/${Date.now()}_${file.name}`);
-      const task = uploadBytesResumable(storageRef, file);
-      const url = await new Promise((resolve, reject) => {
-        task.on('state_changed', null, reject, async () => {
-          resolve(await getDownloadURL(task.snapshot.ref));
-        });
-      });
-      setForm(prev => ({ ...prev, coverImage: url }));
+      const uploaded = await supabaseMediaService.uploadFile(file, { folder: 'blog-covers' });
+      setForm(prev => ({ ...prev, coverImage: uploaded.url, coverImagePath: uploaded.path }));
       setToast({ message: 'Cover image uploaded', type: 'success' });
     } catch (e) {
       console.error(e);
@@ -596,8 +588,7 @@ const MentorBlog = () => {
       const blog = blogs.find(b => b.id === blogId);
       if (blog?.coverImage) {
         try {
-          const imgRef = ref(storage, blog.coverImage);
-          await deleteObject(imgRef);
+          await supabaseMediaService.deleteFile(blog.coverImagePath || blog.coverImage);
         } catch (e) { /* cover may not be a storage URL */ }
       }
       await deleteDoc(doc(db, 'mentorBlogs', blogId));

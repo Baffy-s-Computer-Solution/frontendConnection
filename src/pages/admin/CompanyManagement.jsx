@@ -8,13 +8,13 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { FaBan, FaBuilding, FaCheck, FaCheckCircle, FaDownload, FaEdit, FaEnvelope, FaExclamationTriangle, FaEye, FaFilter, FaGlobe, FaIndustry, FaMapMarkerAlt, FaPlus, FaRedo, FaSearch, FaSync, FaTimes, FaTrashAlt } from "react-icons/fa";
+import { FaBan, FaBuilding, FaCheck, FaCheckCircle, FaDownload, FaEdit, FaEnvelope, FaExclamationTriangle, FaEye, FaFilter, FaGlobe, FaIndustry, FaMapMarkerAlt, FaPlus, FaRedo, FaSearch, FaSync, FaTimes, FaTrashAlt, FaUserShield } from "react-icons/fa";
 import { toast } from 'react-toastify';
 
 import AdminPageShell from '../../components/admin/AdminPageShell';
 import { useAuth } from '../../context/AuthContext';
 import adminService from '../../services/adminService';
-import cloudinaryService from '../../services/cloudinaryService';
+import supabaseMediaService from '../../services/supabaseMediaService';
 import firebaseService from '../../services/firebaseHelpers';
 
 /* ------------------------------------------------------------------ */
@@ -175,8 +175,8 @@ const Textarea = ({ className = '', ...props }) => (
   />
 );
 
-const Label = ({ children, className = '' }) => (
-  <label className={`block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 ${className}`}>{children}</label>
+const Label = ({ children, className = '', ...props }) => (
+  <label className={`block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 ${className}`} {...props}>{children}</label>
 );
 
 const Checkbox = ({ checked, onChange, className = '' }) => (
@@ -284,8 +284,10 @@ const CompanyManagement = () => {
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [showSuspendModal, setShowSuspendModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showCompanyAdminInviteModal, setShowCompanyAdminInviteModal] = useState(false);
 
   const [selectedCompany, setSelectedCompany] = useState(null);
+  const [companyAdminEmail, setCompanyAdminEmail] = useState('');
   const [editForm, setEditForm] = useState(emptyForm);
   const [createForm, setCreateForm] = useState(emptyForm);
   const [reviewNotes, setReviewNotes] = useState('');
@@ -631,6 +633,58 @@ const CompanyManagement = () => {
     }
   };
 
+  const handleCompanyAdminAssignment = async (company, email) => {
+    const hasPendingInvitation = Boolean(company.companyAdminInviteId && !company.companyAdminUid);
+    if ((company.companyAdminUid || hasPendingInvitation) && !window.confirm(
+      hasPendingInvitation
+        ? `Revoke the pending company administrator invitation for ${company.companyAdminEmail || 'this company'}?`
+        : `Revoke company administrator access for ${company.companyAdminEmail || company.companyAdminUid}?`
+    )) {
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const result = company.companyAdminUid || hasPendingInvitation
+        ? await adminService.companies.revokeCompanyAdmin(company.id)
+        : await adminService.companies.assignCompanyAdmin(company.id, email);
+
+      if (!result.success) throw new Error(result.error || 'Company administrator access could not be updated.');
+
+      toast.success(company.companyAdminUid || hasPendingInvitation
+        ? 'Company administrator access or invitation revoked'
+        : 'Company administrator invitation sent');
+      setShowCompanyAdminInviteModal(false);
+      setCompanyAdminEmail('');
+      await loadCompanies(false);
+    } catch (err) {
+      console.error('[CompanyManagement] company admin assignment failed:', err);
+      toast.error(err?.message || 'Company administrator access could not be updated');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleResendCompanyAdminInvitation = async (company) => {
+    setSaving(true);
+    try {
+      const result = await adminService.companies.resendCompanyAdminInvitation(company.id);
+      if (!result.success) throw new Error(result.error || 'Company administrator invitation could not be resent.');
+      toast.success('A new company administrator invitation was sent');
+      await loadCompanies(false);
+    } catch (err) {
+      toast.error(err?.message || 'Company administrator invitation could not be resent');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const openCompanyAdminInvitation = (company) => {
+    setSelectedCompany(company);
+    setCompanyAdminEmail(company.companyAdminEmail || '');
+    setShowCompanyAdminInviteModal(true);
+  };
+
   /* ------------------ Bulk actions ------------------ */
 
   const handleBulkStatus = async (status, note) => {
@@ -655,7 +709,7 @@ const CompanyManagement = () => {
     }
   };
 
-  /* ------------------ Cloudinary uploads ------------------ */
+  /* ------------------ supabase uploads ------------------ */
 
   const handleLogoUpload = async (event, forCreate = false) => {
     const file = event.target.files?.[0];
@@ -664,7 +718,7 @@ const CompanyManagement = () => {
     setUploadingLogo(true);
     setLogoProgress(0);
     try {
-      const result = await cloudinaryService.uploadToCloudinary(file, 'career-connect/companies/logos', {
+      const result = await supabaseMediaService.uploadToSupabase(file, 'career-connect/companies/logos', {
         tags: ['company', 'logo'],
         context: `uploaded_by=${currentUser?.uid || 'system'}`,
       });
@@ -699,7 +753,7 @@ const CompanyManagement = () => {
       const uploaded = [];
       for (let i = 0; i < files.length; i += 1) {
         // eslint-disable-next-line no-await-in-loop
-        const res = await cloudinaryService.uploadToCloudinary(files[i], 'career-connect/companies/documents', {
+        const res = await supabaseMediaService.uploadToSupabase(files[i], 'career-connect/companies/documents', {
           tags: ['company', 'document'],
           context: `uploaded_by=${currentUser?.uid || 'system'}`,
         });
@@ -735,9 +789,9 @@ const CompanyManagement = () => {
   const handleRemoveDocument = async (doc, forCreate = false) => {
     if (!doc) return;
     try {
-      await cloudinaryService.deleteFromCloudinary?.(doc.publicId);
+      await supabaseMediaService.deleteFromsupabase?.(doc.publicId);
     } catch (err) {
-      console.warn('[CompanyManagement] Cloudinary delete warning:', err?.message);
+      console.warn('[CompanyManagement] supabase delete warning:', err?.message);
     }
     if (forCreate) {
       setCreateForm((prev) => ({ ...prev, documents: prev.documents.filter((d) => d.publicId !== doc.publicId) }));
@@ -889,15 +943,17 @@ const CompanyManagement = () => {
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <span><strong>{selectedIds.length}</strong> companies selected</span>
                     <div className="flex flex-wrap gap-2">
-                      <Button size="sm" variant="success" onClick={() => handleBulkStatus('approved', 'Bulk approved')} disabled={saving}>
-                        <FaCheck className="mr-1" /> Approve
-                      </Button>
-                      <Button size="sm" variant="danger" onClick={() => handleBulkStatus('rejected', 'Bulk rejected')} disabled={saving}>
-                        <FaTimes className="mr-1" /> Reject
-                      </Button>
-                      <Button size="sm" variant="dark" onClick={() => handleBulkStatus('suspended', 'Bulk suspended')} disabled={saving}>
-                        <FaBan className="mr-1" /> Suspend
-                      </Button>
+                      {isSuperAdmin && <>
+                        <Button size="sm" variant="success" onClick={() => handleBulkStatus('approved', 'Bulk approved')} disabled={saving}>
+                          <FaCheck className="mr-1" /> Approve
+                        </Button>
+                        <Button size="sm" variant="danger" onClick={() => handleBulkStatus('rejected', 'Bulk rejected')} disabled={saving}>
+                          <FaTimes className="mr-1" /> Reject
+                        </Button>
+                        <Button size="sm" variant="dark" onClick={() => handleBulkStatus('suspended', 'Bulk suspended')} disabled={saving}>
+                          <FaBan className="mr-1" /> Suspend
+                        </Button>
+                      </>}
                       <Button size="sm" variant="outlineSecondary" onClick={() => setSelectedIds([])}>Clear</Button>
                     </div>
                   </div>
@@ -1018,7 +1074,35 @@ const CompanyManagement = () => {
                                 <FaEdit />
                               </Button>
                             </Tooltip>
-                            {['pending', 'awaiting_approval'].includes(company.status) && (
+                            {isSuperAdmin && ['approved', 'active'].includes(company.status) && (
+                              company.companyAdminUid ? (
+                                <Tooltip label={`Revoke Company Admin (${company.companyAdminEmail || company.companyAdminUid})`}>
+                                  <Button variant="outlineWarning" size="sm" disabled={saving} onClick={() => handleCompanyAdminAssignment(company)}>
+                                    <FaUserShield />
+                                  </Button>
+                                </Tooltip>
+                              ) : company.companyAdminInviteId ? (
+                                <>
+                                  <Tooltip label={`Resend invite to ${company.companyAdminEmail || 'Company Admin'}`}>
+                                    <Button variant="outlinePrimary" size="sm" disabled={saving} onClick={() => handleResendCompanyAdminInvitation(company)}>
+                                      <FaRedo />
+                                    </Button>
+                                  </Tooltip>
+                                  <Tooltip label="Revoke pending Company Admin invitation">
+                                    <Button variant="outlineWarning" size="sm" disabled={saving} onClick={() => handleCompanyAdminAssignment(company)}>
+                                      <FaTimes />
+                                    </Button>
+                                  </Tooltip>
+                                </>
+                              ) : (
+                                <Tooltip label="Invite Company Admin">
+                                  <Button variant="outlinePrimary" size="sm" disabled={saving} onClick={() => openCompanyAdminInvitation(company)}>
+                                    <FaUserShield />
+                                  </Button>
+                                </Tooltip>
+                              )
+                            )}
+                            {isSuperAdmin && ['pending', 'awaiting_approval'].includes(company.status) && (
                               <Tooltip label="Approve">
                                 <Button
                                   variant="outlineSuccess"
@@ -1029,14 +1113,14 @@ const CompanyManagement = () => {
                                 </Button>
                               </Tooltip>
                             )}
-                            {['suspended', 'rejected', 'inactive'].includes(company.status) && (
+                            {isSuperAdmin && ['suspended', 'rejected', 'inactive'].includes(company.status) && (
                               <Tooltip label="Restore">
                                 <Button variant="outlineSuccess" size="sm" onClick={() => handleRestore(company)}>
                                   <FaRedo />
                                 </Button>
                               </Tooltip>
                             )}
-                            {['approved', 'active'].includes(company.status) && (
+                            {isSuperAdmin && ['approved', 'active'].includes(company.status) && (
                               <Tooltip label="Suspend">
                                 <Button
                                   variant="outlineWarning"
@@ -1047,11 +1131,11 @@ const CompanyManagement = () => {
                                 </Button>
                               </Tooltip>
                             )}
-                            <Tooltip label="Delete">
+                            {isSuperAdmin && <Tooltip label="Archive company">
                               <Button variant="outlineDanger" size="sm" onClick={() => openDelete(company)}>
                                 <FaTrashAlt />
                               </Button>
-                            </Tooltip>
+                            </Tooltip>}
                           </div>
                         </td>
                       </tr>
@@ -1216,12 +1300,6 @@ const CompanyManagement = () => {
               <Input value={editForm.location || ''} onChange={(e) => setEditForm({ ...editForm, location: e.target.value })} />
             </div>
             <div>
-              <Label>Status</Label>
-              <Select value={editForm.status || 'pending'} onChange={(e) => setEditForm({ ...editForm, status: e.target.value })}>
-                {Object.entries(STATUS_META).map(([key, meta]) => (<option value={key} key={key}>{meta.label}</option>))}
-              </Select>
-            </div>
-            <div>
               <Label>Contact Person</Label>
               <Input value={editForm.contactPersonName || ''} onChange={(e) => setEditForm({ ...editForm, contactPersonName: e.target.value })} />
             </div>
@@ -1274,7 +1352,6 @@ const CompanyManagement = () => {
                 </ul>
               </div>
             )}
-            <div><Switch checked={!!editForm.verified} onChange={(e) => setEditForm({ ...editForm, verified: e.target.checked })} label="Verified" /></div>
             <div><Switch checked={!!editForm.featured} onChange={(e) => setEditForm({ ...editForm, featured: e.target.checked })} label="Featured" /></div>
           </div>
         </ModalBody>
@@ -1445,6 +1522,36 @@ const CompanyManagement = () => {
           <Button variant="secondary" onClick={() => setShowSuspendModal(false)}>Cancel</Button>
           <Button variant="warning" onClick={handleSuspend} disabled={saving || !suspendReason.trim()}>
             {saving ? <Spinner /> : 'Suspend'}
+          </Button>
+        </ModalFooter>
+      </Modal>
+
+      <Modal show={showCompanyAdminInviteModal} onHide={() => setShowCompanyAdminInviteModal(false)}>
+        <ModalHeader onClose={() => setShowCompanyAdminInviteModal(false)}>Invite Company Admin</ModalHeader>
+        <ModalBody>
+          <p className="mb-4 text-sm text-gray-600 dark:text-gray-300">
+            Invite an administrator for <strong>{selectedCompany?.companyName || selectedCompany?.name}</strong>.
+            They will receive a one-time setup link and create their own password; no password is emailed.
+          </p>
+          <Label htmlFor="company-admin-invite-email">Administrator email *</Label>
+          <Input
+            id="company-admin-invite-email"
+            type="email"
+            autoComplete="email"
+            required
+            value={companyAdminEmail}
+            onChange={(event) => setCompanyAdminEmail(event.target.value)}
+            placeholder="admin@company.com"
+          />
+        </ModalBody>
+        <ModalFooter>
+          <Button variant="secondary" onClick={() => setShowCompanyAdminInviteModal(false)}>Cancel</Button>
+          <Button
+            variant="primary"
+            disabled={saving || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(companyAdminEmail.trim())}
+            onClick={() => selectedCompany && handleCompanyAdminAssignment(selectedCompany, companyAdminEmail)}
+          >
+            {saving ? <Spinner /> : 'Send Invitation'}
           </Button>
         </ModalFooter>
       </Modal>

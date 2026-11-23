@@ -28,13 +28,7 @@ import {
   arrayRemove,
   writeBatch,
 } from "firebase/firestore";
-import {
-  ref,
-  uploadBytesResumable,
-  getDownloadURL,
-  deleteObject,
-} from "firebase/storage";
-import { db, storage, auth } from "../../config/firebase";
+import { db, auth } from "../../config/firebase";
 import { supabase } from "../../config/supabase";
 import { useAuth } from "../../context/AuthContext";
 import { useNotification } from "../../context/NotificationContext";

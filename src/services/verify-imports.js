@@ -3,14 +3,14 @@
 
 import jobService from './jobService.js';
 import applicationService from './applicationService.jsx';
-import cloudinaryService from './cloudinaryService.js';
+import supabaseMediaService from './supabaseMediaService.js';
 
 console.log('=== IMPORT VERIFICATION ===');
 
 const services = [
   { name: 'jobService', instance: jobService },
   { name: 'applicationService', instance: applicationService },
-  { name: 'cloudinaryService', instance: cloudinaryService },
+  { name: 'supabaseMediaService', instance: supabaseMediaService },
 ];
 
 let allGood = true;
@@ -45,11 +45,11 @@ if (applicationService && typeof applicationService.submitApplication === 'funct
   allGood = false;
 }
 
-// Test cloudinaryService methods
-if (cloudinaryService && typeof cloudinaryService.uploadFile === 'function') {
-  console.log('? cloudinaryService.uploadFile: OK');
+// Test supabaseMediaService methods
+if (supabaseMediaService && typeof supabaseMediaService.uploadFile === 'function') {
+  console.log('? supabaseMediaService.uploadFile: OK');
 } else {
-  console.error('? cloudinaryService.uploadFile: Missing');
+  console.error('? supabaseMediaService.uploadFile: Missing');
   allGood = false;
 }
 
@@ -60,4 +60,4 @@ if (allGood) {
   console.log('? Some imports or methods have issues.');
 }
 
-export { jobService, applicationService, cloudinaryService };
+export { jobService, applicationService, supabaseMediaService };

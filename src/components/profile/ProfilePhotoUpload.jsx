@@ -17,7 +17,7 @@ import {
 
 import { useAuth } from '../../context/AuthContext';
 import { useNotifications } from '../../hooks/useNotifications';
-import { cloudinaryService } from '../../services/cloudinaryService';
+import { supabaseMediaService } from '../../services/supabaseMediaService';
 
 /**
  * ProfilePhotoUpload Component
@@ -238,7 +238,7 @@ const ProfilePhotoUpload = ({
   };
 
   /**
-   * Handle upload to Cloudinary
+   * Handle upload to supabase
    */
   const handleUpload = async () => {
     if (!selectedFile || !canUpload) return;
@@ -248,7 +248,7 @@ const ProfilePhotoUpload = ({
       setUploadProgress(0);
       setError(null);
 
-      // Simulate progress (real progress from Cloudinary)
+      // Simulate progress (real progress from supabase)
       const progressInterval = setInterval(() => {
         setUploadProgress((prev) => {
           if (prev >= 90) {
@@ -259,8 +259,8 @@ const ProfilePhotoUpload = ({
         });
       }, 200);
 
-      // Upload to Cloudinary
-      const result = await cloudinaryService.uploadImage(selectedFile, {
+      // Upload to supabase
+      const result = await supabaseMediaService.uploadImage(selectedFile, {
         folder: `profiles/${userId}`,
         transformation: optimizeImages
           ? {
@@ -284,7 +284,7 @@ const ProfilePhotoUpload = ({
         const stats = {
           originalSize: selectedFile.size,
           optimizedSize: result.bytes || selectedFile.size,
-          storageType: 'cloudinary',
+          storageType: 'supabase',
           uploadTime: new Date().toISOString(),
           dimensions: imageDimensions,
           publicId: result.publicId,
@@ -341,16 +341,16 @@ const ProfilePhotoUpload = ({
       setUploading(true);
       setError(null);
 
-      // Extract public ID from current photo URL if it's from Cloudinary
+      // Extract public ID from current photo URL if it's from supabase
       let publicId = null;
-      if (currentPhoto?.includes('cloudinary')) {
+      if (currentPhoto?.includes('supabase')) {
         const matches = currentPhoto.match(/.v.+.(.+?)./);
         publicId = matches ? matches[1] : null;
       }
 
-      // Delete from Cloudinary if we have public ID
+      // Delete from supabase if we have public ID
       if (publicId) {
-        await cloudinaryService.deleteImage(publicId);
+        await supabaseMediaService.deleteImage(publicId);
       }
 
       // Update parent component

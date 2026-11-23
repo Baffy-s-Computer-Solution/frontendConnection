@@ -24,7 +24,3 @@ services:
         value: 1:486454264099:web:3c1c9e5edf897385aa4c96
       - key: VITE_FIREBASE_MEASUREMENT_ID
         value: G-HMR3R62Y1Z
-      - key: VITE_CLOUDINARY_CLOUD_NAME
-        value: dwz0osyou
-      - key: VITE_CLOUDINARY_UPLOAD_PRESET
-        value: career_connect_upload

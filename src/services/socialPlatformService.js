@@ -16,7 +16,7 @@ import {
   where,
   writeBatch,
 } from '../config/firebase';
-import { cloudinaryService } from './cloudinaryService';
+import { supabaseMediaService } from './supabaseMediaService';
 import { apiRequest } from './apiClient';
 
 
@@ -371,13 +371,13 @@ export const socialPlatformService = {
     try {
       const media = files?.length
         ? await Promise.all(files.map(async (file) => {
-            const uploaded = await cloudinaryService.uploadToCloudinary(
+            const uploaded = await supabaseMediaService.uploadToSupabase(
               file,
               `social/${currentUser.uid}/posts`,
               { tags: ['social-post', `user-${currentUser.uid}`] }
             );
-            if (!uploaded?.success || !uploaded.url) throw new Error(uploaded?.error || 'Cloudinary media upload failed');
-            return { url: uploaded.url, publicId: uploaded.public_id, type: file.type.startsWith('video/') ? 'video' : 'image', name: file.name };
+            if (!uploaded?.success || !uploaded.url || !uploaded.path) throw new Error(uploaded?.error || 'Supabase media upload failed');
+            return { url: uploaded.url, storagePath: uploaded.path, type: file.type.startsWith('video/') ? 'video' : 'image', name: file.name };
           }))
         : [];
       const post = {

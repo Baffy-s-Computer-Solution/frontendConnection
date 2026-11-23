@@ -20,10 +20,8 @@ import {
   arrayRemove,
   writeBatch,
 } from 'firebase/firestore';
-import { onDisconnect, onValue, ref as realtimeRef, serverTimestamp as realtimeTimestamp, set as realtimeSet } from 'firebase/database';
-
-import { database, db } from '../config/firebase';
-import { cloudinaryService } from './cloudinaryService';
+import { db } from '../config/firebase';
+import { supabaseMediaService } from './supabaseMediaService';
 
 // Collection names
 const CONVERSATIONS_COLLECTION = 'conversations';
@@ -362,22 +360,24 @@ export const communicationService = {
   },
 
   async setPresence(userId, userType, isOnline) {
-    const presenceRef = realtimeRef(database, `${PRESENCE_COLLECTION}/${userId}`);
-    await realtimeSet(presenceRef, { userId, userType, isOnline, lastSeen: realtimeTimestamp });
-    if (isOnline) {
-      await onDisconnect(presenceRef).set({
-        userId,
-        userType,
-        isOnline: false,
-        lastSeen: realtimeTimestamp,
-      });
-    }
+    await setDoc(doc(db, PRESENCE_COLLECTION, userId), {
+      userId,
+      userType,
+      isOnline: Boolean(isOnline),
+      lastSeen: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    }, { merge: true });
   },
 
   subscribeToPresence(callback) {
-    return onValue(realtimeRef(database, PRESENCE_COLLECTION), (snapshot) => {
-      const values = snapshot.val() || {};
-      callback(Object.entries(values).map(([id, value]) => ({ id, ...value })));
+    return onSnapshot(collection(db, PRESENCE_COLLECTION), (snapshot) => {
+      const now = Date.now();
+      callback(snapshot.docs.map((presenceDoc) => {
+        const value = presenceDoc.data();
+        const lastSeen = safeDateConvert(value.lastSeen);
+        const fresh = lastSeen && now - lastSeen.getTime() < 90_000;
+        return { id: presenceDoc.id, ...value, isOnline: value.isOnline === true && Boolean(fresh) };
+      }));
     });
   },
 
@@ -827,7 +827,7 @@ export const communicationService = {
 
   // ==================== FILE UPLOAD ====================
 
-  // Upload file to Cloudinary and persist the returned URL in the chat message.
+  // Upload file to supabase and persist the returned URL in the chat message.
   async uploadFile(file, conversationId, senderId) {
     try {
       if (!file) {
@@ -855,12 +855,12 @@ export const communicationService = {
         return { success: false, error: 'File type not supported' };
       }
 
-      const result = await cloudinaryService.uploadToCloudinary(
+      const result = await supabaseMediaService.uploadToSupabase(
         file,
         `chat/${conversationId}/${senderId}`,
         { tags: ['chat-attachment', conversationId] }
       );
-      if (!result.success) throw new Error(result.error || 'Cloudinary upload failed');
+      if (!result.success) throw new Error(result.error || 'supabase upload failed');
 
       return {
         success: true,
@@ -869,7 +869,7 @@ export const communicationService = {
           type: file.type,
           size: file.size,
           url: result.url,
-          cloudinaryPublicId: result.public_id,
+          supabasePublicId: result.public_id,
         },
       };
     } catch (error) {

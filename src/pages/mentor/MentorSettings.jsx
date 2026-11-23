@@ -31,6 +31,7 @@ import { toast } from 'react-hot-toast';
 import { format, formatDistanceToNow } from 'date-fns';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
+import { supabaseMediaService } from '../../services/supabaseMediaService';
 
 const cn = (...inputs) => twMerge(clsx(inputs));
 
@@ -842,17 +843,8 @@ const MentorSettings = () => {
     setPhotoProgress(0);
 
     try {
-      const fd = new FormData();
-      fd.append('file', file);
-      fd.append('upload_preset', import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET);
-      fd.append('folder', `mentor-profiles/${mentorId}`);
-      const res = await fetch(
-        `https://api.cloudinary.com/v1_1/${import.meta.env.VITE_CLOUDINARY_CLOUD_NAME}/image/upload`,
-        { method: 'POST', body: fd }
-      );
-      const data = await res.json();
-      if (!res.ok || !data.secure_url) throw new Error(data.error?.message || 'Cloudinary did not return an image URL');
-      const finalUrl = data.secure_url;
+      const uploaded = await supabaseMediaService.uploadImage(file, { folder: `mentor-profiles/${mentorId}` });
+      const finalUrl = uploaded.url;
 
       await saveProfile({ photoURL: finalUrl, profilePhoto: finalUrl });
       toast.success('Profile photo updated');

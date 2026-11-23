@@ -108,7 +108,7 @@ export default defineConfig(({ command, mode }) => {
         output: {
           manualChunks: {
             vendor: ['react', 'react-dom', 'react-router-dom'],
-            firebase: ['firebase/app', 'firebase/auth', 'firebase/firestore', 'firebase/storage'],
+            firebase: ['firebase/app', 'firebase/auth', 'firebase/firestore'],
             ui: ['react-bootstrap', 'bootstrap', 'framer-motion'],
             charts: ['chart.js', 'react-chartjs-2', 'recharts'],
             forms: ['formik', 'yup', 'react-hook-form'],

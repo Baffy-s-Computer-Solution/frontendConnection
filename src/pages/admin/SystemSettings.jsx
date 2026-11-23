@@ -13,7 +13,7 @@ import { toast } from 'react-toastify';
 import { useAuth } from '../../context/AuthContext';
 import AdminPageShell from '../../components/admin/AdminPageShell';
 import adminService from '../../services/adminService';
-import cloudinaryService from '../../services/cloudinaryService';
+import supabaseMediaService from '../../services/supabaseMediaService';
 
 /* ---------------- Tailwind UI primitives ---------------- */
 
@@ -459,7 +459,7 @@ const SystemSettings = () => {
         type: 'application/json',
         lastModified: Date.now(),
       });
-      const upload = await cloudinaryService.uploadToCloudinary(
+      const upload = await supabaseMediaService.uploadToSupabase(
         backupFileForCloud,
         'career-connect/admin/backups',
         {
@@ -470,7 +470,7 @@ const SystemSettings = () => {
       if (upload.success) {
         await adminService.media.registerUpload(
           {
-            provider: 'cloudinary',
+            provider: 'supabase',
             folder: 'career-connect/admin/backups',
             url: upload.url,
             publicId: upload.public_id,
@@ -482,13 +482,13 @@ const SystemSettings = () => {
           currentUser,
           userProfile
         );
-        toast.success('Backup downloaded and stored in Cloudinary');
+        toast.success('Backup downloaded and stored in supabase');
         return;
       }
-      toast.warning('Backup downloaded locally, but Cloudinary upload failed');
+      toast.warning('Backup downloaded locally, but supabase upload failed');
     } catch (error) {
-      console.warn('Cloudinary backup upload failed:', error);
-      toast.warning('Backup downloaded locally, but Cloudinary upload failed');
+      console.warn('supabase backup upload failed:', error);
+      toast.warning('Backup downloaded locally, but supabase upload failed');
     }
   };
 

@@ -1,23 +1,20 @@
 /* eslint-disable no-unused-vars */
 // src/services/profileService.js
 /**
- * Production-Ready Profile Service with Cloudinary & Firebase Storage Fallback
+ * Profile service using Firebase Auth/Firestore and Supabase Storage.
  * Mobile-optimized with offline support and progressive enhancement
  */
 
 import { doc, getDoc, updateDoc, serverTimestamp, setDoc, arrayUnion } from 'firebase/firestore';
 import { getAuth, updateProfile as updateAuthProfile } from 'firebase/auth';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { db } from '../config/firebase';
 
-import { db, storage } from '../config/firebase';
-
-import { cloudinaryService } from './cloudinaryService';
+import { supabaseMediaService } from './supabaseMediaService';
 import { apiRequest } from './apiClient';
 
 class ProfileService {
   constructor() {
     this.auth = getAuth();
-    this.storage = storage;
     this.maxRetries = 2;
   }
 
@@ -210,8 +207,8 @@ class ProfileService {
     const {
       maxSize = 5 * 1024 * 1024,
       optimize = true,
-      useCloudinary = true,
-      fallbackToFirebase = true,
+      usesupabase = true,
+      fallbackToSupabase = true,
     } = options;
 
     try {
@@ -244,7 +241,7 @@ class ProfileService {
       const uploaded = await apiRequest('/api/media/profile-photo', { method: 'POST', body: formData });
       await this.updateProfile(userId, {
         profilePhoto: uploaded.photoURL,
-        profilePhotoCloudinaryId: uploaded.publicId,
+        profilePhotosupabaseId: uploaded.publicId,
         profilePhotoThumbnail: uploaded.photoURL,
         profilePhotoUpdated: new Date().toISOString(),
       }, { silent: true });
@@ -252,7 +249,7 @@ class ProfileService {
       return {
         success: true,
         url: uploaded.photoURL,
-        storageType: 'cloudinary',
+        storageType: 'supabase',
         thumbnailUrl: uploaded.photoURL,
         publicId: uploaded.publicId,
         message: 'Profile photo uploaded successfully',
@@ -262,12 +259,12 @@ class ProfileService {
       let uploadResult;
       let storageType = 'none';
 
-      // Try Cloudinary first if enabled
-      if (useCloudinary) {
+      // Try supabase first if enabled
+      if (usesupabase) {
         try {
           const optimizedFile = optimize ? await this.optimizeImageForUpload(file) : file;
 
-          uploadResult = await cloudinaryService.uploadImage(optimizedFile, {
+          uploadResult = await supabaseMediaService.uploadImage(optimizedFile, {
             folder: `career-connect/users/${userId}/profile`,
             transformation: {
               width: 500,
@@ -283,26 +280,26 @@ class ProfileService {
           });
 
           if (uploadResult.success) {
-            storageType = 'cloudinary';
-            console.log('✅ Cloudinary upload successful:', uploadResult.public_id);
+            storageType = 'supabase';
+            console.log('✅ supabase upload successful:', uploadResult.public_id);
           } else {
-            throw new Error(uploadResult.error || 'Cloudinary upload failed');
+            throw new Error(uploadResult.error || 'supabase upload failed');
           }
-        } catch (cloudinaryError) {
-          console.warn('⚠️ Cloudinary upload failed:', cloudinaryError.message);
+        } catch (supabaseError) {
+          console.warn('⚠️ supabase upload failed:', supabaseError.message);
 
-          // Fallback to Firebase Storage if enabled
-          if (fallbackToFirebase) {
-            uploadResult = await this.uploadToFirebaseStorage(userId, file, 'profile-photos');
-            storageType = 'firebase';
+          // Fallback to Supabase Storage if enabled
+          if (fallbackToSupabase) {
+            uploadResult = await this.uploadToSupabaseStorage(userId, file, 'profile-photos');
+            storageType = 'supabase';
           } else {
-            throw cloudinaryError;
+            throw supabaseError;
           }
         }
       } else {
-        // Direct to Firebase Storage
-        uploadResult = await this.uploadToFirebaseStorage(userId, file, 'profile-photos');
-        storageType = 'firebase';
+        // Direct to Supabase Storage
+        uploadResult = await this.uploadToSupabaseStorage(userId, file, 'profile-photos');
+        storageType = 'supabase';
       }
 
       // Update profile with new photo URL
@@ -311,14 +308,12 @@ class ProfileService {
         profilePhotoUpdated: new Date().toISOString(),
       };
 
-      if (storageType === 'cloudinary') {
-        updateData.profilePhotoCloudinaryId = uploadResult.public_id;
+      if (storageType === 'supabase') {
+        updateData.profilePhotosupabaseId = uploadResult.public_id;
         updateData.profilePhotoThumbnail = uploadResult.thumbnail_url;
       }
 
-      if (storageType === 'firebase') {
-        updateData.profilePhotoStoragePath = uploadResult.path;
-      }
+      if (uploadResult.path) updateData.profilePhotoStoragePath = uploadResult.path;
 
       const updateResult = await this.updateProfile(userId, updateData, { silent: true });
 
@@ -368,13 +363,29 @@ class ProfileService {
         throw new Error('File size must be less than 10MB');
       }
 
-      // Never create a public Cloudinary or compatibility-storage URL for a resume.
-      throw new Error('Resume uploads are paused until private, authenticated file delivery is enabled.');
+      if (this.auth.currentUser?.uid !== userId) throw new Error('You can only upload your own resume.');
+      const { supabaseService } = await import('./supabaseService');
+      const privateDocument = await supabaseService.uploadPrivateDocument({
+        file,
+        title: file.name,
+        category: 'resume',
+      });
+      if (!privateDocument?.path) throw new Error('Supabase did not return the private resume path.');
+      await this.updateProfile(userId, {
+        resumeUrl: '',
+        resumeStoragePath: privateDocument.path,
+        resumeStorageType: 'supabase_private',
+        resumeFileName: file.name,
+        resumeFileSize: file.size,
+        resumeUploadedAt: new Date().toISOString(),
+        resumeFileType: file.type,
+      });
+      return { success: true, storagePath: privateDocument.path, storageType: 'supabase_private', message: 'Resume uploaded successfully.' };
 
-      // Try Cloudinary first for documents
+      // Try supabase first for documents
       let uploadResult;
       try {
-        uploadResult = await cloudinaryService.uploadFile(file, {
+        uploadResult = await supabaseMediaService.uploadFile(file, {
           folder: `career-connect/users/${userId}/resumes`,
           resource_type: 'raw',
           tags: ['resume', `user-${userId}`],
@@ -384,12 +395,12 @@ class ProfileService {
         if (!uploadResult.success) {
           throw new Error(uploadResult.error);
         }
-      } catch (cloudinaryError) {
+      } catch (supabaseError) {
         console.warn(
-          '⚠️ Cloudinary resume upload failed, falling back to Firebase:',
-          cloudinaryError
+          '⚠️ supabase resume upload failed, falling back to Firebase:',
+          supabaseError
         );
-        uploadResult = await this.uploadToFirebaseStorage(userId, file, 'resumes');
+        uploadResult = await this.uploadToSupabaseStorage(userId, file, 'resumes');
       }
 
       // Update profile
@@ -399,7 +410,7 @@ class ProfileService {
         resumeFileSize: file.size,
         resumeUploadedAt: new Date().toISOString(),
         resumeFileType: file.type,
-        resumeStorageType: uploadResult.storageType || 'cloudinary',
+        resumeStorageType: uploadResult.storageType || 'supabase',
       });
 
       return {
@@ -410,7 +421,7 @@ class ProfileService {
         message: 'Resume uploaded successfully',
         metadata: {
           uploadedAt: new Date().toISOString(),
-          storageType: uploadResult.storageType || 'cloudinary',
+          storageType: uploadResult.storageType || 'supabase',
         },
       };
     } catch (error) {
@@ -429,7 +440,31 @@ class ProfileService {
       if (!file) throw new Error('No file provided');
       if (!documentType) throw new Error('Document type is required');
 
-      throw new Error('Document uploads are paused until private, authenticated file delivery is enabled.');
+      if (this.auth.currentUser?.uid !== userId) throw new Error('You can only upload documents to your own account.');
+      const { supabaseService } = await import('./supabaseService');
+      const privateDocument = await supabaseService.uploadPrivateDocument({
+        file,
+        title: metadata.title || file.name,
+        category: documentType,
+      });
+      if (!privateDocument?.path) throw new Error('Supabase did not return the private document path.');
+      const documentData = {
+        id: privateDocument.documentId,
+        name: file.name,
+        type: documentType,
+        url: '',
+        storagePath: privateDocument.path,
+        size: file.size,
+        mimeType: file.type,
+        uploadedAt: new Date().toISOString(),
+        metadata,
+        storageType: 'supabase_private',
+      };
+      await updateDoc(doc(db, 'users', userId), {
+        documents: arrayUnion(documentData),
+        updatedAt: serverTimestamp(),
+      });
+      return { success: true, document: documentData, message: 'Document uploaded successfully.' };
 
       const timestamp = Date.now();
       const safeFileName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
@@ -438,8 +473,8 @@ class ProfileService {
       // Determine storage based on file type
       let uploadResult;
       if (file.type.startsWith('image/')) {
-        // Images to Cloudinary
-        uploadResult = await cloudinaryService.uploadImage(file, {
+        // Images to supabase
+        uploadResult = await supabaseMediaService.uploadImage(file, {
           folder: `career-connect/users/${userId}/documents/${documentType}`,
           transformation: {
             quality: 'auto:good',
@@ -451,8 +486,8 @@ class ProfileService {
             .join('|'),
         });
       } else {
-        // Other files to Firebase
-        uploadResult = await this.uploadToFirebaseStorage(
+        // Store non-image documents in Supabase Storage.
+        uploadResult = await this.uploadToSupabaseStorage(
           userId,
           file,
           `documents/${documentType}`
@@ -469,7 +504,7 @@ class ProfileService {
         mimeType: file.type,
         uploadedAt: new Date().toISOString(),
         metadata: metadata,
-        storageType: uploadResult.storageType || 'firebase',
+        storageType: uploadResult.storageType || 'supabase',
         ...uploadResult,
       };
 
@@ -496,18 +531,18 @@ class ProfileService {
 
   async deleteProfilePhoto(userId, publicId) {
     try {
-      // Delete from Cloudinary if publicId exists
+      // Delete from supabase if publicId exists
       if (publicId) {
-        const deleteResult = await cloudinaryService.deleteImage(publicId);
+        const deleteResult = await supabaseMediaService.deleteImage(publicId);
         if (!deleteResult.success) {
-          console.warn('⚠️ Could not delete from Cloudinary:', deleteResult.error);
+          console.warn('⚠️ Could not delete from supabase:', deleteResult.error);
         }
       }
 
       // Update profile
       await this.updateProfile(userId, {
         profilePhoto: '',
-        profilePhotoCloudinaryId: '',
+        profilePhotosupabaseId: '',
         profilePhotoThumbnail: '',
         profilePhotoStoragePath: '',
       });
@@ -527,40 +562,11 @@ class ProfileService {
 
   // ==================== STORAGE HELPERS ====================
 
-  async uploadToFirebaseStorage(userId, file, folder) {
-    try {
-      const timestamp = Date.now();
-      const safeFileName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
-      const filePath = `users/${userId}/${folder}/${timestamp}_${safeFileName}`;
-      const storageRef = ref(this.storage, filePath);
-
-      console.log('📤 Uploading to Firebase Storage:', filePath);
-
-      // Upload file
-      const snapshot = await uploadBytes(storageRef, file, {
-        customMetadata: {
-          userId: userId,
-          originalName: file.name,
-          uploadedAt: new Date().toISOString(),
-          mimeType: file.type,
-          size: file.size.toString(),
-        },
-      });
-
-      // Get download URL
-      const downloadURL = await getDownloadURL(snapshot.ref);
-
-      return {
-        success: true,
-        url: downloadURL,
-        path: filePath,
-        storageType: 'firebase',
-        snapshot: snapshot,
-      };
-    } catch (error) {
-      console.error('❌ Firebase Storage upload error:', error);
-      throw error;
-    }
+  async uploadToSupabaseStorage(userId, file, folder) {
+    if (this.auth.currentUser?.uid !== userId) throw new Error('You can only upload files to your own account.');
+    const result = await supabaseMediaService.uploadFile(file, { folder });
+    if (!result?.success || !result.path) throw new Error(result?.error || 'Supabase upload failed.');
+    return { ...result, storageType: result.storageType || 'supabase' };
   }
 
   // ==================== HELPER METHODS ====================

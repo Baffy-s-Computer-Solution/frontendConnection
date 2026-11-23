@@ -42,7 +42,7 @@ import {
 } from 'lucide-react';
 
 import { db } from '../../../config/firebase';
-import { cloudinaryService } from '../../../services/cloudinaryService';
+import { supabaseMediaService } from '../../../services/supabaseMediaService';
 import { useAuth } from '../../../context/AuthContext';
 import { useNotifications } from '../../../hooks/useNotifications';
 
@@ -538,7 +538,7 @@ const YouthProfile = () => {
         setUploading(true);
         setUploadProgress(0);
 
-        const result = await cloudinaryService.uploadImage(file, {
+        const result = await supabaseMediaService.uploadImage(file, {
           folder: `youth-profiles/${user.uid}`,
           onProgress: (progress) => setUploadProgress(progress),
         });

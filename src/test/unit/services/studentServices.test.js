@@ -20,7 +20,7 @@ const mocks = vi.hoisted(() => ({
   writeBatch: vi.fn(),
   auth: { currentUser: { uid: 'student-123' } },
   db: {},
-  uploadToCloudinary: vi.fn(),
+  uploadPrivateDocument: vi.fn(),
   apiRequest: vi.fn(),
 }));
 
@@ -44,19 +44,17 @@ vi.mock('firebase/firestore', () => ({
   writeBatch: mocks.writeBatch,
 }));
 
-vi.mock('firebase/storage', () => ({
-  deleteObject: vi.fn(),
-  ref: vi.fn(),
-}));
-
 vi.mock('../../../config/firebase', () => ({
   auth: mocks.auth,
   db: mocks.db,
-  storage: {},
 }));
 
-vi.mock('../../../services/cloudinaryService', () => ({
-  cloudinaryService: { uploadToCloudinary: mocks.uploadToCloudinary },
+vi.mock('../../../services/supabaseMediaService', () => ({
+  supabaseMediaService: {},
+}));
+
+vi.mock('../../../services/supabaseService', () => ({
+  supabaseService: { uploadPrivateDocument: mocks.uploadPrivateDocument },
 }));
 
 vi.mock('../../../services/apiClient', () => ({
@@ -88,37 +86,40 @@ describe('uploadResume', () => {
     mocks.doc.mockReturnValue({ document: 'student' });
     mocks.serverTimestamp.mockReturnValue('server timestamp');
     mocks.addDoc.mockResolvedValue({ id: 'resume-document' });
-    mocks.apiRequest.mockResolvedValue({
-      url: 'https://files.example/resume.pdf',
-      publicId: 'students/student-123/resumes/resume',
-      resourceType: 'raw',
+    mocks.uploadPrivateDocument.mockResolvedValue({
+      success: true,
+      path: 'private_documents/student-123/123_resume.pdf',
     });
 
     const result = await uploadResume(
-      { type: 'application/pdf', size: 12, name: 'resume.pdf' },
+      new File(['resume'], 'resume.pdf', { type: 'application/pdf' }),
       'student-123'
     );
 
     expect(result.success).toBe(true);
-    expect(mocks.apiRequest).toHaveBeenCalledWith(
-      '/api/media/student/resume',
-      expect.objectContaining({ method: 'POST', body: expect.any(FormData) })
+    expect(mocks.uploadPrivateDocument).toHaveBeenCalledWith(
+      expect.objectContaining({
+        file: expect.any(File),
+        title: 'resume.pdf',
+        category: 'resume',
+        contentType: 'application/pdf',
+      })
     );
     expect(mocks.addDoc).toHaveBeenCalledWith(
       documentsRef,
       expect.objectContaining({
         userId: 'student-123',
         studentId: 'student-123',
-        storageType: 'cloudinary',
+        storageType: 'supabase_private',
       })
     );
   });
 
   it('does not write resume metadata when the authenticated upload fails', async () => {
-    mocks.apiRequest.mockRejectedValue(new Error('Resume uploads are temporarily unavailable.'));
+    mocks.uploadPrivateDocument.mockRejectedValue(new Error('Resume uploads are temporarily unavailable.'));
 
     const result = await uploadResume(
-      { type: 'application/pdf', size: 12, name: 'resume.pdf' },
+      new File(['resume'], 'resume.pdf', { type: 'application/pdf' }),
       'student-123'
     );
 

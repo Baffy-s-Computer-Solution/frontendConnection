@@ -12,8 +12,8 @@ import {
   where,
   getDocs,
 } from "firebase/firestore";
-import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
-import { db, storage, auth } from "../../config/firebase";
+import { db, auth } from "../../config/firebase";
+import { supabaseMediaService } from '../../services/supabaseMediaService';
 import { supabase } from "../../config/supabase";
 import { useAuth } from "../../hooks/useAuth";
 import {
@@ -414,40 +414,9 @@ const PhotoStep = ({ data, onChange, userId }) => {
     setUploading(true);
     setProgress(0);
     try {
-      const sRef = ref(
-        storage,
-        `mentor-profiles/${userId}/avatar_${Date.now()}_${file.name}`,
-      );
-      const task = uploadBytesResumable(sRef, file);
-      const url = await new Promise((resolve, reject) => {
-        task.on(
-          "state_changed",
-          (s) =>
-            setProgress(Math.round((s.bytesTransferred / s.totalBytes) * 100)),
-          reject,
-          async () => resolve(await getDownloadURL(task.snapshot.ref)),
-        );
-      });
-      let finalUrl = url;
-      try {
-        const fd = new FormData();
-        fd.append("file", file);
-        fd.append(
-          "upload_preset",
-          process.env.REACT_APP_CLOUDINARY_UPLOAD_PRESET,
-        );
-        fd.append("folder", `mentor-profiles/${userId}`);
-        const res = await fetch(
-          `https://api.cloudinary.com/v1_1/${process.env.REACT_APP_CLOUDINARY_CLOUD_NAME}/image/upload`,
-          { method: "POST", body: fd },
-        );
-        const c = await res.json();
-        if (c.secure_url) finalUrl = c.secure_url;
-      } catch (e) {
-        console.warn("Cloudinary failed:", e);
-      }
-
-      onChange({ ...data, photoURL: finalUrl });
+      const uploaded = await supabaseMediaService.uploadFile(file, { folder: `mentor-profiles/${userId}` });
+      setProgress(100);
+      onChange({ ...data, photoURL: uploaded.url });
       toast.success("Photo uploaded!");
     } catch (e) {
       console.error(e);

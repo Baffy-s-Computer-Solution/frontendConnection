@@ -63,6 +63,29 @@ export const supabaseService = {
       body: JSON.stringify({ path, file, contentType }),
     }),
 
+  uploadFile: async ({ path, file }) => {
+    const formData = new FormData();
+    formData.append('path', path);
+    formData.append('file', file, file.name || 'upload');
+    const result = await backendRequest('/api/supabase/storage/upload-file', {
+      method: 'POST',
+      body: formData,
+    });
+    if (!result?.success || !result.publicUrl) {
+      throw new Error(result?.message || result?.error || 'Supabase could not store this file.');
+    }
+    return {
+      success: true,
+      url: result.publicUrl,
+      path: result.path,
+      storageType: result.storageType,
+      size: result.metadata?.size || file.size,
+      contentType: result.metadata?.contentType || file.type,
+      name: result.metadata?.name || file.name,
+      assetId: result.assetId || null,
+    };
+  },
+
   deleteObject: async (path) => {
     const result = await backendRequest('/api/supabase/storage/object', {
       method: 'DELETE',

@@ -8,7 +8,7 @@ import Modal from '../../components/ui/Modal';
 import { useAuth } from '../../context/AuthContext';
 import { useNotification } from '../../context/NotificationContext';
 import adminService from '../../services/adminService';
-import cloudinaryService from '../../services/cloudinaryService';
+import supabaseMediaService from '../../services/supabaseMediaService';
 
 const AdminProfile = () => {
   const { currentUser, userProfile, isAdmin } = useAuth();
@@ -151,7 +151,7 @@ const AdminProfile = () => {
     setUploadProgress(0);
 
     try {
-      const uploadResult = await cloudinaryService.uploadToCloudinary(
+      const uploadResult = await supabaseMediaService.uploadToSupabase(
         file,
         'career-connect/admins/profiles',
         {
@@ -167,7 +167,7 @@ const AdminProfile = () => {
           {
             url: uploadResult.url,
             publicId: uploadResult.public_id,
-            provider: 'cloudinary',
+            provider: 'supabase',
           },
           currentUser,
           userProfile
@@ -867,7 +867,7 @@ const AdminProfile = () => {
           </div>
 
           <p className="text-center text-xs text-slate-500">
-            JPG, PNG or GIF. Max 5MB. Powered by Cloudinary.
+            JPG, PNG or GIF. Max 5MB. Powered by supabase.
           </p>
         </div>
       </Modal>

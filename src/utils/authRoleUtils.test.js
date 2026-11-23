@@ -6,6 +6,7 @@ describe('normalizeUserType', () => {
   it('normalizes common role variants to the canonical lowercase values', () => {
     expect(normalizeUserType('Student')).toBe('student');
     expect(normalizeUserType('Company / Employer')).toBe('company');
+    expect(normalizeUserType('company_staff')).toBe('company_staff');
     expect(normalizeUserType('Youth Entrepreneur')).toBe('youth');
     expect(normalizeUserType('  ENTREPRENEUR  ')).toBe('entrepreneur');
     expect(normalizeUserType('Alumnus')).toBe('alumni');
@@ -22,6 +23,7 @@ describe('getDashboardPathByUserType', () => {
   it('returns the right dashboard for every supported role', () => {
     expect(getDashboardPathByUserType('student')).toBe('/student/dashboard');
     expect(getDashboardPathByUserType('company')).toBe('/company/dashboard');
+    expect(getDashboardPathByUserType('company_staff')).toBe('/company/teams');
     expect(getDashboardPathByUserType('institute')).toBe('/institute/dashboard');
     expect(getDashboardPathByUserType('mentor')).toBe('/mentor/dashboard');
     expect(getDashboardPathByUserType('youth')).toBe('/youth/dashboard');

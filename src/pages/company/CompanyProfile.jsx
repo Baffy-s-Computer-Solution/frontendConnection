@@ -31,7 +31,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useNotification } from '../../context/NotificationContext';
 import { db, auth } from '../../config/firebase';
 import { supabase } from '../../config/supabase';
-import cloudinaryService from '../../services/cloudinaryService';
+import supabaseMediaService from '../../services/supabaseMediaService';
 import API_BASE_URL from '../../services/apiConfig';
 
 // ============================================
@@ -785,7 +785,7 @@ const CompanyProfile = () => {
     if (!companyId) return;
 
     try {
-      const result = await cloudinaryService.uploadImage(file, {
+      const result = await supabaseMediaService.uploadImage(file, {
         folder: 'career-connect/company-media',
         publicId: `company-${companyId}-media-${Date.now()}`,
         transformation: [
@@ -823,12 +823,12 @@ const CompanyProfile = () => {
     if (!companyId) return;
 
     try {
-      // Delete from Cloudinary
+      // Delete from supabase
       if (mediaItem.publicId) {
         try {
-          await cloudinaryService.deleteImage(mediaItem.publicId);
+          await supabaseMediaService.deleteImage(mediaItem.publicId);
         } catch (err) {
-          console.log('Could not delete from Cloudinary:', err);
+          console.log('Could not delete from supabase:', err);
         }
       }
 

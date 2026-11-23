@@ -24,13 +24,12 @@ import {
   writeBatch,
   addDoc,
 } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
 import { useAuth } from '../../context/AuthContext';
 import { useNotification } from '../../context/NotificationContext';
-import { db, storage } from '../../config/firebase';
+import { db } from '../../config/firebase';
 import { supabase } from '../../config/supabase';
-import cloudinaryService from '../../services/cloudinaryService';
+import supabaseMediaService from '../../services/supabaseMediaService';
 
 // ============================================
 // CONSTANTS

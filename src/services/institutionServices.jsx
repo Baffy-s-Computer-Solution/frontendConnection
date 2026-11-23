@@ -16,9 +16,9 @@ import {
   Timestamp,
   writeBatch,
 } from "firebase/firestore";
-import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { supabaseMediaService } from './supabaseMediaService';
 
-import { db, storage, auth } from "../config/firebase";
+import { db, auth } from "../config/firebase";
 
 const ownsInstitution = async (institutionId, userId) => {
   const snapshot = await getDoc(doc(db, "institutions", institutionId));
@@ -1297,13 +1297,13 @@ export const institutionService = {
       const safeFileName = file.name.replace(/[^a-zA-Z0-9.]/g, "_");
       const fileName = `${timestamp}_${randomString}_${safeFileName}`;
 
-      const storageRef = ref(storage, `${path}/${fileName}`);
-      await uploadBytes(storageRef, file);
-      const downloadURL = await getDownloadURL(storageRef);
+      const uploaded = await supabaseMediaService.uploadFile(file, { path });
+      const downloadURL = uploaded.url;
 
       return {
         success: true,
         url: downloadURL,
+        storagePath: uploaded.path,
         fileName: file.name,
         fileSize: file.size,
         fileType: file.type,

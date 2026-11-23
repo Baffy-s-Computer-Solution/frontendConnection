@@ -5,10 +5,8 @@ import {
   query, where, orderBy, limit, onSnapshot, serverTimestamp,
   Timestamp, writeBatch, increment, arrayUnion, arrayRemove
 } from 'firebase/firestore';
-import {
-  ref, uploadBytesResumable, getDownloadURL, deleteObject
-} from 'firebase/storage';
-import { db, storage, auth } from '../../config/firebase';
+import { db, auth } from '../../config/firebase';
+import { supabaseMediaService } from '../../services/supabaseMediaService';
 import { supabase } from '../../config/supabase';
 import { useAuth } from '../../hooks/useAuth';
 import {
@@ -661,58 +659,26 @@ const MentorResources = () => {
 
     let fileUrl = editingResource?.url || '';
     let storagePath = editingResource?.storagePath || '';
-    let cloudinaryPublicId = editingResource?.cloudinaryPublicId || '';
     let fileName = editingResource?.name || '';
     let fileType = editingResource?.type || '';
     let fileSize = editingResource?.size || 0;
 
     if (file) {
-      // Upload to Firebase Storage
-      const storageRef = ref(storage, `mentor-resources/${mentorId}/${Date.now()}_${file.name}`);
-      const uploadTask = uploadBytesResumable(storageRef, file);
-
-      fileUrl = await new Promise((resolve, reject) => {
-        uploadTask.on(
-          'state_changed',
-          (snapshot) => {
-            const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-            if (setProgress) setProgress(Math.round(progress));
-          },
-          reject,
-          async () => {
-            const url = await getDownloadURL(uploadTask.snapshot.ref);
-            resolve(url);
-          }
-        );
-      });
-
-      storagePath = storageRef.fullPath;
+      // Upload to Supabase Storage
+      const uploaded = await supabaseMediaService.uploadFile(file, { folder: `mentor-resources/${mentorId}` });
+      if (setProgress) setProgress(100);
+      fileUrl = uploaded.url;
+      storagePath = uploaded.path;
       fileName = file.name;
       fileType = file.type;
       fileSize = file.size;
 
-      // Backup to Cloudinary
-      try {
-        const fd = new FormData();
-        fd.append('file', file);
-        fd.append('upload_preset', process.env.REACT_APP_CLOUDINARY_UPLOAD_PRESET);
-        fd.append('folder', `mentor-resources/${mentorId}`);
-        const response = await fetch(
-          `https://api.cloudinary.com/v1_1/${process.env.REACT_APP_CLOUDINARY_CLOUD_NAME}/auto/upload`,
-          { method: 'POST', body: fd }
-        );
-        const cloudData = await response.json();
-        if (cloudData.public_id) cloudinaryPublicId = cloudData.public_id;
-      } catch (cloudErr) {
-        console.warn('Cloudinary backup failed:', cloudErr);
-      }
     }
 
     const dataToSave = {
       ...formData,
       url: fileUrl,
       storagePath,
-      cloudinaryPublicId,
       name: fileName,
       type: fileType,
       size: fileSize,
@@ -758,21 +724,10 @@ const MentorResources = () => {
     if (!window.confirm('Delete this resource permanently?')) return;
 
     try {
-      // Delete from Firebase Storage
+      // Delete from Supabase Storage
       if (resource.storagePath) {
-        try { await deleteObject(ref(storage, resource.storagePath)); }
+        try { await supabaseMediaService.deleteFile(resource.storagePath); }
         catch (e) { console.warn('Storage delete failed:', e); }
-      }
-
-      // Delete from Cloudinary
-      if (resource.cloudinaryPublicId) {
-        try {
-          await fetch('/api/cloudinary/delete', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ publicId: resource.cloudinaryPublicId }),
-          });
-        } catch (e) { console.warn('Cloudinary delete failed:', e); }
       }
 
       await deleteDoc(doc(db, 'mentorResources', resource.id));

@@ -28,7 +28,6 @@ export default defineConfig(({ command, mode }) => {
     resolve: {
       alias: {
         '@': path.resolve(__dirname, './src'),
-        'firebase/storage': path.resolve(__dirname, './src/services/cloudinaryStorageCompat.js'),
         '@restart/ui/esm/popper': path.resolve(__dirname, './src/shims/restartUiPopper.js'),
         '@restart/ui/esm/popper.js': path.resolve(__dirname, './src/shims/restartUiPopper.js'),
       },

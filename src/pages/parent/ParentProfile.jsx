@@ -1,8 +1,9 @@
 // frontend/src/pages/parent/ParentProfile.jsx
+import { supabaseMediaService } from '../../services/supabaseMediaService';
 // ============================================================================
 // PARENT PROFILE - Production Ready
 // Personal info | Avatar | Linked children | Emergency contacts | Accounts
-// Firebase | Supabase | Cloudinary | Tailwind CSS
+// Firebase | Supabase | supabase | Tailwind CSS
 // ============================================================================
 
 import React, {
@@ -250,44 +251,19 @@ function useRealtimeDoc(collectionName, docId) {
   return { data, loading, error };
 }
 
-function useCloudinaryUpload(folder = 'parent-uploads') {
+function useSupabaseUpload(folder = 'parent-uploads') {
   const [progress, setProgress] = useState(0);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState(null);
-
   const upload = useCallback(async (file, onComplete) => {
     if (!file) return null;
     setUploading(true); setError(null); setProgress(0);
     try {
-      const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
-      const preset = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET;
-      if (!cloudName || !preset) throw new Error('Cloudinary env missing');
-
-      const form = new FormData();
-      form.append('file', file);
-      form.append('upload_preset', preset);
-      form.append('folder', folder);
-
-      const xhr = new XMLHttpRequest();
-      const url = `https://api.cloudinary.com/v1_1/${cloudName}/auto/upload`;
-
-      const result = await new Promise((resolve, reject) => {
-        xhr.open('POST', url);
-        xhr.upload.onprogress = (e) => { if (e.lengthComputable) setProgress(Math.round((e.loaded / e.total) * 100)); };
-        xhr.onload = () => {
-          if (xhr.status >= 200 && xhr.status < 300) resolve(JSON.parse(xhr.responseText));
-          else reject(new Error(`Cloudinary upload failed: ${xhr.status}`));
-        };
-        xhr.onerror = () => reject(new Error('Network error during upload'));
-        xhr.send(form);
-      });
-
-      onComplete?.(result);
-      setUploading(false);
-      return result;
-    } catch (err) { setError(err.message); setUploading(false); throw err; }
+      const result = await supabaseMediaService.uploadToSupabase(file, folder);
+      setProgress(100); onComplete?.(result); return result;
+    } catch (uploadError) { setError(uploadError.message); throw uploadError; }
+    finally { setUploading(false); }
   }, [folder]);
-
   return { upload, uploading, progress, error };
 }
 
@@ -329,7 +305,7 @@ const ParentProfile = () => {
   const { user, profile, refresh: refreshAuth } = useAuth();
   const { refresh: refreshParent } = useParent();
   const { push: pushNotification } = useNotifications();
-  const { upload: uploadToCloudinary, uploading, progress } = useCloudinaryUpload(`parents/${user?.uid ?? 'anon'}/profile`);
+  const { upload: uploadToSupabase, uploading, progress } = useSupabaseUpload(`parents/${user?.uid ?? 'anon'}/profile`);
   const parentId = user?.uid ?? profile?.uid;
 
   // ---------- Realtime ----------
@@ -501,7 +477,7 @@ const ParentProfile = () => {
 
   const handleAvatarUpload = async (file) => {
     try {
-      const result = await uploadToCloudinary(file);
+      const result = await uploadToSupabase(file);
       const url = result?.secure_url || '';
       await updateDocument('parents', parentId, { avatarUrl: url }, parentId);
       await syncToSupabase('parents', { avatarUrl: url }, parentId);
@@ -514,7 +490,7 @@ const ParentProfile = () => {
 
   const handleCoverUpload = async (file) => {
     try {
-      const result = await uploadToCloudinary(file);
+      const result = await uploadToSupabase(file);
       const url = result?.secure_url || '';
       await updateDocument('parents', parentId, { coverUrl: url }, parentId);
       await syncToSupabase('parents', { coverUrl: url }, parentId);
@@ -626,7 +602,7 @@ const ParentProfile = () => {
 
   const handleIdFileUpload = async (file) => {
     try {
-      const result = await uploadToCloudinary(file);
+      const result = await uploadToSupabase(file);
       setIdForm((f) => ({ ...f, fileUrl: result?.secure_url || '' }));
       showToast('ID file uploaded');
     } catch (err) { showToast(err.message, 'error'); }

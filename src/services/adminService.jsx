@@ -776,50 +776,49 @@ export const adminService = {
       }
     },
 
+    assignCompanyAdmin: async (companyId, email) => {
+      try {
+        const data = await apiRequest(`/api/admin/companies/${encodeURIComponent(companyId)}/company-admin`, {
+          method: 'POST',
+          body: { email: String(email || '').trim().toLowerCase() },
+        });
+        return { success: true, data };
+      } catch (error) {
+        return { success: false, error: error.message };
+      }
+    },
+
+    resendCompanyAdminInvitation: async (companyId) => {
+      try {
+        const data = await apiRequest(`/api/admin/companies/${encodeURIComponent(companyId)}/company-admin/resend`, {
+          method: 'POST',
+          body: {},
+        });
+        return { success: true, data };
+      } catch (error) {
+        return { success: false, error: error.message };
+      }
+    },
+
+    revokeCompanyAdmin: async (companyId) => {
+      try {
+        const data = await apiRequest(`/api/admin/companies/${encodeURIComponent(companyId)}/company-admin`, {
+          method: 'DELETE',
+        });
+        return { success: true, data };
+      } catch (error) {
+        return { success: false, error: error.message };
+      }
+    },
+
     approveCompany: async (companyId, currentUser, userProfile) => {
       try {
-        console.log('Approving company:', companyId);
-
-        const companyRef = doc(db, 'companies', companyId);
-
-        // Update company status
-        await updateDoc(companyRef, {
-          status: 'approved',
-          approvedAt: serverTimestamp(),
-          approvedBy: getAdminId(currentUser),
+        const data = await apiRequest(`/api/admin/companies/${encodeURIComponent(companyId)}/approve`, {
+          method: 'POST',
+          body: {},
         });
-
-        // Try to update user status if exists
-        try {
-          const userRef = doc(db, 'users', companyId);
-          await updateDoc(userRef, {
-            status: 'active',
-            isActive: true,
-            approvedAt: serverTimestamp(),
-          });
-        } catch (userError) {
-          console.warn('User update failed (might not exist):', userError);
-        }
-
-        // Mirror the approved Firebase user into Supabase when the admin API
-        // is configured. Firebase remains the source of truth for approval.
-        try {
-          const mirrorResult = await adminApiRequest(`/api/supabase/sync/users/${companyId}`, {
-            method: 'POST',
-          });
-          if (mirrorResult?.success === false) {
-            console.warn('Supabase company mirror failed:', mirrorResult.error);
-          }
-        } catch (mirrorError) {
-          console.warn('Supabase company mirror unavailable:', mirrorError.message);
-        }
-
-        await logAction('company_approved', { companyId }, currentUser, userProfile);
-
-        console.log('Company approved successfully');
-        return { success: true, message: 'Company approved successfully' };
+        return { success: true, data };
       } catch (error) {
-        console.error('Error approving company:', error);
         return { success: false, error: error.message };
       }
     },
@@ -1255,7 +1254,7 @@ export const adminService = {
           'media_uploaded',
           {
             mediaId: mediaRef.id,
-            provider: payload.provider || 'cloudinary',
+            provider: payload.provider || 'supabase',
             publicId: payload.publicId || payload.public_id || null,
             folder: payload.folder || null,
           },
@@ -1404,8 +1403,24 @@ const addAdminServiceCompatibility = () => {
   companies.getAllCompanies = async (filters = {}, page = 1, limit = 20) => { try { const result = await getCollectionRecords('companies', filters, page, limit); return safeResult({ companies: result.items, page, limit, total: result.total, totalPages: result.totalPages }); } catch (error) { return safeResult({ companies: [], page, limit, total: 0, totalPages: 1 }, error); } };
   companies.updateCompanyStatus = async (id, status, reason, currentUser, userProfile) => { const action = status === 'approved' ? companies.approveCompany : status === 'rejected' ? companies.rejectCompany : status === 'suspended' ? companies.suspendCompany : companies.activateCompany; return action(id, reason, currentUser, userProfile); };
   companies.getCompanyDetails = companies.getDetails; companies.updateCompany = companies.update; companies.deleteCompany = companies.delete; companies.exportCompanies = companies.export; companies.getTopCompanies = async (currentUser, userProfile, limit = 5) => companies.getAllCompanies({}, 1, limit);
-  const companyStatus = (status, action) => async (id, reason = '', currentUser, userProfile) => { try { const data = await updateRecord('companies', id, { status, verified: status === 'approved' || status === 'active', reviewNotes: reason }, currentUser, userProfile, `company_${action}`); return safeResult(data); } catch (error) { return safeResult({}, error); } };
-  companies.approveCompany = companyStatus('approved', 'approve'); companies.rejectCompany = companyStatus('rejected', 'reject'); companies.suspendCompany = companyStatus('suspended', 'suspend'); companies.activateCompany = companyStatus('active', 'activate');
+  const companyStatus = (status) => async (id, reason = '') => {
+    const action = {
+      approved: 'approve',
+      rejected: 'reject',
+      suspended: 'suspend',
+      active: 'activate',
+    }[status];
+    try {
+      const data = await apiRequest(`/api/admin/companies/${encodeURIComponent(id)}/${action}`, {
+        method: 'POST',
+        body: { reason, reviewNotes: reason },
+      });
+      return safeResult(data);
+    } catch (error) {
+      return safeResult({}, error);
+    }
+  };
+  companies.approveCompany = companyStatus('approved'); companies.rejectCompany = companyStatus('rejected'); companies.suspendCompany = companyStatus('suspended'); companies.activateCompany = companyStatus('active');
   companies.bulkApproveCompanies = async (ids, currentUser, userProfile) => runBulkMutation(ids, (id) => companies.approveCompany(id, '', currentUser, userProfile)); companies.bulkRejectCompanies = async (ids, reason, currentUser, userProfile) => runBulkMutation(ids, (id) => companies.rejectCompany(id, reason, currentUser, userProfile)); companies.bulkDeleteCompanies = async (ids, currentUser, userProfile) => runBulkMutation(ids, (id) => companies.deleteCompany(id, currentUser, userProfile));
 
   const jobs = addEntityNamespace('jobs', 'jobs', 'jobId');

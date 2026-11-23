@@ -13,7 +13,7 @@ import {
   deleteDoc,
   Timestamp,
 } from 'firebase/firestore';
-import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { supabaseMediaService } from './supabaseMediaService';
 
 import { db } from '../config/firebase';
 
@@ -296,11 +296,8 @@ export const applyForOpportunity = async (opportunityId, userId, applicationData
 // Upload opportunity document
 export const uploadOpportunityDocument = async (file, opportunityId) => {
   try {
-    const storage = getStorage();
-    const fileRef = ref(storage, `opportunities/${opportunityId}/${file.name}`);
-    await uploadBytes(fileRef, file);
-    const downloadURL = await getDownloadURL(fileRef);
-    return downloadURL;
+    const result = await supabaseMediaService.uploadFile(file, { folder: `opportunities/${opportunityId}` });
+    return result.url;
   } catch (error) {
     console.error('Error uploading document:', error);
     throw error;

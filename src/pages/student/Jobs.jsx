@@ -35,9 +35,9 @@ import {
   limit,
 } from 'firebase/firestore';
 
-import { db, storage, auth } from '../../config/firebase';
+import { db, auth } from '../../config/firebase';
 import { useNotification } from '../../context/NotificationContext';
-import { uploadFile } from '../../services/cloudinaryService';
+import { uploadFile } from '../../services/supabaseMediaService';
 
 // Constants
 const COLLECTIONS = {
@@ -576,7 +576,7 @@ const Jobs = () => {
     [notificationContext]
   );
 
-  const uploadResumeToCloudinary = async () => {
+  const uploadResumeTosupabase = async () => {
     if (!userId || !resumeFile) return;
 
     try {
@@ -589,7 +589,7 @@ const Jobs = () => {
       formData.append('folder', `resumes/${userId}`);
       formData.append('tags', `resume,${userId},${new Date().getFullYear()}`);
 
-      const cloudinaryResult = await uploadFile(formData);
+      const supabaseResult = await uploadFile(formData);
 
       // Deactivate previous active resumes
       const previousResumesQuery = query(
@@ -612,18 +612,18 @@ const Jobs = () => {
         userId,
         documentName: resumeFile.name,
         documentType: 'resume',
-        documentUrl: cloudinaryResult.secure_url,
-        cloudinaryPublicId: cloudinaryResult.public_id,
+        documentUrl: supabaseResult.secure_url,
+        supabasePublicId: supabaseResult.public_id,
         fileSize: resumeFile.size,
         fileType: resumeFile.type,
         isActive: true,
         uploadedAt: serverTimestamp(),
         metadata: {
-          pages: cloudinaryResult.pages || 0,
-          format: cloudinaryResult.format,
-          resourceType: cloudinaryResult.resource_type,
-          width: cloudinaryResult.width,
-          height: cloudinaryResult.height,
+          pages: supabaseResult.pages || 0,
+          format: supabaseResult.format,
+          resourceType: supabaseResult.resource_type,
+          width: supabaseResult.width,
+          height: supabaseResult.height,
         },
       };
 
@@ -1255,7 +1255,7 @@ const Jobs = () => {
         <Modal.Body>
           <Alert variant="info" className="mb-4">
             <i className="bi bi-info-circle me-2"></i>
-            Your resume is stored securely in Cloudinary and accessible to employers when you apply.
+            Your resume is stored securely in supabase and accessible to employers when you apply.
           </Alert>
 
           <Form.Group className="mb-4">
@@ -1321,7 +1321,7 @@ const Jobs = () => {
           </Button>
           <Button
             variant="primary"
-            onClick={uploadResumeToCloudinary}
+            onClick={uploadResumeTosupabase}
             disabled={!resumeFile || uploading}
           >
             {uploading ? (
@@ -1332,7 +1332,7 @@ const Jobs = () => {
             ) : (
               <>
                 <i className="bi bi-cloud-arrow-up me-2"></i>
-                Upload to Cloudinary
+                Upload to supabase
               </>
             )}
           </Button>

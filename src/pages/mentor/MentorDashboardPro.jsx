@@ -8,7 +8,7 @@
  * - Real-time session management with Firebase Firestore
  * - Earnings tracking with PostgreSQL backend
  * - AI-powered recommendations using HF Spaces API
- * - Cloudinary image integration
+ * - supabase image integration
  * - Advanced analytics and charts
  * - Social engagement metrics
  * - Real-time notifications
@@ -63,7 +63,7 @@ import {
 import { useAuth } from '../../hooks/useAuth';
 import { mentorService } from '../../services/mentorService';
 import { aiService } from '../../services/aiService';
-import { cloudinaryService } from '../../services/cloudinaryService';
+import { supabaseMediaService } from '../../services/supabaseMediaService';
 import SocialDashboardSection from '../../components/social/SocialDashboardSection';
 
 ChartJS.register(

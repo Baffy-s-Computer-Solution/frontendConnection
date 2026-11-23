@@ -25,8 +25,7 @@ import {
   arrayUnion,
   arrayRemove,
 } from "firebase/firestore";
-import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
-import { db, storage, auth } from "../../config/firebase";
+import { db, auth } from "../../config/firebase";
 import { supabase } from "../../config/supabase";
 import { useAuth } from "../../hooks/useAuth";
 import {

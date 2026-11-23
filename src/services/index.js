@@ -12,7 +12,7 @@ export { default as api } from './api';
 export { default as applicationService } from './applicationService';
 export { default as businessService } from './businessService.jsx';
 export { default as cacheService } from './cacheService';
-export { default as cloudinaryService } from './cloudinaryService';
+export { default as supabaseMediaService } from './supabaseMediaService';
 export { default as collaborationService } from './collaborationService';
 export { default as communicationService } from './communicationService';
 export { default as competitionService } from './competitionService';

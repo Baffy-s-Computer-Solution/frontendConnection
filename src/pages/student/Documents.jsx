@@ -52,15 +52,6 @@ import {
   writeBatch,
   increment,
 } from 'firebase/firestore';
-import {
-  ref,
-  uploadBytes,
-  uploadBytesResumable,
-  getDownloadURL,
-  deleteObject,
-  listAll,
-  getMetadata,
-} from 'firebase/storage';
 import { motion, AnimatePresence } from 'framer-motion';
 import toast, { Toaster } from 'react-hot-toast';
 import { FaUpload, FaDownload, FaTrash, FaEye, FaEdit, FaFilter, FaSearch, FaSort, FaFilePdf, FaFileWord, FaFileExcel, FaFileImage, FaFileArchive, FaFileAlt, FaFile, FaFileVideo, FaFileAudio, FaFileCode, FaFileCsv, FaFilePowerpoint, FaCheckCircle, FaTimesCircle, FaClock, FaFolderPlus, FaSortAmountDown, FaSortAmountUp, FaCloudUploadAlt, FaCloudDownloadAlt, FaCopy, FaShare, FaLink, FaExternalLinkAlt, FaStar, FaRegStar, FaTag, FaTags, FaHistory, FaRedo, FaUndo, FaSync, FaSyncAlt, FaInfoCircle, FaExclamationTriangle, FaShieldAlt, FaLock, FaUnlock, FaCertificate, FaAward, FaGraduationCap, FaBriefcase, FaIdCard, FaPassport, FaFileSignature, FaFileInvoice, FaFileContract, FaFolder, FaFolderOpen, FaPlus, FaMinus, FaTimes, FaCheck, FaEllipsisV, FaEllipsisH, FaChevronDown, FaChevronUp, FaChevronLeft, FaChevronRight, FaArrowUp, FaArrowDown, FaPrint, FaPaperclip, FaCommentAlt, FaComments, FaUser, FaUserTie, FaBuilding, FaUniversity, FaCalendarAlt, FaHdd, FaDatabase, FaServer, FaCloud, FaWifi, FaChartPie, FaChartBar, FaChartLine, FaBell, FaCog, FaCogs, FaTools, FaWrench, FaMagic, FaFingerprint, FaKey, FaQrcode, FaBarcode, FaSignature, FaStamp, FaHighlighter, FaMarker, FaPen, FaPenAlt, FaPencilAlt, FaEraser, FaCut, FaCrop, FaCompress, FaExpand, FaClone, FaObjectGroup, FaObjectUngroup, FaLayerGroup, FaTh, FaThLarge, FaThList, FaList, FaListAlt, FaListUl, FaListOl, FaGripHorizontal, FaGripVertical, FaGripLines, FaStream, FaBars, FaColumns, FaTable, FaBorderAll, FaBorderNone, FaBox, FaBoxOpen, FaArchive, FaInbox, FaTrashAlt, FaRecycle, FaDumpster, FaDumpsterFire, FaBroom, FaSoap, FaSprayCan, FaBolt, FaBatteryFull, FaBatteryHalf, FaBatteryQuarter, FaPlug, FaPowerOff, FaToggleOn, FaToggleOff, FaEyeSlash, FaLowVision, FaRegEye, FaRegEyeSlash, FaRegFile, FaRegFileAlt, FaRegFileArchive, FaRegFileAudio, FaRegFileCode, FaRegFileExcel, FaRegFileImage, FaRegFilePdf, FaRegFilePowerpoint, FaRegFileVideo, FaRegFileWord, FaRegFolder, FaRegFolderOpen, FaRegClock, FaRegCalendarAlt, FaRegCheckCircle, FaRegTimesCircle, FaRegBell, FaRegComment, FaRegCommentDots, FaRegEnvelope, FaRegEnvelopeOpen, FaRegStar as FaRegStarIcon, FaRegHeart, FaRegBookmark, FaRegCopy, FaRegEdit, FaRegTrashAlt, FaRegSave, FaRegShareSquare, FaRegQuestionCircle, FaRegLightbulb, FaRegSmile, FaRegMeh, FaRegFrown } from "react-icons/fa";
@@ -391,11 +382,11 @@ import {
   MdOutlineWheelchairPickup,
 } from 'react-icons/md';
 
-import { auth, db, storage } from '../../config/firebase';
+import { auth, db } from '../../config/firebase';
 import { useAuth } from '../../context/AuthContext';
 import { useStudent } from '../../context/StudentContext';
 import { useNotification } from '../../context/NotificationContext';
-import cloudinaryService from '../../services/cloudinaryService';
+import supabaseMediaService from '../../services/supabaseMediaService';
 import supabaseService from '../../services/supabaseService';
 import notificationService from '../../services/notificationService';
 
@@ -1247,24 +1238,23 @@ const Documents = () => {
     try {
       if (selectedDocument.storageType === 'supabase_private') {
         await supabaseService.deletePrivateDocument(selectedDocument.id);
-      } else if (selectedDocument.cloudinaryPublicId) {
+      } else if (selectedDocument.supabasePublicId) {
         try {
-          await cloudinaryService.deleteFile(
-            selectedDocument.cloudinaryPublicId,
-            selectedDocument.cloudinaryResourceType || 'raw'
+          await supabaseMediaService.deleteFile(
+            selectedDocument.supabasePublicId,
+            selectedDocument.supabaseResourceType || 'raw'
           );
         } catch (cloudError) {
-          console.warn('Cloudinary delete failed:', cloudError);
+          console.warn('supabase delete failed:', cloudError);
         }
       }
 
-      // Delete legacy Firebase Storage documents when present.
+      // Delete legacy Supabase public media when a path is present.
       if (selectedDocument.storagePath && selectedDocument.storageType !== 'supabase_private') {
         try {
-          const storageRef = ref(storage, selectedDocument.storagePath);
-          await deleteObject(storageRef);
+          await supabaseMediaService.deleteFile(selectedDocument.storagePath);
         } catch (storageError) {
-          console.warn('Storage delete failed:', storageError);
+          console.warn('Supabase storage delete failed:', storageError);
         }
       }
 
@@ -1387,14 +1377,14 @@ const Documents = () => {
 
         if (document.storageType === 'supabase_private') {
           await supabaseService.deletePrivateDocument(document.id);
-        } else if (document.cloudinaryPublicId) {
+        } else if (document.supabasePublicId) {
           try {
-            await cloudinaryService.deleteFile(
-              document.cloudinaryPublicId,
-              document.cloudinaryResourceType || 'raw'
+            await supabaseMediaService.deleteFile(
+              document.supabasePublicId,
+              document.supabaseResourceType || 'raw'
             );
           } catch (err) {
-            console.warn('Cloudinary delete failed:', err);
+            console.warn('supabase delete failed:', err);
           }
         }
 

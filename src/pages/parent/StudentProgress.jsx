@@ -1,7 +1,8 @@
 // frontend/src/pages/parent/StudentProgress.jsx
+import { supabaseMediaService } from '../../services/supabaseMediaService';
 // ============================================================================
 // STUDENT PROGRESS - Production Ready
-// Full CRUD | Firebase | Supabase | Cloudinary | Realtime | Tailwind CSS
+// Full CRUD | Firebase | Supabase | supabase | Realtime | Tailwind CSS
 // ============================================================================
 
 import React, {
@@ -28,7 +29,7 @@ import {
   Timestamp,
   writeBatch,
 } from 'firebase/firestore';
-import { db, storage } from '../../config/firebase';
+import { db } from '../../config/firebase';
 import { supabase } from '../../config/supabase';
 import { useAuth } from '../../hooks/useAuth';
 import { useParent } from '../../hooks/useParent';
@@ -258,44 +259,19 @@ function useRealtimeCollection(collectionName, constraints = [], deps = []) {
   return { items, loading, error };
 }
 
-function useCloudinaryUpload(folder = 'parent-uploads') {
+function useSupabaseUpload(folder = 'parent-uploads') {
   const [progress, setProgress] = useState(0);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState(null);
-
   const upload = useCallback(async (file, onComplete) => {
     if (!file) return null;
     setUploading(true); setError(null); setProgress(0);
     try {
-      const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
-      const preset = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET;
-      if (!cloudName || !preset) throw new Error('Cloudinary env missing');
-
-      const form = new FormData();
-      form.append('file', file);
-      form.append('upload_preset', preset);
-      form.append('folder', folder);
-
-      const xhr = new XMLHttpRequest();
-      const url = `https://api.cloudinary.com/v1_1/${cloudName}/auto/upload`;
-
-      const result = await new Promise((resolve, reject) => {
-        xhr.open('POST', url);
-        xhr.upload.onprogress = (e) => { if (e.lengthComputable) setProgress(Math.round((e.loaded / e.total) * 100)); };
-        xhr.onload = () => {
-          if (xhr.status >= 200 && xhr.status < 300) resolve(JSON.parse(xhr.responseText));
-          else reject(new Error(`Cloudinary upload failed: ${xhr.status}`));
-        };
-        xhr.onerror = () => reject(new Error('Network error during upload'));
-        xhr.send(form);
-      });
-
-      onComplete?.(result);
-      setUploading(false);
-      return result;
-    } catch (err) { setError(err.message); setUploading(false); throw err; }
+      const result = await supabaseMediaService.uploadToSupabase(file, folder);
+      setProgress(100); onComplete?.(result); return result;
+    } catch (uploadError) { setError(uploadError.message); throw uploadError; }
+    finally { setUploading(false); }
   }, [folder]);
-
   return { upload, uploading, progress, error };
 }
 
@@ -337,7 +313,7 @@ const StudentProgress = () => {
   const { user, profile } = useAuth();
   const { refresh: refreshParent } = useParent();
   const { push: pushNotification } = useNotifications();
-  const { upload: uploadToCloudinary, uploading, progress } = useCloudinaryUpload(`parents/${user?.uid ?? 'anon'}/progress`);
+  const { upload: uploadToSupabase, uploading, progress } = useSupabaseUpload(`parents/${user?.uid ?? 'anon'}/progress`);
   const parentId = user?.uid ?? profile?.uid;
 
   // ---------- Realtime ----------
@@ -660,7 +636,7 @@ const StudentProgress = () => {
   // ---------- File uploads ----------
   const handleMilestoneBadgeUpload = async (file) => {
     try {
-      const result = await uploadToCloudinary(file);
+      const result = await uploadToSupabase(file);
       setMilestoneForm((f) => ({ ...f, badgeUrl: result?.secure_url || '' }));
       showToast('Badge uploaded');
     } catch (err) { showToast(err.message, 'error'); }
@@ -668,7 +644,7 @@ const StudentProgress = () => {
 
   const handleReportFileUpload = async (file) => {
     try {
-      const result = await uploadToCloudinary(file);
+      const result = await uploadToSupabase(file);
       setReportForm((f) => ({ ...f, fileUrl: result?.secure_url || '' }));
       showToast('Report file uploaded');
     } catch (err) { showToast(err.message, 'error'); }
@@ -676,7 +652,7 @@ const StudentProgress = () => {
 
   const handleAssignmentAttachmentUpload = async (file) => {
     try {
-      const result = await uploadToCloudinary(file);
+      const result = await uploadToSupabase(file);
       setAssignmentForm((f) => ({ ...f, attachmentUrl: result?.secure_url || '' }));
       showToast('Attachment uploaded');
     } catch (err) { showToast(err.message, 'error'); }

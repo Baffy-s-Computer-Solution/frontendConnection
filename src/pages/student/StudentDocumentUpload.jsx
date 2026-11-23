@@ -53,7 +53,7 @@ const StudentDocumentUpload = () => {
       setUploadProgress('');
     } catch (uploadError) {
       const message = uploadError?.code === 'storage/unauthorized' || uploadError?.code === 'permission-denied' || /permission|unauthorized/i.test(uploadError?.message || '')
-        ? 'Your account is not allowed to upload to document storage yet. Check the student storage and Firestore rules for this Firebase project.'
+        ? 'Your account is not allowed to upload to private Supabase document storage yet. Please contact support.'
         : uploadError.message || 'Unable to upload this document.';
       setError(message);
       setUploadProgress('');

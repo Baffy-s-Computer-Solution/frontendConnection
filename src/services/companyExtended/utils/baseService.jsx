@@ -21,10 +21,9 @@ import {
   writeBatch,
 } from 'firebase/firestore';
 
-// Storage imports need to come from firebase/storage, not firestore
-import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
+import { supabaseMediaService } from '../../supabaseMediaService';
 
-import { auth, db, storage } from '../../../config/firebase';
+import { auth, db } from '../../../config/firebase';
 
 // Collection names constant
 export const COLLECTIONS = {
@@ -348,10 +347,8 @@ class BaseService {
    */
   async uploadFile(path, file) {
     try {
-      const storageRef = ref(storage, path);
-      await uploadBytes(storageRef, file);
-      const url = await getDownloadURL(storageRef);
-      return { path, url };
+      const uploaded = await supabaseMediaService.uploadFile(file, { path });
+      return { path: uploaded.path, url: uploaded.url };
     } catch (error) {
       console.error('Error uploading file:', error);
       throw error;
@@ -363,8 +360,7 @@ class BaseService {
    */
   async deleteFile(path) {
     try {
-      const storageRef = ref(storage, path);
-      await deleteObject(storageRef);
+      await supabaseMediaService.deleteFile(path);
       return true;
     } catch (error) {
       console.error('Error deleting file:', error);

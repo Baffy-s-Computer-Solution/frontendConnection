@@ -21,13 +21,9 @@ import {
   Timestamp,
   onSnapshot,
 } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL, deleteObject, uploadString } from 'firebase/storage';
+import { supabaseMediaService } from './supabaseMediaService';
 
-import { db, storage } from '../config/firebase';
-
-// Cloudinary configuration
-const CLOUDINARY_CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
-const CLOUDINARY_UPLOAD_PRESET = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET;
+import { db } from '../config/firebase';
 
 // ==================== PROFILE MANAGEMENT ====================
 
@@ -253,52 +249,23 @@ export const updateYouthProfile = async (userId, updates) => {
   }
 };
 
-// ==================== CLOUDINARY IMAGE UPLOAD ====================
+// ==================== SUPABASE IMAGE UPLOAD ====================
 
 /**
- * Upload image to Cloudinary
+ * Upload image to Supabase Storage
  */
-export const uploadToCloudinary = async (file, folder = 'youth-profiles') => {
+export const uploadToSupabase = async (file, folder = 'youth-profiles') => {
   try {
-    if (!CLOUDINARY_CLOUD_NAME || !CLOUDINARY_UPLOAD_PRESET) {
-      throw new Error('Cloudinary configuration missing');
-    }
-
-    const formData = new FormData();
-    formData.append('file', file);
-    formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
-    formData.append('folder', folder);
-
-    const response = await fetch(
-      `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`,
-      {
-        method: 'POST',
-        body: formData,
-      }
-    );
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.error?.message || 'Upload failed');
-    }
-
-    const data = await response.json();
-
-    return {
-      success: true,
-      url: data.secure_url,
-      publicId: data.public_id,
-      width: data.width,
-      height: data.height,
-    };
+    const result = await supabaseMediaService.uploadToSupabase(file, folder);
+    return { success: true, ...result, publicId: result.path };
   } catch (error) {
-    console.error('Cloudinary upload error:', error);
+    console.error('Supabase upload error:', error);
     return { success: false, error: error.message };
   }
 };
 
 /**
- * Upload profile photo to Cloudinary and update profile
+ * Upload profile photo to Supabase Storage and update profile
  */
 export const uploadProfilePhoto = async (userId, file) => {
   try {
@@ -306,8 +273,8 @@ export const uploadProfilePhoto = async (userId, file) => {
       return { success: false, error: 'User ID is required' };
     }
 
-    // Upload to Cloudinary
-    const uploadResult = await uploadToCloudinary(file, 'youth-profiles');
+    // Upload to Supabase Storage
+    const uploadResult = await uploadToSupabase(file, 'youth-profiles');
 
     if (!uploadResult.success) {
       throw new Error(uploadResult.error);

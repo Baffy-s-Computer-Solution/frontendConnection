@@ -6,7 +6,7 @@
  *
  * Features:
  * - Complete profile management with Firebase Firestore
- * - Image upload integration with Cloudinary
+ * - Image upload integration with supabase
  * - Expertise and skills management
  * - Availability scheduling
  * - Pricing and earnings setup
@@ -55,7 +55,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "../../hooks/useAuth";
 import { mentorService } from "../../services/mentorService";
-import { cloudinaryService } from "../../services/cloudinaryService";
+import { supabaseMediaService } from "../../services/supabaseMediaService";
 
 const MentorProfilePro = () => {
   const navigate = useNavigate();
@@ -193,8 +193,8 @@ const MentorProfilePro = () => {
         setUploadingImage(true);
         setError(null);
 
-        // Upload to Cloudinary
-        const uploadResponse = await cloudinaryService.uploadImage(file, {
+        // Upload to supabase
+        const uploadResponse = await supabaseMediaService.uploadImage(file, {
           folder: `mentors/${user.uid}`,
           tags: [imageType, "mentor-profile"],
         });

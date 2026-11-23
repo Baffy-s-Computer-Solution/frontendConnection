@@ -25,7 +25,6 @@ import {
   arrayUnion,
   arrayRemove,
 } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import { updateProfile } from 'firebase/auth';
 
 import { useAuth } from '../../context/AuthContext';
@@ -33,9 +32,9 @@ import { useNotification } from '../../context/NotificationContext';
 import { useTheme } from '../../context/ThemeContext';
 import SocialDashboardSection from '../../components/social/SocialDashboardSection';
 import TestimonialComposer from '../../components/social/TestimonialComposer';
-import { db, storage, auth } from '../../config/firebase';
+import { db, auth } from '../../config/firebase';
 import supabaseConfig, { supabase } from '../../config/supabase';
-import cloudinaryService from '../../services/cloudinaryService';
+import supabaseMediaService from '../../services/supabaseMediaService';
 import API_BASE_URL from '../../services/apiConfig';
 
 // ============================================

@@ -47,8 +47,8 @@ vi.mock('../../context/ThemeContext', () => ({
   }),
 }));
 
-vi.mock('../../services/cloudinaryService', () => ({
-  cloudinaryService: {
+vi.mock('../../services/supabaseMediaService', () => ({
+  supabaseMediaService: {
     uploadImage: vi.fn(),
   },
 }));

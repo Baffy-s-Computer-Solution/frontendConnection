@@ -26,13 +26,8 @@ import {
   arrayUnion,
   arrayRemove,
 } from "firebase/firestore";
-import {
-  ref,
-  uploadBytesResumable,
-  getDownloadURL,
-  deleteObject,
-} from "firebase/storage";
-import { db, storage, auth } from "../../config/firebase";
+import { db, auth } from "../../config/firebase";
+import { supabaseMediaService } from '../../services/supabaseMediaService';
 import { supabase } from "../../config/supabase";
 import { useAuth } from "../../hooks/useAuth";
 import {
@@ -781,20 +776,9 @@ const WorkshopForm = ({ workshop, onSave, onCancel }) => {
     setUploading(true);
     setUploadProgress(0);
     try {
-      const { uploadToStorage, uploadToCloudinary } =
-        await import("../../services/storageService");
-      const path = `mentor-workshops/covers/${Date.now()}_${file.name}`;
-      const firebaseUrl = await uploadToStorage(file, path, (p) =>
-        setUploadProgress(Math.round(p * 100)),
-      );
-      let finalUrl = firebaseUrl;
-      try {
-        const cRes = await uploadToCloudinary(file, "mentor-workshops/covers");
-        if (cRes?.secure_url) finalUrl = cRes.secure_url;
-      } catch (ce) {
-        console.warn("Cloudinary fallback:", ce);
-      }
-      setFormData((p) => ({ ...p, coverImage: finalUrl }));
+      const uploaded = await supabaseMediaService.uploadFile(file, { folder: 'mentor-workshops/covers' });
+      setUploadProgress(100);
+      setFormData((p) => ({ ...p, coverImage: uploaded.url, coverImagePath: uploaded.path }));
       toast.success("Cover image uploaded");
     } catch (err) {
       console.error(err);
@@ -1587,7 +1571,7 @@ const MentorWorkshops = () => {
     try {
       if (workshop.coverImage?.includes("firebase")) {
         try {
-          await deleteObject(ref(storage, workshop.coverImage));
+          await supabaseMediaService.deleteFile(workshop.coverImagePath || workshop.coverImage);
         } catch (e) {}
       }
       await deleteDoc(doc(db, "mentorWorkshops", workshop.id));

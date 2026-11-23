@@ -1,12 +1,11 @@
 // src/services/mediaService.js
 import { validateFile } from '../utils/validationSchemas';
 
-import { cloudinaryService } from './cloudinaryService';
-import { storageService } from './storageService';
+import { supabaseMediaService } from './supabaseMediaService';
 
 /**
  * Comprehensive Media Service
- * Handles all media operations with Cloudinary and Firebase integration
+ * Handles media operations through Supabase Storage.
  */
 
 class MediaService {
@@ -28,7 +27,6 @@ class MediaService {
         userId,
         folder = 'media',
         metadata = {},
-        useCloudinary = true,
         onProgress = () => {},
       } = options;
 
@@ -38,30 +36,10 @@ class MediaService {
         throw new Error(validation.errors);
       }
 
-      // Determine best storage method
-      let result;
-
-      if (useCloudinary && this.shouldUseCloudinary(file, type)) {
-        // Use Cloudinary for images and certain file types
-        result = await this.uploadToCloudinary(file, {
-          folder: userId ? `${folder}/${userId}` : folder,
-          ...metadata,
-        });
-      } else {
-        // Use Firebase Storage for other files
-        const path = userId
-          ? `${folder}/${userId}/${Date.now()}_${file.name}`
-          : `${folder}/${Date.now()}_${file.name}`;
-
-        result = await storageService.uploadFile(file, path, {
-          customMetadata: {
-            userId,
-            type,
-            originalName: file.name,
-            ...metadata,
-          },
-        });
-      }
+      const result = await this.uploadToSupabase(file, {
+        folder: userId ? `${folder}/${userId}` : folder,
+        ...metadata,
+      });
 
       onProgress(100);
 
@@ -83,17 +61,17 @@ class MediaService {
   }
 
   /**
-   * Upload to Cloudinary with retry logic
+   * Upload to supabase with retry logic
    */
-  async uploadToCloudinary(file, options = {}) {
+  async uploadToSupabase(file, options = {}) {
     const maxRetries = 3;
     let lastError;
 
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
-        console.log(`☁️ Cloudinary upload attempt ${attempt}/${maxRetries}:`, file.name);
+        console.log(`☁️ supabase upload attempt ${attempt}/${maxRetries}:`, file.name);
 
-        const result = await cloudinaryService.uploadFile(file, options);
+        const result = await supabaseMediaService.uploadFile(file, options);
 
         if (result.success) {
           return result;
@@ -113,7 +91,7 @@ class MediaService {
       }
     }
 
-    throw new Error(`Cloudinary upload failed after ${maxRetries} attempts: ${lastError}`);
+    throw new Error(`supabase upload failed after ${maxRetries} attempts: ${lastError}`);
   }
 
   /**
@@ -181,7 +159,7 @@ class MediaService {
   // ==================== PROCESSING METHODS ====================
 
   /**
-   * Process image with Cloudinary transformations
+   * Process image with supabase transformations
    */
   async processImage(publicId, transformations = {}) {
     try {
@@ -189,7 +167,7 @@ class MediaService {
         throw new Error('Public ID is required');
       }
 
-      const url = cloudinaryService.getImageUrl(publicId, transformations);
+      const url = supabaseMediaService.getImageUrl(publicId, transformations);
 
       return {
         success: true,
@@ -230,7 +208,7 @@ class MediaService {
       return {
         success: true,
         thumbnails,
-        original: cloudinaryService.getImageUrl(publicId),
+        original: supabaseMediaService.getImageUrl(publicId),
       };
     } catch (error) {
       console.error('❌ Thumbnail generation error:', error);
@@ -272,23 +250,12 @@ class MediaService {
       // Determine storage type
       let actualStorageType = storageType;
       if (storageType === 'auto') {
-        actualStorageType = cloudinaryService.isCloudinaryUrl(url) ? 'cloudinary' : 'firebase';
+        actualStorageType = 'supabase';
       }
 
-      if (actualStorageType === 'cloudinary') {
-        const publicId = cloudinaryService.extractPublicId(url);
-        if (publicId) {
-          return await cloudinaryService.deleteImage(publicId);
-        }
-        throw new Error('Could not extract Cloudinary public ID');
-      } else {
-        // Extract path from Firebase URL
-        const path = this.extractFirebasePath(url);
-        if (path) {
-          return await storageService.deleteFile(path, 'firebase');
-        }
-        throw new Error('Could not extract Firebase storage path');
-      }
+      const objectPath = supabaseMediaService.extractObjectPath(url);
+      if (!objectPath) throw new Error('Could not determine the Supabase object path.');
+      return await supabaseMediaService.deleteFile(objectPath);
     } catch (error) {
       console.error('❌ Media delete error:', error);
       return {
@@ -331,47 +298,8 @@ class MediaService {
   // ==================== HELPER METHODS ====================
 
   /**
-   * Determine if Cloudinary should be used
+   * Determine if supabase should be used
    */
-  shouldUseCloudinary(file, type) {
-    // Always use Cloudinary for images
-    if (file.type.startsWith('image/')) {
-      return true;
-    }
-
-    // Use Cloudinary for PDFs if configured
-    if (file.type === 'application/pdf' && type === 'document') {
-      return true;
-    }
-
-    // For other files, use Firebase
-    return false;
-  }
-
-  /**
-   * Extract path from Firebase URL
-   */
-  extractFirebasePath(url) {
-    try {
-      const urlObj = new URL(url);
-      const pathname = urlObj.pathname;
-
-      // Firebase Storage URLs have a specific pattern
-      if (urlObj.hostname.includes('firebasestorage')) {
-        // Remove /v0/b/{bucket-name}/o/ prefix and decode
-        const match = pathname.match(/.o.(.+?)./);
-        if (match && match[1]) {
-          return decodeURIComponent(match[1]);
-        }
-      }
-
-      return null;
-    } catch (error) {
-      console.warn('Could not extract Firebase path:', error);
-      return null;
-    }
-  }
-
   /**
    * Get file extension from URL
    */
@@ -427,10 +355,10 @@ class MediaService {
   getOptimizedImageUrl(url, width = 800) {
     if (!url) return null;
 
-    if (cloudinaryService.isCloudinaryUrl(url)) {
-      const publicId = cloudinaryService.extractPublicId(url);
-      if (publicId) {
-        return cloudinaryService.getImageUrl(publicId, {
+    if (supabaseMediaService.isSupabaseUrl(url)) {
+      const objectPath = supabaseMediaService.extractObjectPath(url);
+      if (objectPath) {
+        return supabaseMediaService.getImageUrl(objectPath, {
           width,
           quality: 'auto:good',
           fetch_format: 'auto',

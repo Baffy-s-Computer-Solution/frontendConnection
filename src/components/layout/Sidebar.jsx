@@ -102,6 +102,9 @@ const ROLE_NAVIGATION = {
     { label: "Referrals", path: ROUTES.COMPANY.REFERRALS, icon: FaUsers },
     { label: "Settings", path: ROUTES.SETTINGS, icon: FaCog },
   ],
+  company_staff: [
+    { label: "Team workspace", path: ROUTES.COMPANY.TEAMS, icon: FaUsers },
+  ],
   institute: [
     { label: "Dashboard", path: ROUTES.INSTITUTE.DASHBOARD, icon: FaHome },
     { label: "Profile", path: ROUTES.INSTITUTE.PROFILE, icon: FaSchool },
@@ -230,6 +233,7 @@ const roleLabel = (userProfile) => {
   const rawUserType = userProfile?.userType || userProfile?.role || "student";
   const userType = normalizeUserType(rawUserType);
   if (!userType) return "Member";
+  if (userType === "company_staff") return "Company Staff";
   return userType.charAt(0).toUpperCase() + userType.slice(1).toLowerCase();
 };
 

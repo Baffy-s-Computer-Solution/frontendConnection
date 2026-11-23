@@ -23,7 +23,6 @@ import {
   auth,
   db,
 } from '../config/firebase';
-import { cloudinaryService as cloudinaryMediaService } from './cloudinaryService';
 import { apiRequest } from './apiClient';
 
 const COMPANY_COLLECTION = 'companies';
@@ -86,8 +85,8 @@ const executeCompanyQueryWithFallback = async (
   }
 };
 
-// Cloudinary service
-export const cloudinaryService = {
+// supabase service
+export const supabaseMediaService = {
   async uploadImage(file, assetType = 'logo') {
     try {
       this.validateImageFile(file);
@@ -284,11 +283,11 @@ export const companyService = {
     }
   },
 
-  // Upload company logo to Cloudinary
+  // Upload company logo to supabase
   async uploadLogo(file) {
     try {
-      cloudinaryService.validateImageFile(file);
-      const result = await cloudinaryService.uploadImage(file, 'logo');
+      supabaseMediaService.validateImageFile(file);
+      const result = await supabaseMediaService.uploadImage(file, 'logo');
 
       // Update company profile with new logo URL
       await this.updateCompanyProfile({
@@ -303,11 +302,11 @@ export const companyService = {
     }
   },
 
-  // Upload cover image to Cloudinary
+  // Upload cover image to supabase
   async uploadCoverImage(file) {
     try {
-      cloudinaryService.validateImageFile(file);
-      const result = await cloudinaryService.uploadImage(file, 'cover');
+      supabaseMediaService.validateImageFile(file);
+      const result = await supabaseMediaService.uploadImage(file, 'cover');
 
       // Update company profile with new cover image URL
       await this.updateCompanyProfile({
@@ -1408,13 +1407,13 @@ export const companyFirebaseService = {
       const user = auth.currentUser;
       if (!user) throw new Error('No authenticated user');
 
-      const uploadResult = await cloudinaryMediaService.uploadToCloudinary(
+      const uploadResult = await supabaseMediaService.uploadToSupabase(
         file,
         `companies/${user.uid}/documents`,
         { tags: ['company-document', user.uid] }
       );
       if (!uploadResult.success) {
-        throw new Error(uploadResult.error || 'Cloudinary upload failed');
+        throw new Error(uploadResult.error || 'supabase upload failed');
       }
 
       const documentData = {
@@ -1427,8 +1426,8 @@ export const companyFirebaseService = {
         fileName: file.name,
         fileType: file.type,
         fileSize: file.size,
-        cloudinaryPublicId: uploadResult.public_id,
-        cloudinaryResourceType: uploadResult.resource_type || 'auto',
+        supabasePublicId: uploadResult.public_id,
+        supabaseResourceType: uploadResult.resource_type || 'auto',
         downloadURL: uploadResult.url,
         uploadedAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
@@ -1453,10 +1452,10 @@ export const companyFirebaseService = {
       const companyId = getCurrentCompanyId();
       if (documentData.companyId !== companyId) return { success: false, error: 'Permission denied' };
 
-      const publicId = documentData.cloudinaryPublicId || documentData.publicId;
+      const publicId = documentData.supabasePublicId || documentData.publicId;
       if (publicId) {
-        const deleted = await cloudinaryMediaService.deleteImage(publicId);
-        if (!deleted.success) throw new Error(deleted.error || 'Cloudinary could not delete the document.');
+        const deleted = await supabaseMediaService.deleteImage(publicId);
+        if (!deleted.success) throw new Error(deleted.error || 'supabase could not delete the document.');
       }
 
       await deleteDoc(documentRef);
@@ -1725,7 +1724,7 @@ export default {
   jobService,
   applicationService,
   dashboardService,
-  cloudinaryService,
+  supabaseMediaService,
   companyFirebaseService,
   analyticsService,
   initializeCompanyData,

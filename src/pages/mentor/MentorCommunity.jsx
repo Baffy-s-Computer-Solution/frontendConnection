@@ -5,10 +5,8 @@ import {
   query, where, orderBy, limit, startAfter, onSnapshot, serverTimestamp,
   increment, arrayUnion, arrayRemove, writeBatch
 } from 'firebase/firestore';
-import {
-  ref, uploadBytesResumable, getDownloadURL, deleteObject
-} from 'firebase/storage';
-import { db, storage, auth } from '../../config/firebase';
+import { db, auth } from '../../config/firebase';
+import { supabaseMediaService } from '../../services/supabaseMediaService';
 import { supabase } from '../../config/supabase';
 import { useAuth } from '../../context/AuthContext';
 import { useNotification } from '../../context/NotificationContext';
@@ -605,14 +603,8 @@ const MentorCommunity = () => {
     setMediaUploading(true);
     try {
       const uploaded = await Promise.all(Array.from(files).map(async (file) => {
-        const storageRef = ref(storage, `community/${currentUser.uid}/${Date.now()}_${file.name}`);
-        const task = uploadBytesResumable(storageRef, file);
-        return new Promise((resolve, reject) => {
-          task.on('state_changed', null, reject, async () => {
-            const url = await getDownloadURL(task.snapshot.ref);
-            resolve({ url, name: file.name, type: file.type, size: file.size });
-          });
-        });
+        const result = await supabaseMediaService.uploadFile(file, { folder: 'community' });
+        return { url: result.url, storagePath: result.path, name: file.name, type: file.type, size: file.size };
       }));
       setComposeForm(prev => ({ ...prev, media: [...prev.media, ...uploaded] }));
     } catch (e) {

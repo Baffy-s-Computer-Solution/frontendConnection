@@ -1,7 +1,8 @@
 // frontend/src/pages/parent/FinancialPlanning.jsx
+import { supabaseMediaService } from '../../services/supabaseMediaService';
 // ============================================================================
 // FINANCIAL PLANNING - Production Ready
-// Budgets | Invoices | Payments | Firebase | Supabase | Cloudinary | Tailwind
+// Budgets | Invoices | Payments | Firebase | Supabase | supabase | Tailwind
 // ============================================================================
 
 import React, {
@@ -28,7 +29,7 @@ import {
   Timestamp,
   writeBatch,
 } from 'firebase/firestore';
-import { db, storage } from '../../config/firebase';
+import { db } from '../../config/firebase';
 import { supabase } from '../../config/supabase';
 import { useAuth } from '../../hooks/useAuth';
 import { useParent } from '../../hooks/useParent';
@@ -328,44 +329,19 @@ function useRealtimeCollection(collectionName, constraints = [], deps = []) {
   return { items, loading, error };
 }
 
-function useCloudinaryUpload(folder = 'parent-uploads') {
+function useSupabaseUpload(folder = 'parent-uploads') {
   const [progress, setProgress] = useState(0);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState(null);
-
   const upload = useCallback(async (file, onComplete) => {
     if (!file) return null;
     setUploading(true); setError(null); setProgress(0);
     try {
-      const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
-      const preset = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET;
-      if (!cloudName || !preset) throw new Error('Cloudinary env missing');
-
-      const form = new FormData();
-      form.append('file', file);
-      form.append('upload_preset', preset);
-      form.append('folder', folder);
-
-      const xhr = new XMLHttpRequest();
-      const url = `https://api.cloudinary.com/v1_1/${cloudName}/auto/upload`;
-
-      const result = await new Promise((resolve, reject) => {
-        xhr.open('POST', url);
-        xhr.upload.onprogress = (e) => { if (e.lengthComputable) setProgress(Math.round((e.loaded / e.total) * 100)); };
-        xhr.onload = () => {
-          if (xhr.status >= 200 && xhr.status < 300) resolve(JSON.parse(xhr.responseText));
-          else reject(new Error(`Cloudinary upload failed: ${xhr.status}`));
-        };
-        xhr.onerror = () => reject(new Error('Network error during upload'));
-        xhr.send(form);
-      });
-
-      onComplete?.(result);
-      setUploading(false);
-      return result;
-    } catch (err) { setError(err.message); setUploading(false); throw err; }
+      const result = await supabaseMediaService.uploadToSupabase(file, folder);
+      setProgress(100); onComplete?.(result); return result;
+    } catch (uploadError) { setError(uploadError.message); throw uploadError; }
+    finally { setUploading(false); }
   }, [folder]);
-
   return { upload, uploading, progress, error };
 }
 
@@ -407,7 +383,7 @@ const FinancialPlanning = () => {
   const { user, profile } = useAuth();
   const { refresh: refreshParent } = useParent();
   const { push: pushNotification } = useNotifications();
-  const { upload: uploadToCloudinary, uploading, progress } = useCloudinaryUpload(`parents/${user?.uid ?? 'anon'}/finance`);
+  const { upload: uploadToSupabase, uploading, progress } = useSupabaseUpload(`parents/${user?.uid ?? 'anon'}/finance`);
   const parentId = user?.uid ?? profile?.uid;
 
   // ---------- Realtime collections ----------
@@ -759,7 +735,7 @@ const FinancialPlanning = () => {
   // ---------- Uploads ----------
   const handleReceiptUpload = async (file) => {
     try {
-      const result = await uploadToCloudinary(file);
+      const result = await uploadToSupabase(file);
       setExpenseForm((f) => ({ ...f, receiptUrl: result?.secure_url || '' }));
       showToast('Receipt uploaded');
     } catch (err) { showToast(err.message, 'error'); }
@@ -767,7 +743,7 @@ const FinancialPlanning = () => {
 
   const handleInvoiceFileUpload = async (file) => {
     try {
-      const result = await uploadToCloudinary(file);
+      const result = await uploadToSupabase(file);
       setInvoiceForm((f) => ({ ...f, fileUrl: result?.secure_url || '' }));
       showToast('Invoice file uploaded');
     } catch (err) { showToast(err.message, 'error'); }
@@ -775,7 +751,7 @@ const FinancialPlanning = () => {
 
   const handlePaymentReceiptUpload = async (file) => {
     try {
-      const result = await uploadToCloudinary(file);
+      const result = await uploadToSupabase(file);
       setPaymentForm((f) => ({ ...f, receiptUrl: result?.secure_url || '' }));
       showToast('Receipt uploaded');
     } catch (err) { showToast(err.message, 'error'); }

@@ -72,6 +72,7 @@ export default function RegisterPro() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const requestedRole = searchParams.get("role");
+  const invitedEmail = searchParams.get("email") || "";
   const referralCode = searchParams.get("ref") || '';
   const referralCompanyId = searchParams.get("company") || '';
   const referralOwnerId = searchParams.get("referrer") || '';
@@ -81,7 +82,7 @@ export default function RegisterPro() {
   const [step, setStep] = useState(() => hasRequestedRole ? 2 : 1);
   const [form, setForm] = useState({
     fullName: "",
-    email: "",
+    email: invitedEmail,
     password: "",
     confirmPassword: "",
     phone: "",
@@ -230,8 +231,12 @@ export default function RegisterPro() {
     }
   };
   const handleGoogleSignup = async () => {
+    if (normalizeUserType(userType) === "company") {
+      setError("Company accounts must use email and password.");
+      return;
+    }
     if (!roles.some((role) => role.value === userType)) {
-      setError("Please select Student, Mentor, or Company first");
+      setError("Please select Student or Mentor first");
       return;
     }
     setGoogleLoading(true);
@@ -279,7 +284,7 @@ export default function RegisterPro() {
       value={form[name]}
       onChange={(event) => update(name, event.target.value)}
       error={fieldErrors[name]}
-      disabled={disabled}
+      disabled={disabled || (name === "email" && Boolean(invitedEmail))}
       leadingIcon={icon}
       showPasswordToggle={type === "password"}
       placeholder={placeholder}
@@ -382,6 +387,17 @@ export default function RegisterPro() {
             <div className="rounded-lg bg-brand-50 p-3 text-sm text-brand-800 dark:bg-brand-950 dark:text-brand-200">
               Step 2 of 3: {currentRole?.label} account
             </div>
+            {invitedEmail && (
+              <p className="rounded-lg bg-blue-50 p-3 text-sm text-blue-800 dark:bg-blue-950 dark:text-blue-200">
+                Create your account with the invited email address, then verify it and return to your invitation.
+              </p>
+            )}
+            {userType === "company" && (
+              <p className="rounded-lg bg-slate-50 p-3 text-sm text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                You can use your Gmail address. Company accounts are created with
+                Firebase email and password; Google sign-up is not available.
+              </p>
+            )}
             {field(
               "fullName",
               "Full Name",
@@ -436,15 +452,17 @@ export default function RegisterPro() {
             {fieldErrors.acceptTerms && (
               <p className="text-xs text-danger">{fieldErrors.acceptTerms}</p>
             )}
-            <Button
-              type="button"
-              fullWidth
-              variant="outline"
-              disabled={disabled}
-              onClick={handleGoogleSignup}
-            >
-              Sign up with Google
-            </Button>
+            {userType !== "company" && (
+              <Button
+                type="button"
+                fullWidth
+                variant="outline"
+                disabled={disabled}
+                onClick={handleGoogleSignup}
+              >
+                Sign up with Google
+              </Button>
+            )}
             <div className="flex gap-3">
               <Button
                 type="button"
@@ -511,6 +529,7 @@ export default function RegisterPro() {
                   "url",
                   Building2,
                   "https://example.com",
+                  false,
                 )}
                 <div className="flex gap-2 rounded-lg border border-info/20 bg-info-light p-4 text-sm text-info-dark">
                   <Info className="h-5 w-5 shrink-0" />

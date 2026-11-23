@@ -12,7 +12,7 @@ import {
   deleteDoc,
   Timestamp,
 } from 'firebase/firestore';
-import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { supabaseMediaService } from './supabaseMediaService';
 
 import { db } from '../config/firebase';
 
@@ -303,16 +303,12 @@ export const incrementResourceDownloads = async (resourceId) => {
 // Upload resource file
 export const uploadResourceFile = async (file, resourceId) => {
   try {
-    const storage = getStorage();
     const timestamp = Date.now();
     const fileName = `${resourceId}_${timestamp}_${file.name}`;
-    const fileRef = ref(storage, `resources/${resourceId}/${fileName}`);
-
-    await uploadBytes(fileRef, file);
-    const downloadURL = await getDownloadURL(fileRef);
+    const result = await supabaseMediaService.uploadFile(file, { folder: `resources/${resourceId}`, fileName });
 
     return {
-      url: downloadURL,
+      url: result.url,
       fileName: file.name,
       fileSize: file.size,
       fileType: file.type,

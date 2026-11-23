@@ -15,14 +15,14 @@ import {
   writeBatch,
   setDoc,
 } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
+import { supabaseMediaService } from '../../supabaseMediaService';
 import {
   createUserWithEmailAndPassword,
   updateProfile,
   sendPasswordResetEmail,
 } from 'firebase/auth';
 
-import { db, storage, auth } from '../../../config/firebase';
+import { db, auth } from '../../../config/firebase';
 import {
   getCurrentCompanyId,
   safeConvertFirebaseData,
@@ -277,10 +277,9 @@ export const documentsService = {
       // Upload to storage
       const timestamp = Date.now();
       const storagePath = `company_documents/${companyId}/${timestamp}_${file.name.replace(/[^a-zA-Z0-9.]/g, '_')}`;
-      const storageRef = ref(storage, storagePath);
-
-      await uploadBytes(storageRef, file);
-      const downloadURL = await getDownloadURL(storageRef);
+      const uploaded = await supabaseMediaService.uploadFile(file, { path: `company_documents/${companyId}` });
+      const downloadURL = uploaded.url;
+      const actualStoragePath = uploaded.path;
 
       // Create document record
       const docsRef = collection(db, COLLECTIONS.COMPANY_DOCUMENTS);
@@ -294,7 +293,7 @@ export const documentsService = {
         accessLevel: metadata.accessLevel || 'private',
         status: 'active',
         downloadURL,
-        storagePath,
+        storagePath: actualStoragePath,
         fileType: file.type,
         fileSize: file.size,
         uploadedAt: serverTimestamp(),
@@ -371,8 +370,7 @@ export const documentsService = {
       // Delete from storage
       if (documentData.storagePath) {
         try {
-          const storageRef = ref(storage, documentData.storagePath);
-          await deleteObject(storageRef);
+          await supabaseMediaService.deleteFile(documentData.storagePath);
         } catch (storageError) {
           console.warn('Could not delete from storage:', storageError);
         }

@@ -17,7 +17,7 @@ import {
 } from 'firebase/firestore';
 
 import { db } from '../../../config/firebase';
-import { cloudinaryService } from '../../../services/cloudinaryService';
+import { supabaseMediaService } from '../../../services/supabaseMediaService';
 import { useAuth } from '../../../hooks/useAuth';
 import { useNotifications } from '../../../hooks/useNotifications';
 import FundingOpportunityCard from '../../../components/youth/FundingOpportunityCard'; // Fixed: default import
@@ -37,7 +37,7 @@ import ApplyModal from '../../../components/youth/funding/ApplyModal';
 /**
  * FundingOpportunities Component
  * Displays available funding opportunities with advanced filtering,
- * real-time updates, and Cloudinary-optimized images
+ * real-time updates, and supabase-optimized images
  */
 const FundingOpportunities = () => {
   const { user } = useAuth();
@@ -149,9 +149,9 @@ const FundingOpportunities = () => {
           return {
             id: doc.id,
             ...data,
-            // Process Cloudinary images with error handling
+            // Process supabase images with error handling
             logo: data.logo
-              ? cloudinaryService.optimizeImage(data.logo, {
+              ? supabaseMediaService.optimizeImage(data.logo, {
                   width: 200,
                   height: 200,
                   crop: 'fill',
@@ -160,7 +160,7 @@ const FundingOpportunities = () => {
                 })
               : null,
             bannerImage: data.bannerImage
-              ? cloudinaryService.optimizeImage(data.bannerImage, {
+              ? supabaseMediaService.optimizeImage(data.bannerImage, {
                   width: 800,
                   height: 400,
                   crop: 'fill',
@@ -170,7 +170,7 @@ const FundingOpportunities = () => {
               : null,
             gallery: Array.isArray(data.gallery)
               ? data.gallery.map((img) =>
-                  cloudinaryService.optimizeImage(img, {
+                  supabaseMediaService.optimizeImage(img, {
                     width: 400,
                     height: 300,
                     crop: 'fill',

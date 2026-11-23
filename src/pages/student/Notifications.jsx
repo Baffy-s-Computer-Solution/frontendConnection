@@ -56,11 +56,6 @@ import {
   arrayRemove,
   setDoc,
 } from 'firebase/firestore';
-import {
-  ref,
-  uploadBytes,
-  getDownloadURL,
-} from 'firebase/storage';
 import { motion, AnimatePresence } from 'framer-motion';
 import toast, { Toaster } from 'react-hot-toast';
 import {
@@ -503,7 +498,7 @@ import {
 import { FaGraduationCap, FaBriefcase, FaBook, FaFileAlt, FaCalendarAlt, FaBell, FaBellSlash, FaCheckCircle, FaTimesCircle, FaExclamationTriangle, FaInfoCircle, FaClock, FaUser, FaUsers, FaUserPlus, FaUserCheck, FaUserTimes, FaHeart, FaStar, FaThumbsUp, FaEye, FaTrash, FaArchive, FaInbox, FaEnvelope, FaEnvelopeOpen, FaComment, FaComments, FaShare, FaExternalLinkAlt, FaLink, FaPaperclip, FaFile, FaFilePdf, FaFileWord, FaFileExcel, FaFileImage, FaFileVideo, FaFileAudio, FaFileArchive, FaDownload, FaUpload, FaSearch, FaFilter, FaSort, FaSortAmountDown, FaSortAmountUp, FaSync, FaSyncAlt, FaRedo, FaUndo, FaChevronLeft, FaChevronRight, FaChevronUp, FaChevronDown, FaEllipsisV, FaEllipsisH, FaPlus, FaMinus, FaTimes, FaCheck, FaCog, FaSlidersH, FaChartLine, FaChartBar, FaChartPie, FaTrophy, FaMedal, FaAward, FaCertificate, FaHandshake, FaLightbulb, FaRocket, FaBookmark, FaTag, FaTags, FaFlag, FaFire, FaBolt, FaGem, FaCrown, FaGift, FaBirthdayCake, FaGlassCheers, FaTruck, FaShippingFast, FaMapMarkerAlt, FaLocationArrow, FaCompass, FaRoad, FaLaptopCode, FaCode, FaTerminal, FaBug, FaWrench, FaTools, FaHammer, FaDraftingCompass, FaRulerCombined, FaMicroscope, FaFlask, FaAtom, FaDna, FaBrain, FaHeartbeat, FaStethoscope, FaPills, FaSyringe, FaHospital, FaAmbulance, FaShieldAlt, FaShieldVirus, FaCreditCard, FaLock, FaLockOpen, FaKey, FaFingerprint, FaUserShield, FaUserSecret, FaUserTie, FaUserGraduate, FaUserMd, FaUserNurse, FaUserCog, FaUserEdit, FaUserMinus, FaUserFriends, FaUsersCog, FaUserAstronaut, FaUserNinja, FaUserSecret as FaUserSecretIcon, FaPhone, FaPhoneAlt, FaPhoneSlash, FaPhoneVolume, FaMobile, FaMobileAlt, FaTablet, FaTabletAlt, FaLaptop, FaDesktop, FaTv, FaPrint, FaFax, FaWifi, FaBluetooth, FaBatteryFull, FaBatteryHalf, FaBatteryQuarter, FaBatteryEmpty, FaPlug, FaPowerOff, FaMicrochip, FaMemory, FaHdd, FaSdCard, FaUsb, FaEthernet, FaNetworkWired, FaServer, FaDatabase, FaCloud, FaCloudDownloadAlt, FaCloudUploadAlt, FaCloudSun, FaCloudMoon, FaCloudRain, FaCloudShowersHeavy, FaSnowflake, FaSun, FaMoon, FaStar as FaStarIcon, FaStarHalfAlt, FaRegStar, FaRegHeart, FaRegClock, FaRegCalendarAlt, FaRegCalendarCheck, FaRegEnvelope, FaRegEnvelopeOpen, FaRegFileAlt, FaRegFilePdf, FaRegFileImage, FaRegFileVideo, FaRegFileAudio, FaRegFileArchive, FaRegSmile, FaRegSmileBeam, FaRegGrin, FaRegGrinBeam, FaRegGrinHearts, FaRegGrinStars, FaRegGrinTears, FaRegLaugh, FaRegLaughBeam, FaRegLaughSquint, FaRegLaughWink, FaRegMeh, FaRegMehBlank, FaRegMehRollingEyes, FaRegFrown, FaRegFrownOpen, FaRegSadCry, FaRegSadTear, FaRegSurprise, FaRegTired, FaRegAngry, FaRegDizzy, FaRegFlushed, FaRegGrimace, FaRegKiss, FaRegKissBeam, FaRegKissWinkHeart, FaRegComments, FaRegComment, FaRegCommentDots, FaRegPaperPlane, FaRegShareSquare, FaRegBookmark, FaRegBell, FaRegLightbulb, FaRegHourglass, FaRegListAlt, FaRegCheckCircle, FaRegTimesCircle, FaRegQuestionCircle, FaRegEye, FaRegEyeSlash, FaRegCopy, FaRegEdit, FaRegTrashAlt, FaRegSave, FaRegFolder, FaRegFolderOpen, FaRegBuilding, FaRegIdCard, FaRegAddressCard, FaRegAddressBook, FaRegCreditCard, FaRegMoneyBillAlt, FaRegChartBar, FaRegHandshake, FaRegThumbsUp, FaRegThumbsDown, FaRegArrowAltCircleRight, FaRegArrowAltCircleLeft, FaRegArrowAltCircleUp, FaRegArrowAltCircleDown } from "react-icons/fa";
 import { RiNotificationLine, RiNotificationOffLine, RiNotificationBadgeLine } from 'react-icons/ri';
 
-import { auth, db, storage } from '../../config/firebase';
+import { auth, db } from '../../config/firebase';
 import { useAuth } from '../../context/AuthContext';
 import { useStudent } from '../../context/StudentContext';
 import { useNotification } from '../../context/NotificationContext';

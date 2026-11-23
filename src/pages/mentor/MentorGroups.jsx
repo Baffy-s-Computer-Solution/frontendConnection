@@ -5,10 +5,8 @@ import {
   query, where, orderBy, limit, onSnapshot, serverTimestamp,
   Timestamp, writeBatch, increment, arrayUnion, arrayRemove
 } from 'firebase/firestore';
-import {
-  ref, uploadBytesResumable, getDownloadURL, deleteObject
-} from 'firebase/storage';
-import { db, storage, auth } from '../../config/firebase';
+import { db, auth } from '../../config/firebase';
+import { supabaseMediaService } from '../../services/supabaseMediaService';
 import { supabase } from '../../config/supabase';
 import { useAuth } from '../../hooks/useAuth';
 import {
@@ -321,29 +319,9 @@ const GroupForm = ({ group, onSave, onCancel }) => {
     setUploading(true);
     setUploadProgress(0);
     try {
-      const storageRef = ref(storage, `mentor-groups/covers/${Date.now()}_${file.name}`);
-      const task = uploadBytesResumable(storageRef, file);
-      const url = await new Promise((resolve, reject) => {
-        task.on('state_changed',
-          (s) => setUploadProgress(Math.round((s.bytesTransferred / s.totalBytes) * 100)),
-          reject,
-          async () => resolve(await getDownloadURL(task.snapshot.ref))
-        );
-      });
-      let finalUrl = url;
-      try {
-        const fd = new FormData();
-        fd.append('file', file);
-        fd.append('upload_preset', process.env.REACT_APP_CLOUDINARY_UPLOAD_PRESET);
-        fd.append('folder', 'mentor-groups/covers');
-        const res = await fetch(
-          `https://api.cloudinary.com/v1_1/${process.env.REACT_APP_CLOUDINARY_CLOUD_NAME}/image/upload`,
-          { method: 'POST', body: fd }
-        );
-        const c = await res.json();
-        if (c.secure_url) finalUrl = c.secure_url;
-      } catch (e) { console.warn('Cloudinary failed:', e); }
-      setFormData((p) => ({ ...p, coverImage: finalUrl }));
+      const uploaded = await supabaseMediaService.uploadFile(file, { folder: 'mentor-groups/covers' });
+      setUploadProgress(100);
+      setFormData((p) => ({ ...p, coverImage: uploaded.url, coverImagePath: uploaded.path }));
       toast.success('Cover uploaded');
     } catch (e) {
       console.error(e);

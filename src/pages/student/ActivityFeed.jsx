@@ -504,12 +504,12 @@ const ActivityFeed = () => {
         </Card.Body>
       </Card>
 
-      {/* Cloudinary Integration Info */}
+      {/* supabase Integration Info */}
       <Card className="shadow-sm mt-4 bg-info bg-opacity-10 border-info">
         <Card.Body>
           <h5 className="text-info">
             <i className="bi bi-cloud me-2"></i>
-            Cloudinary Integration
+            supabase Integration
           </h5>
           <p className="mb-0">Documents you upload are stored through the configured media service and reflected here as the library syncs.</p>
         </Card.Body>

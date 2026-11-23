@@ -1,10 +1,10 @@
 /* eslint-disable no-undef */
 /* eslint-disable no-unused-vars */
 /* eslint-disable import/order */
-import { db, storage } from '../config/firebase';
+import { db } from '../config/firebase';
 
 import { collection, getDocs, query, where, orderBy, Timestamp } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { supabaseMediaService } from './supabaseMediaService';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
@@ -586,9 +586,9 @@ class ExportService {
 
   async uploadToStorage(fileResult, filename, format) {
     try {
-      const storageRef = ref(storage, `exports/${filename}.${format}`);
-      await uploadBytes(storageRef, fileResult.blob);
-      const downloadUrl = await getDownloadURL(storageRef);
+      const exportFile = new File([fileResult.blob], `${filename}.${format}`, { type: fileResult.blob.type || 'application/octet-stream' });
+      const uploaded = await supabaseMediaService.uploadFile(exportFile, { folder: 'exports', fileName: `${filename}.${format}` });
+      const downloadUrl = uploaded.url;
 
       // Save export record to database
       await this.saveExportRecord({

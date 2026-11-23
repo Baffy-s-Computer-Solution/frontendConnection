@@ -3,6 +3,7 @@ const USER_TYPE_ALIASES = {
   graduates: 'student',
   graduate: 'student',
   company: 'company',
+  company_staff: 'company_staff',
   employer: 'company',
   institute: 'institute',
   educationalinstitute: 'institute',
@@ -74,6 +75,8 @@ export const getDashboardPathByUserType = (userType) => {
       return '/admin/dashboard';
     case 'company':
       return '/company/dashboard';
+    case 'company_staff':
+      return '/company/teams';
     case 'institute':
       return '/institute/dashboard';
     case 'government':

@@ -26,12 +26,11 @@ import {
   arrayUnion,
   arrayRemove,
 } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
 import { useAuth } from '../../context/AuthContext';
 import { useNotification } from '../../context/NotificationContext';
-import { db, storage } from '../../config/firebase';
-import cloudinaryService from '../../services/cloudinaryService';
+import { db } from '../../config/firebase';
+import supabaseMediaService from '../../services/supabaseMediaService';
 import socialPlatformService from '../../services/socialPlatformService';
 
 // ============================================
@@ -636,14 +635,14 @@ const CompanyChat = () => {
           continue;
         }
 
-        // Upload to Cloudinary
+        // Upload to supabase
         const isImage = file.type.startsWith('image/');
         const result = isImage
-          ? await cloudinaryService.uploadImage(file, {
+          ? await supabaseMediaService.uploadImage(file, {
               folder: 'career-connect/chat',
               publicId: `chat-${activeConversation.id}-${Date.now()}`,
             })
-          : await cloudinaryService.uploadFile(file, {
+          : await supabaseMediaService.uploadFile(file, {
               folder: 'career-connect/chat',
               publicId: `chat-${activeConversation.id}-${Date.now()}`,
             });

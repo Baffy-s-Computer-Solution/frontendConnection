@@ -7,7 +7,6 @@ import {
   addDoc,
   arrayRemove,
   arrayUnion,
-  CACHE_SIZE_UNLIMITED,
   collection,
   deleteDoc,
   doc,
@@ -18,8 +17,6 @@ import {
   limit,
   orderBy,
   onSnapshot,
-  persistentLocalCache,
-  persistentMultipleTabManager,
   query,
   setDoc,
   startAfter,
@@ -28,18 +25,6 @@ import {
   where,
   writeBatch,
 } from 'firebase/firestore';
-import { getDatabase } from 'firebase/database';
-import {
-  deleteObject,
-  getDownloadURL,
-  getStorage,
-  ref,
-  uploadBytes,
-  uploadString,
-  uploadBytesResumable,
-  listAll,
-  getMetadata,
-} from '../services/cloudinaryStorageCompat';
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -47,9 +32,6 @@ const firebaseConfig = {
   projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
   messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
   appId: import.meta.env.VITE_FIREBASE_APP_ID,
-  databaseURL:
-    import.meta.env.VITE_FIREBASE_DATABASE_URL ||
-    'https://career-connect-lesotho-default-rtdb.firebaseio.com',
 };
 
 const validateConfig = () => {
@@ -148,25 +130,6 @@ googleProvider.setCustomParameters({
 console.log('Google Auth Provider configured');
 
 const db = getFirestore(app);
-const database = getDatabase(app);
-
-if (typeof window !== 'undefined') {
-  try {
-    const settings = {
-      cache: persistentLocalCache({
-        cacheSizeBytes: CACHE_SIZE_UNLIMITED,
-        tabManager: persistentMultipleTabManager(),
-      }),
-    };
-
-    void settings;
-    console.log('Firestore persistence configured with modern API');
-  } catch (err) {
-    console.warn('Firestore persistence configuration warning:', err);
-  }
-}
-
-const storage = getStorage();
 
 let analytics = null;
 if (typeof window !== 'undefined') {
@@ -198,32 +161,21 @@ export {
   auth,
   collection,
   db,
-  database,
   deleteDoc,
-  deleteObject,
   doc,
   getDoc,
   getDocs,
-  getDownloadURL,
   googleProvider,
   increment,
   limit,
   orderBy,
   onSnapshot,
   query,
-  // Storage exports
-  ref,
   setDoc,
   startAfter,
-  storage,
   // Firestore exports
   Timestamp,
   updateDoc,
-  uploadBytes,
-  uploadBytesResumable,
-  uploadString,
-  listAll,
-  getMetadata,
   where,
   writeBatch,
 };

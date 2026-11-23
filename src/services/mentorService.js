@@ -19,7 +19,7 @@ import {
 
 import { auth, db } from "../config/firebase";
 import API_BASE_URL from "./apiConfig";
-import { cloudinaryService } from "./cloudinaryService";
+import { supabaseMediaService } from "./supabaseMediaService";
 
 class MentorService {
   constructor() {
@@ -130,7 +130,7 @@ class MentorService {
     const result = await response.json().catch(() => ({}));
     if (!response.ok || !result.success || !result.photoUrl) {
       throw new Error(
-        result.error || "Cloudinary could not upload the profile photo.",
+        result.error || "supabase could not upload the profile photo.",
       );
     }
 
@@ -143,13 +143,13 @@ class MentorService {
       success: true,
       photoUrl: result.photoUrl,
       publicId: result.publicId,
-      storageType: "cloudinary",
+      storageType: "supabase",
     };
   }
 
   async uploadCertification(userId, file, certData) {
     try {
-      const fileUrl = await cloudinaryService.uploadFile(file, {
+      const fileUrl = await supabaseMediaService.uploadFile(file, {
         folder: "mentors/certifications",
         publicId: `cert_${userId}_${Date.now()}`,
       });
@@ -653,7 +653,7 @@ class MentorService {
 
   async uploadSessionRecording(sessionId, file) {
     try {
-      const recordingUrl = await cloudinaryService.uploadVideo(file, {
+      const recordingUrl = await supabaseMediaService.uploadVideo(file, {
         folder: "mentors/sessions",
         publicId: `session_${sessionId}`,
       });

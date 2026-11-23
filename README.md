@@ -747,7 +747,7 @@ Career Connect Lesotho follows a modern frontend architecture with React, Vite, 
 ┌───────────────────────────▼──────────────────────────────────┐
 │                    External Services                          │
 │  ┌────────────────┐ ┌────────────────┐ ┌────────────────┐   │
-│  │   Firebase     │ │   REST API     │ │   Cloudinary   │   │
+│  │   Firebase     │ │   REST API     │ │   Supabase     │   │
 │  │   Auth/DB      │ │   Backend      │ │    Storage     │   │
 │  └────────────────┘ └────────────────┘ └────────────────┘   │
 │  ┌────────────────┐ ┌────────────────┐ ┌────────────────┐   │
@@ -805,7 +805,7 @@ frontend/
 │   ├── services/            # API and external services
 │   │   ├── api.js           # Axios configuration
 │   │   ├── firebase.js      # Firebase configuration
-│   │   └── cloudinary.js    # Cloudinary service
+│   │   └── supabaseMediaService.js # Supabase media service
 │   │
 │   ├── utils/               # Utility functions
 │   │   ├── helpers.js       # General helpers
@@ -1259,7 +1259,7 @@ This document outlines the deployment process for Career Connect Lesotho fronten
 ### Required Accounts
 - [Firebase Console](https://console.firebase.google.com/)
 - [GitHub Account](https://github.com) (for CI/CD)
-- [Cloudinary Account](https://cloudinary.com) (for media)
+- Supabase project access for private and public storage buckets
 - [SendGrid Account](https://sendgrid.com) (for emails)
 
 ### Required Tools
@@ -1290,8 +1290,6 @@ VITE_FIREBASE_MEASUREMENT_ID=your-measurement-id
 VITE_APP_ENVIRONMENT=production
 VITE_APP_BASE_URL=https://career-connect-lesotho.web.app
 VITE_API_BASE_URL=https://api.careerconnect.co.ls/api
-VITE_CLOUDINARY_CLOUD_NAME=your-cloud-name
-VITE_CLOUDINARY_UPLOAD_PRESET=your-upload-preset
 ```
 
 ## Deployment Methods
@@ -1411,8 +1409,6 @@ Add these secrets in your GitHub repository:
 - `VITE_FIREBASE_STORAGE_BUCKET` - Firebase storage bucket
 - `VITE_FIREBASE_MESSAGING_SENDER_ID` - Firebase sender ID
 - `VITE_FIREBASE_APP_ID` - Firebase app ID
-- `VITE_CLOUDINARY_CLOUD_NAME` - Cloudinary cloud name
-- `VITE_CLOUDINARY_UPLOAD_PRESET` - Cloudinary upload preset
 - `SLACK_WEBHOOK_URL` - Slack notifications (optional)
 
 ### Method 3: Docker Deployment
@@ -1486,7 +1482,7 @@ docker-compose up -d
 - [ ] Application loads successfully
 - [ ] Authentication works
 - [ ] API calls succeed
-- [ ] Images load from Cloudinary
+- [ ] Images load from Supabase Storage
 - [ ] Environment variables are correct
 - [ ] No console errors
 - [ ] Lighthouse score > 90

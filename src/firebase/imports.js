@@ -28,16 +28,6 @@ import {
   getCountFromServer,
 } from 'firebase/firestore';
 
-// Storage imports
-import {
-  ref,
-  uploadBytes,
-  uploadString,
-  getDownloadURL,
-  deleteObject,
-  listAll,
-} from 'firebase/storage';
-
 // Auth imports
 import {
   getAuth,
@@ -73,14 +63,6 @@ export {
   increment,
   Timestamp,
   getCountFromServer,
-
-  // Storage
-  ref,
-  uploadBytes,
-  uploadString,
-  getDownloadURL,
-  deleteObject,
-  listAll,
 
   // Auth
   getAuth,

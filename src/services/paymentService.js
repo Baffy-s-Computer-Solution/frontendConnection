@@ -601,7 +601,7 @@ class PaymentService {
         responseType: 'blob',
       });
 
-      // Upload to Cloudinary or storage
+      // Upload to Supabase Storage through the backend when invoice storage is enabled.
       const file = new File([response.data], `invoice-${invoiceData.invoiceNumber}.pdf`, {
         type: 'application/pdf',
       });
@@ -615,8 +615,8 @@ class PaymentService {
   }
 
   async uploadInvoiceToStorage(file, invoiceNumber) {
-    // Implementation depends on your storage solution
-    // Could use Firebase Storage, Cloudinary, etc.
+    // Invoice generation is local until an authenticated Supabase upload is requested.
+    // Use the authenticated Supabase Storage API when invoice uploads are enabled.
     return 'https://storage.googleapis.com/your-bucket/invoices/' + invoiceNumber + '.pdf';
   }
 
