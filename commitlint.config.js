@@ -42,6 +42,7 @@ export default {
         'job',
         'application',
         'course',
+        'ci',
         'analytics',
         'ui',
         'api',
