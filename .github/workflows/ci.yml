@@ -101,8 +101,40 @@ jobs:
           npm run type-check
 
       - name: Run tests
+        id: tests
         run: |
           npm run test:ci
+
+      - name: Annotate test failures
+        if: ${{ failure() && hashFiles('coverage/junit.xml') != '' }}
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs');
+          const xml = fs.readFileSync('coverage/junit.xml', 'utf8');
+          const decode = (value) => value
+            .replace(/&lt;/g, '<')
+            .replace(/&gt;/g, '>')
+            .replace(/&quot;/g, '"')
+            .replace(/&apos;/g, "'")
+            .replace(/&amp;/g, '&');
+          const attribute = (source, name) =>
+            source.match(new RegExp(`${name}="([^"]*)"`))?.[1] || '';
+          const cases = [...xml.matchAll(/<testcase\b([^>]*)>([\s\S]*?)<\/testcase>/g)];
+          const failures = cases.flatMap(([ , attrs, body ]) => {
+            const failure = body.match(/<(failure|error)\b([^>]*)>([\s\S]*?)<\/\1>/);
+            if (!failure) return [];
+            const detail = decode(failure[3].replace(/<[^>]+>/g, ' ')).replace(/\s+/g, ' ').trim();
+            return [`${attribute(attrs, 'classname')} ${attribute(attrs, 'name')}: ${detail}`];
+          });
+
+          if (failures.length === 0) {
+            console.log('::error::The test command failed, but the JUnit report contained no failed test cases.');
+          } else {
+            for (const failure of failures) {
+              console.log(`::error title=Test failure::${failure.slice(0, 500)}`);
+            }
+          }
+          NODE
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v3
