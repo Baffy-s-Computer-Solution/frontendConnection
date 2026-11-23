@@ -55,7 +55,7 @@ jobs:
             npx eslint "${files[@]}" --format json --output-file eslint-report.json \
               --cache --cache-location node_modules/.cache/eslint/
           else
-            printf '[]' > eslint-report.json
+            rm -f eslint-report.json
             echo "No changed JavaScript or TypeScript files need ESLint validation."
           fi
 
@@ -192,7 +192,15 @@ jobs:
           fi
 
           if [ -n "$BASE_SHA" ]; then
-            npx commitlint --from "$BASE_SHA" --to "$HEAD_SHA" --verbose
+            commits="$(git rev-list --reverse "$BASE_SHA..$HEAD_SHA")"
+            if [ -z "$commits" ]; then
+              echo "No new commits need Commitlint validation."
+              exit 0
+            fi
+
+            while IFS= read -r commit; do
+              git show -s --format=%B "$commit" | npx commitlint --verbose
+            done <<< "$commits"
           else
             git show -s --format=%B "$HEAD_SHA" | npx commitlint --verbose
           fi
