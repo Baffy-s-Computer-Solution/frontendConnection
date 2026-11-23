@@ -53,10 +53,6 @@ const AcceptCompanyInvitation = () => {
       setError('Sign in with the invited email address before accepting this invitation.');
       return;
     }
-    if (currentUser.email?.trim().toLowerCase() !== invitation?.email?.trim().toLowerCase()) {
-      setError(`Sign in with ${invitation?.email} to accept this invitation.`);
-      return;
-    }
     if (!currentUser.emailVerified) {
       setError('Verify your email address, then return to this invitation link.');
       return;
@@ -124,7 +120,7 @@ const AcceptCompanyInvitation = () => {
               Join {invitation.companyName}
             </h1>
             <div className="mt-5 space-y-3 rounded-xl bg-slate-50 p-4 text-sm text-slate-700 dark:bg-slate-800 dark:text-slate-200">
-              <p className="flex items-center gap-2"><Mail className="h-4 w-4" /> {invitation.email}</p>
+              <p className="flex items-center gap-2"><Mail className="h-4 w-4" /> Invited account: {invitation.maskedEmail}</p>
               <p className="flex items-center gap-2"><ShieldCheck className="h-4 w-4" /> {invitation.role}</p>
             </div>
             {error && (
@@ -163,7 +159,7 @@ const AcceptCompanyInvitation = () => {
                     Sign in to accept
                   </Link>
                   <Link
-                    to={`/register?email=${encodeURIComponent(invitation.email)}`}
+                    to="/register"
                     className="rounded-lg border border-slate-300 px-5 py-3 font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
                   >
                     Create account

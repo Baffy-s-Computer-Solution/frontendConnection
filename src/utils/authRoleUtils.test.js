@@ -11,6 +11,8 @@ describe('normalizeUserType', () => {
     expect(normalizeUserType('  ENTREPRENEUR  ')).toBe('entrepreneur');
     expect(normalizeUserType('Alumnus')).toBe('alumni');
     expect(normalizeUserType('Alumin')).toBe('alumni');
+    expect(normalizeUserType('super_admin')).toBe('super_admin');
+    expect(normalizeUserType('SuperAdmin')).toBe('super_admin');
   });
 
   it('falls back to student for unsupported roles', () => {
@@ -31,5 +33,6 @@ describe('getDashboardPathByUserType', () => {
     expect(getDashboardPathByUserType('parent')).toBe('/parent/dashboard');
     expect(getDashboardPathByUserType('alumni')).toBe('/alumni/dashboard');
     expect(getDashboardPathByUserType('admin')).toBe('/admin/dashboard');
+    expect(getDashboardPathByUserType('super_admin')).toBe('/admin/dashboard');
   });
 });

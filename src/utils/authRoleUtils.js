@@ -20,6 +20,8 @@ const USER_TYPE_ALIASES = {
   alumnus: 'alumni',
   alumin: 'alumni',
   admin: 'admin',
+  super_admin: 'super_admin',
+  superadmin: 'super_admin',
 };
 
 export const normalizeUserType = (userType) => {
@@ -72,6 +74,7 @@ export const getDashboardPathByUserType = (userType) => {
 
   switch (normalized) {
     case 'admin':
+    case 'super_admin':
       return '/admin/dashboard';
     case 'company':
       return '/company/dashboard';
