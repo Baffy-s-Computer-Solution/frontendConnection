@@ -26,22 +26,28 @@ import {
   writeBatch,
 } from 'firebase/firestore';
 
+// Firebase web app identifiers are public client configuration. Keep a complete
+// fallback so a deployment with missing GitHub environment values cannot ship
+// a bundle that crashes before the app renders.
+const defaultFirebaseConfig = {
+  apiKey: 'AIzaSyACvgnR2RJhUwLDzw5gtVLz37j0zie1yRs',
+  authDomain: 'career-connect-lesotho.firebaseapp.com',
+  projectId: 'career-connect-lesotho',
+  messagingSenderId: '486454264099',
+  appId: '1:486454264099:web:3c1c9e5edf897385aa4c96',
+};
+
 const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-  appId: import.meta.env.VITE_FIREBASE_APP_ID,
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || defaultFirebaseConfig.apiKey,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || defaultFirebaseConfig.authDomain,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || defaultFirebaseConfig.projectId,
+  messagingSenderId:
+    import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || defaultFirebaseConfig.messagingSenderId,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID || defaultFirebaseConfig.appId,
 };
 
 const validateConfig = () => {
-  const requiredFields = [
-    'apiKey',
-    'authDomain',
-    'projectId',
-    'messagingSenderId',
-    'appId',
-  ];
+  const requiredFields = ['apiKey', 'authDomain', 'projectId', 'messagingSenderId', 'appId'];
 
   for (const field of requiredFields) {
     if (!firebaseConfig[field]) {
