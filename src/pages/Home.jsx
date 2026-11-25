@@ -11,7 +11,6 @@ import {
   ExternalLink,
   GraduationCap,
   Handshake,
-  Landmark,
   LogIn,
   Menu,
   MessageSquareText,
@@ -19,7 +18,6 @@ import {
   ShieldCheck,
   Sparkles,
   Star,
-  UsersRound,
   UserRoundPlus,
   X,
 } from 'lucide-react';
@@ -58,107 +56,56 @@ const AUDIENCES = [
   {
     role: 'student',
     title: 'Students',
-    description:
-      'Build your profile, explore learning and career paths, and apply for jobs and internships.',
+    description: 'Build your profile, discover jobs and internships, and keep track of your applications.',
     icon: GraduationCap,
-    bullets: ['Career and job discovery', 'Profile and skills', 'Application tracking'],
-  },
-  {
-    role: 'youth',
-    title: 'Youth',
-    description:
-      'Find guidance, learning resources, and opportunities to build your future.',
-    icon: UsersRound,
-    bullets: ['Skills and career development', 'Mentorship', 'Opportunities and resources'],
-  },
-  {
-    role: 'company',
-    title: 'Companies & employers',
-    description:
-      'Connect with candidates, publish roles, and manage applications in one workspace.',
-    icon: Building2,
-    bullets: ['Job posting', 'Candidate discovery', 'Application management'],
+    bullets: ['Explore jobs and internships', 'Showcase skills and experience', 'Track applications'],
   },
   {
     role: 'mentor',
     title: 'Mentors',
-    description:
-      'Share your experience and support learners as they work toward their goals.',
+    description: 'Share your experience and guide students as they plan their next steps.',
     icon: Handshake,
-    bullets: ['Mentorship requests', 'Sessions and guidance', 'Mentee progress'],
+    bullets: ['Connect with students', 'Respond to mentorship requests', 'Share practical guidance'],
   },
   {
-    role: 'institute',
-    title: 'Educational institutions',
-    description:
-      'Connect students with learning, career readiness, and employment pathways.',
-    icon: GraduationCap,
-    bullets: ['Courses and student connections', 'Readiness support', 'Progress insights'],
-  },
-  {
-    role: 'government',
-    title: 'Government & agencies',
-    description:
-      'Use employment and program insights to support youth opportunity initiatives.',
-    icon: Landmark,
-    bullets: ['Employment insights', 'Program monitoring', 'Regional perspectives'],
-  },
-  {
-    role: 'parent',
-    title: 'Parents & guardians',
-    description:
-      'Stay informed and encourage the student in your care as they explore next steps.',
-    icon: UsersRound,
-    bullets: ['Student progress', 'Career guidance', 'Supportive communication'],
-  },
-  {
-    role: 'alumni',
-    title: 'Alumni',
-    description:
-      'Stay connected to the community and share experience with the next generation.',
-    icon: GraduationCap,
-    bullets: ['Professional connections', 'Mentorship opportunities', 'Community events'],
-  },
-  {
-    role: 'entrepreneur',
-    title: 'Entrepreneurs',
-    description:
-      'Find business resources, mentorship, and support as you build your venture.',
-    icon: Rocket,
-    bullets: ['Business development', 'Funding opportunities', 'Mentor connections'],
+    role: 'company',
+    title: 'Companies',
+    description: 'Find talent, publish opportunities, and manage applications in one workspace.',
+    icon: Building2,
+    bullets: ['Post jobs and internships', 'Discover candidates', 'Manage applications'],
   },
 ];
 
 const PLATFORM_HIGHLIGHTS = [
   {
     icon: UserRoundPlus,
-    title: 'Profiles for your goals',
-    text: 'Keep your career information, skills, interests, and next steps in one place.',
+    title: 'Student profiles',
+    text: 'Help students present their skills, experience, interests, and career goals.',
   },
   {
     icon: BriefcaseBusiness,
-    title: 'Opportunity discovery',
-    text: 'Explore published jobs and other opportunities as you plan your next move.',
+    title: 'Jobs and internships',
+    text: 'Give students one place to discover openings and follow their applications.',
   },
   {
     icon: ShieldCheck,
-    title: 'Role-based access',
-    text: 'Use a workspace designed for your role, with review for account types that require it.',
+    title: 'A workspace for each role',
+    text: 'Students, mentors, and companies each get tools built around their work.',
   },
   {
     icon: Handshake,
     title: 'Mentor connections',
-    text: 'Mentors can share guidance, and learners can explore mentorship opportunities.',
+    text: 'Students can seek guidance, and mentors can share experience and support.',
   },
   {
-    icon: Landmark,
-    title: 'Learning and career support',
-    text: 'Institutions and public teams can connect their work to career readiness.',
+    icon: GraduationCap,
+    title: 'Career readiness',
+    text: 'Students can organize their goals and build a clearer path toward work.',
   },
   {
     icon: Building2,
-    title: 'Employer engagement',
-    text: 'Employers can share roles and manage candidate applications through the platform.',
+    title: 'Company engagement',
+    text: 'Companies can share roles and manage candidate applications through the platform.',
   },
 ];
 
@@ -166,7 +113,7 @@ const FAQ_ITEMS = [
   {
     question: 'Who can use Career Connect Lesotho?',
     answer:
-      'Students, youth, companies, mentors, educational institutions, government teams, parents, alumni, and entrepreneurs can create role-specific accounts. Administrator accounts are provisioned by the platform team.',
+      'Students, mentors, and companies can sign up. Student accounts can get started right away; mentor and company accounts are reviewed before full access.',
   },
   {
     question: 'How do I get started?',
@@ -200,7 +147,6 @@ const EMPTY_LANDING_STATS = {
   students: 0,
   employers: 0,
   mentors: 0,
-  institutions: 0,
   activeJobs: 0,
   activeOpportunities: 0,
 };
@@ -214,10 +160,9 @@ const fetchActiveUserCounts = async () => {
   const counts = data && typeof data === 'object' ? data : {};
   const sum = (roles) => roles.reduce((total, role) => total + Number(counts[role] || 0), 0);
   return {
-    students: sum(['student', 'youth']),
+    students: sum(['student']),
     employers: sum(['company', 'employer']),
-    mentors: sum(['mentor', 'advisor', 'instructor']),
-    institutions: sum(['institute', 'institution', 'school']),
+    mentors: sum(['mentor']),
   };
 };
 
@@ -384,7 +329,7 @@ const Home = () => {
   const heroMetrics = useMemo(
     () => [
       { value: platformStats.students, label: 'students ready' },
-      { value: platformStats.employers, label: 'employers connected' },
+      { value: platformStats.employers, label: 'companies connected' },
       { value: platformStats.activeJobs, label: 'active jobs' },
       { value: platformStats.activeOpportunities, label: 'active opportunities' },
     ],
@@ -394,9 +339,8 @@ const Home = () => {
   const trustItems = useMemo(
     () => [
       { label: 'Students', value: platformStats.students },
-      { label: 'Employers', value: platformStats.employers },
+      { label: 'Companies', value: platformStats.employers },
       { label: 'Mentors', value: platformStats.mentors },
-      { label: 'Institutions', value: platformStats.institutions },
     ],
     [platformStats]
   );
@@ -404,7 +348,7 @@ const Home = () => {
   const impactStats = useMemo(
     () => [
       { value: platformStats.students || 0, label: 'Registered students' },
-      { value: platformStats.employers || 0, label: 'Connected employers' },
+      { value: platformStats.employers || 0, label: 'Connected companies' },
       { value: platformStats.activeJobs || 0, label: 'Active jobs' },
       { value: platformStats.activeOpportunities || 0, label: 'Active opportunities' },
     ],
@@ -500,9 +444,8 @@ const Home = () => {
               </span>
               <h1 id="hero-heading">Where ambition meets opportunity.</h1>
               <p className="hero-lede">
-                Career Connect Lesotho brings students, youth, employers, mentors, institutions,
-                government, parents, alumni, and entrepreneurs together around meaningful
-                opportunities.
+                Career Connect Lesotho helps students find opportunities, mentors share guidance,
+                and companies connect with talent.
               </p>
 
               <div className="hero-actions">
@@ -600,7 +543,7 @@ const Home = () => {
                     <div className="frame-cell">
                       <span className="tiny-label">Support check-in</span>
                       <strong>Support when you need it</strong>
-                      <em>Mentors and institutions connected</em>
+                      <em>Students and mentors connected</em>
                     </div>
                   </div>
                   <div className="frame-bars" aria-hidden="true">
@@ -621,11 +564,11 @@ const Home = () => {
           </div>
         </section>
 
-        <section className="landing-section" aria-label="Connected across the career ecosystem" role="region">
+        <section className="landing-section" aria-label="Students, mentors, and companies">
           <div className="landing-shell">
             <div className="section-heading">
               <span className="section-kicker">
-                <BadgeCheck aria-hidden="true" /> Connected across the career ecosystem
+                <BadgeCheck aria-hidden="true" /> Built for the people who can sign up
               </span>
             </div>
             <div className="trust-strip">
@@ -649,9 +592,9 @@ const Home = () => {
           <div className="landing-shell">
             <div className="section-heading">
               <span className="section-kicker">
-                <Rocket aria-hidden="true" /> Built for the whole career ecosystem
+                <Rocket aria-hidden="true" /> One platform, three account types
               </span>
-              <h2>One platform. Every role. Real outcomes.</h2>
+              <h2>One platform. Three ways to move forward.</h2>
             </div>
 
             <div className="audience-grid">
@@ -679,9 +622,8 @@ const Home = () => {
             </div>
             <p className="admin-access-note">
               <ShieldCheck aria-hidden="true" />
-              Administrator accounts are provisioned by the platform team and aren&apos;t available
-              through public sign-up.{' '}
-              <a href={`mailto:${CONTACT.email}`}>Contact us about admin access</a>.
+              Student accounts can start right away. Mentor and company accounts are reviewed
+              before full access.
             </p>
           </div>
         </section>
@@ -723,8 +665,7 @@ const Home = () => {
               </span>
               <h2>Experiences from our community.</h2>
               <p>
-                Testimonials from registered students, companies, and mentors are published
-                immediately and visible to everyone.
+                Approved stories from registered students, mentors, and companies.
               </p>
             </div>
 
