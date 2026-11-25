@@ -25,6 +25,7 @@ jobs:
         run: npm ci --legacy-peer-deps
 
       - name: Run ESLint
+        id: eslint
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
@@ -64,7 +65,7 @@ jobs:
         with:
           repo-token: '${{ secrets.GITHUB_TOKEN }}'
           report-json: eslint-report.json
-        if: ${{ always() && hashFiles('eslint-report.json') != '' }}
+        if: ${{ always() && steps.eslint.outcome == 'failure' && hashFiles('eslint-report.json') != '' }}
 
   prettier:
     name: Prettier
